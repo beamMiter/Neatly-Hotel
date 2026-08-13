@@ -1,0 +1,24 @@
+// Local dev: SQLite. Switch provider to "postgresql" + Supabase URL when deploying to cloud.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Room {
+  id        String   @id @default(uuid())
+  roomNo    String   @unique @map("room_no")
+  roomType  String   @map("room_type")
+  bedType   String   @map("bed_type")
+  status    String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([roomNo])
+  @@map("rooms")
+}

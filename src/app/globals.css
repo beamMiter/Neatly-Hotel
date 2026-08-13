@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #2a2a2a;
+  --neatly-green: #2f3a34;
+  --neatly-green-active: #5c6f62;
+  --neatly-orange: #c34e23;
+  --neatly-page: #f7f8fb;
+  --neatly-table-head: #e4e7ee;
+  --neatly-border: #e6eaf0;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-neatly-green: var(--neatly-green);
+  --color-neatly-green-active: var(--neatly-green-active);
+  --color-neatly-orange: var(--neatly-orange);
+  --color-neatly-page: var(--neatly-page);
+  --color-neatly-table-head: var(--neatly-table-head);
+  --color-neatly-border: var(--neatly-border);
+  --font-sans: var(--font-geist-sans);
+  --font-serif: var(--font-noto-serif);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
