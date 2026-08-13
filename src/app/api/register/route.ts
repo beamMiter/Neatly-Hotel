@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { registerSchema } from "@/features/auth/validations";
+import { parseRegisterPayload } from "@/features/auth/validations";
 
 // In-memory stand-in so the "already registered" path is demonstrable.
 // Swap this whole handler for a real backend call when the API is ready.
@@ -7,22 +7,10 @@ const MOCK_TAKEN_EMAILS = new Set(["taken@example.com", "demo@neatly.com"]);
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
-  if (!body || typeof body !== "object") {
-    return NextResponse.json({ message: "Invalid request body" }, { status: 400 });
-  }
-
-  const parsed = registerSchema.safeParse({
-    ...body,
-    dateOfBirth: typeof body.dateOfBirth === "string" && body.dateOfBirth ? new Date(body.dateOfBirth) : undefined,
-  });
+  const parsed = parseRegisterPayload(body);
 
   if (!parsed.success) {
-    const fieldErrors: Record<string, string> = {};
-    for (const issue of parsed.error.issues) {
-      const key = issue.path[0];
-      if (typeof key === "string" && !fieldErrors[key]) fieldErrors[key] = issue.message;
-    }
-    return NextResponse.json({ message: "Validation failed", fieldErrors }, { status: 400 });
+    return NextResponse.json({ message: "Validation failed", fieldErrors: parsed.fieldErrors }, { status: 400 });
   }
 
   await new Promise((resolve) => setTimeout(resolve, 600));

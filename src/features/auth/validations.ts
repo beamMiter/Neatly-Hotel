@@ -42,3 +42,34 @@ export function getPasswordMismatchError(password: string, confirmPassword: stri
   }
   return undefined;
 }
+
+export type ParseRegisterPayloadResult =
+  | { success: true; data: RegisterInput }
+  | { success: false; fieldErrors: RegisterFieldErrors };
+
+// Shared by the register API route and the proxy that guards it: coerces the
+// wire-format (JSON) body into what registerSchema expects and maps zod
+// issues into per-field messages the client already knows how to render.
+export function parseRegisterPayload(body: unknown): ParseRegisterPayloadResult {
+  if (!body || typeof body !== "object") {
+    return { success: false, fieldErrors: {} };
+  }
+
+  const record = body as Record<string, unknown>;
+  const result = registerSchema.safeParse({
+    ...record,
+    dateOfBirth:
+      typeof record.dateOfBirth === "string" && record.dateOfBirth ? new Date(record.dateOfBirth) : undefined,
+  });
+
+  if (result.success) {
+    return { success: true, data: result.data };
+  }
+
+  const fieldErrors: RegisterFieldErrors = {};
+  for (const issue of result.error.issues) {
+    const key = issue.path[0] as keyof RegisterFieldErrors | undefined;
+    if (key && !fieldErrors[key]) fieldErrors[key] = issue.message;
+  }
+  return { success: false, fieldErrors };
+}
