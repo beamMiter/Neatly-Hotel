@@ -1,23 +1,27 @@
-// ── Home ──────────────────────────────────────────────────────────────
-// Landing page — hero, about section
-// แก้ไขได้: section order, เพิ่ม section ใหม่
+import ChatWidget from "@/app/components/chat-widget";
+import { createClient } from "@/app/lib/supabase/server";
+import About from "@/components/shared/About";
+import CustomerReview from "@/components/shared/CustomerReview";
+import Hero from "@/components/shared/Hero";
+import RoomsPreview from "@/components/shared/RoomsPreview";
+import Services from "@/components/shared/Services";
 
-import Hero from '@/components/shared/Hero';
-import About from '@/components/shared/About';
-import Services from '@/components/shared/Services';
-import RoomsPreview from '@/components/shared/RoomsPreview';
-import CustomerReview from '@/components/shared/CustomerReview';
+export default async function Home() {
+  const supabase = await createClient();
+  const { data: chatbotSettings } = await supabase
+    .from("chatbot_settings")
+    .select("greeting_message")
+    .eq("id", true)
+    .maybeSingle();
 
-const Home = () => {
-	return (
-		<main className="flex-1">
-			<Hero />
-			<About />
-			<Services />
-			<RoomsPreview />
-			<CustomerReview />
-		</main>
-	);
-};
-
-export default Home;
+  return (
+    <main className="flex-1">
+      <Hero />
+      <About />
+      <Services />
+      <RoomsPreview />
+      <CustomerReview />
+      <ChatWidget greetingMessage={chatbotSettings?.greeting_message} />
+    </main>
+  );
+}

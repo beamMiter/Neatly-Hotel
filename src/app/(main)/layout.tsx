@@ -4,7 +4,6 @@
 
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
-import ChatbotButton from '@/components/ui/ChatbotButton';
 
 const MainLayout = ({ children }: { children: React.ReactNode }) => {
 	return (
@@ -12,7 +11,6 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
 			<Navbar />
 			{children}
 			<Footer />
-			<ChatbotButton />
 		</>
 	);
 };
