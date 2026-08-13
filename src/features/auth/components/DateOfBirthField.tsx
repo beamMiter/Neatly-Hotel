@@ -53,7 +53,6 @@ export function DateOfBirthField({ id, name, label, value, onChange, error }: Da
           onClick={() => setIsOpen((open) => !open)}
           aria-haspopup="dialog"
           aria-expanded={isOpen}
-          aria-invalid={Boolean(error)}
           aria-describedby={error ? `${id}-error` : undefined}
           className={`h-11 w-full rounded-md border bg-white px-3.5 pr-10 text-left text-sm focus:outline-none focus:ring-1 ${
             error

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import Image from "next/image";
 import { PlusIcon } from "@/components/icons/PlusIcon";
 import { CloseIcon } from "@/components/icons/CloseIcon";
@@ -14,18 +14,13 @@ type PhotoUploadProps = {
 
 export function PhotoUpload({ id, name, file, onChange }: PhotoUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const previewUrl = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
 
   useEffect(() => {
-    if (!file) {
-      setPreviewUrl(null);
-      return;
-    }
-
-    const url = URL.createObjectURL(file);
-    setPreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [file]);
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
 
   function handleRemove() {
     onChange(null);
