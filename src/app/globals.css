@@ -30,6 +30,30 @@
   --color-brand-border: var(--color-brand-border);
   --color-brand-surface: var(--color-brand-surface);
   --color-brand-surface-alt: var(--color-brand-surface-alt);
+  --color-neatly-green: var(--neatly-green);
+  --color-neatly-green-active: var(--neatly-green-active);
+  --color-neatly-orange: var(--neatly-orange);
+  --color-neatly-page: var(--neatly-page);
+  --color-neatly-table-head: var(--neatly-table-head);
+  --color-neatly-border: var(--neatly-border);
+  --font-sans: var(--font-geist-sans);
+  --font-serif: var(--font-noto-serif);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
 }
 
 body {
