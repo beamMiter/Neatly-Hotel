@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { PlusIcon } from "@/src/components/icons/PlusIcon";
-import { CloseIcon } from "@/src/components/icons/CloseIcon";
+import { PlusIcon } from "@/components/icons/PlusIcon";
+import { CloseIcon } from "@/components/icons/CloseIcon";
 
 type PhotoUploadProps = {
   id: string;

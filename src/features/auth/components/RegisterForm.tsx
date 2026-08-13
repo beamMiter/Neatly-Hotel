@@ -2,16 +2,16 @@
 
 import { useState } from "react";
 import type { ChangeEvent } from "react";
-import { TextField } from "@/src/components/ui/TextField";
-import { SelectField } from "@/src/components/ui/SelectField";
-import { DateOfBirthField } from "@/src/components/register/DateOfBirthField";
-import { PhotoUpload } from "@/src/components/register/PhotoUpload";
-import { COUNTRIES } from "@/src/lib/countries";
+import { TextField } from "@/components/ui/TextField";
+import { SelectField } from "@/components/ui/SelectField";
+import { DateOfBirthField } from "./DateOfBirthField";
+import { PhotoUpload } from "./PhotoUpload";
+import { COUNTRIES } from "@/lib/countries";
 import {
   registerSchema,
   getPasswordMismatchError,
   type RegisterFieldErrors,
-} from "@/src/lib/validations/register";
+} from "@/features/auth/validations";
 
 type FormFields = {
   firstName: string;

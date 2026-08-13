@@ -1,5 +1,5 @@
 import type { SelectHTMLAttributes } from "react";
-import { ChevronDownIcon } from "@/src/components/icons/ChevronDownIcon";
+import { ChevronDownIcon } from "@/components/icons/ChevronDownIcon";
 
 type SelectFieldProps = SelectHTMLAttributes<HTMLSelectElement> & {
   label: string;

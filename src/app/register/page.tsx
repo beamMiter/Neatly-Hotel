@@ -1,7 +1,7 @@
 import Image from "next/image";
 import type { Metadata } from "next";
-import { Navbar } from "@/src/components/layout/Navbar";
-import { RegisterForm } from "@/src/components/register/RegisterForm";
+import { Navbar } from "@/components/layout/Navbar";
+import { RegisterForm } from "@/features/auth/components/RegisterForm";
 
 export const metadata: Metadata = {
   title: "Register | Neatly Hotel",

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { registerSchema } from "@/src/lib/validations/register";
+import { registerSchema } from "@/features/auth/validations";
 
 // In-memory stand-in so the "already registered" path is demonstrable.
 // Swap this whole handler for a real backend call when the API is ready.

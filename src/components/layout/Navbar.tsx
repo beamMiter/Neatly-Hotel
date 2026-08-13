@@ -3,8 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
-import { CloseIcon } from "@/src/components/icons/CloseIcon";
-import { MenuIcon } from "@/src/components/icons/MenuIcon";
+import { CloseIcon } from "@/components/icons/CloseIcon";
+import { MenuIcon } from "@/components/icons/MenuIcon";
 
 const navLinks = [
   { href: "/about", label: "About Neatly" },

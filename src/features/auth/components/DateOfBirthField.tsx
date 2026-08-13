@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { DayPicker } from "react-day-picker";
 import { format } from "date-fns";
 import "react-day-picker/style.css";
-import { CalendarIcon } from "@/src/components/icons/CalendarIcon";
+import { CalendarIcon } from "@/components/icons/CalendarIcon";
 
 type DateOfBirthFieldProps = {
   id: string;
