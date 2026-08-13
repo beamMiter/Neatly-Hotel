@@ -84,11 +84,14 @@ export function RegisterForm() {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch("/api/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...fields, dateOfBirth: dateOfBirth?.toISOString() }),
-      });
+      const body = new FormData();
+      for (const [key, value] of Object.entries(fields)) {
+        body.append(key, value);
+      }
+      if (dateOfBirth) body.append("dateOfBirth", dateOfBirth.toISOString());
+      if (photo) body.append("profilePicture", photo);
+
+      const response = await fetch("/api/register", { method: "POST", body });
       const data = await response.json();
 
       if (!response.ok) {

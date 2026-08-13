@@ -73,3 +73,46 @@ export function parseRegisterPayload(body: unknown): ParseRegisterPayloadResult 
   }
   return { success: false, fieldErrors };
 }
+
+const REGISTER_TEXT_FIELDS = [
+  "firstName",
+  "lastName",
+  "username",
+  "email",
+  "password",
+  "confirmPassword",
+  "phone",
+  "dateOfBirth",
+  "country",
+] as const;
+
+const MAX_PHOTO_SIZE_BYTES = 5 * 1024 * 1024;
+
+export type ParseRegisterFormDataResult =
+  | { success: true; data: RegisterInput; photo: File | null }
+  | { success: false; fieldErrors: RegisterFieldErrors };
+
+// The submit request is multipart/form-data (not JSON) so the profile
+// picture file can ride along. An invalid/oversized photo is dropped
+// rather than failing the whole submission, since it's an optional field.
+export function parseRegisterFormData(formData: FormData): ParseRegisterFormDataResult {
+  const record: Record<string, unknown> = {};
+  for (const key of REGISTER_TEXT_FIELDS) {
+    const value = formData.get(key);
+    if (typeof value === "string") record[key] = value;
+  }
+
+  const parsed = parseRegisterPayload(record);
+  if (!parsed.success) {
+    return parsed;
+  }
+
+  const photoEntry = formData.get("profilePicture");
+  const isValidPhoto =
+    photoEntry instanceof File &&
+    photoEntry.size > 0 &&
+    photoEntry.size <= MAX_PHOTO_SIZE_BYTES &&
+    photoEntry.type.startsWith("image/");
+
+  return { success: true, data: parsed.data, photo: isValidPhoto ? (photoEntry as File) : null };
+}
