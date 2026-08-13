@@ -40,6 +40,8 @@ export function RegisterForm() {
   const [dateOfBirth, setDateOfBirth] = useState<Date | undefined>(undefined);
   const [photo, setPhoto] = useState<File | null>(null);
   const [errors, setErrors] = useState<RegisterFieldErrors>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formStatus, setFormStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   function clearError(name: string) {
     setErrors((prev) => (prev[name as keyof RegisterFieldErrors] ? { ...prev, [name]: undefined } : prev));
@@ -56,8 +58,9 @@ export function RegisterForm() {
     clearError("dateOfBirth");
   }
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setFormStatus(null);
 
     const result = registerSchema.safeParse({ ...fields, dateOfBirth });
     const fieldErrors: RegisterFieldErrors = {};
@@ -78,10 +81,48 @@ export function RegisterForm() {
     }
 
     setErrors({});
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch("/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...fields, dateOfBirth: dateOfBirth?.toISOString() }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (data.fieldErrors) setErrors(data.fieldErrors);
+        setFormStatus({ type: "error", message: data.message ?? "Registration failed. Please try again." });
+        return;
+      }
+
+      setFormStatus({ type: "success", message: "Account created! You can now log in." });
+      setFields(initialFields);
+      setDateOfBirth(undefined);
+      setPhoto(null);
+    } catch {
+      setFormStatus({ type: "error", message: "Something went wrong. Please try again." });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
     <form className="flex flex-col gap-8" noValidate onSubmit={handleSubmit}>
+      {formStatus && (
+        <p
+          role="status"
+          className={`rounded-md px-4 py-3 text-sm ${
+            formStatus.type === "success"
+              ? "bg-green-50 text-green-700"
+              : "bg-red-50 text-red-700"
+          }`}
+        >
+          {formStatus.message}
+        </p>
+      )}
+
       <section className="flex flex-col gap-5">
         <h2 className="text-sm font-medium text-brand-muted">Basic Information</h2>
 
@@ -193,9 +234,10 @@ export function RegisterForm() {
 
       <button
         type="submit"
-        className="h-12 w-full rounded-md bg-brand-primary text-sm font-semibold text-white transition-colors hover:bg-brand-primary-hover"
+        disabled={isSubmitting}
+        className="h-12 w-full rounded-md bg-brand-primary text-sm font-semibold text-white transition-colors hover:bg-brand-primary-hover disabled:cursor-not-allowed disabled:opacity-70"
       >
-        Register
+        {isSubmitting ? "Registering..." : "Register"}
       </button>
     </form>
   );
