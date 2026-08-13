@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { parseRegisterPayload } from "@/features/auth/validations";
+import { parseRegisterFormData } from "@/features/auth/validations";
 
 // Rejects malformed/invalid register submissions before they reach the
 // route handler. The route handler still re-validates independently
@@ -10,8 +10,12 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const body = await request.json().catch(() => null);
-  const parsed = parseRegisterPayload(body);
+  const formData = await request.formData().catch(() => null);
+  if (!formData) {
+    return NextResponse.json({ message: "Invalid request body" }, { status: 400 });
+  }
+
+  const parsed = parseRegisterFormData(formData);
 
   if (!parsed.success) {
     return NextResponse.json({ message: "Validation failed", fieldErrors: parsed.fieldErrors }, { status: 400 });
