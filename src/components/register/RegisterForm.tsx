@@ -7,6 +7,11 @@ import { SelectField } from "@/src/components/ui/SelectField";
 import { DateOfBirthField } from "@/src/components/register/DateOfBirthField";
 import { PhotoUpload } from "@/src/components/register/PhotoUpload";
 import { COUNTRIES } from "@/src/lib/countries";
+import {
+  registerSchema,
+  getPasswordMismatchError,
+  type RegisterFieldErrors,
+} from "@/src/lib/validations/register";
 
 type FormFields = {
   firstName: string;
@@ -34,18 +39,49 @@ export function RegisterForm() {
   const [fields, setFields] = useState<FormFields>(initialFields);
   const [dateOfBirth, setDateOfBirth] = useState<Date | undefined>(undefined);
   const [photo, setPhoto] = useState<File | null>(null);
+  const [errors, setErrors] = useState<RegisterFieldErrors>({});
+
+  function clearError(name: string) {
+    setErrors((prev) => (prev[name as keyof RegisterFieldErrors] ? { ...prev, [name]: undefined } : prev));
+  }
 
   function handleFieldChange(event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
     const { name, value } = event.target;
     setFields((prev) => ({ ...prev, [name]: value }));
+    clearError(name);
+  }
+
+  function handleDateChange(date: Date | undefined) {
+    setDateOfBirth(date);
+    clearError("dateOfBirth");
   }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    const result = registerSchema.safeParse({ ...fields, dateOfBirth });
+    const fieldErrors: RegisterFieldErrors = {};
+
+    if (!result.success) {
+      for (const issue of result.error.issues) {
+        const key = issue.path[0] as keyof RegisterFieldErrors | undefined;
+        if (key && !fieldErrors[key]) fieldErrors[key] = issue.message;
+      }
+    }
+
+    const mismatchError = getPasswordMismatchError(fields.password, fields.confirmPassword);
+    if (mismatchError) fieldErrors.confirmPassword = mismatchError;
+
+    if (Object.keys(fieldErrors).length > 0) {
+      setErrors(fieldErrors);
+      return;
+    }
+
+    setErrors({});
   }
 
   return (
-    <form className="flex flex-col gap-8" onSubmit={handleSubmit}>
+    <form className="flex flex-col gap-8" noValidate onSubmit={handleSubmit}>
       <section className="flex flex-col gap-5">
         <h2 className="text-sm font-medium text-brand-muted">Basic Information</h2>
 
@@ -57,6 +93,7 @@ export function RegisterForm() {
             placeholder="Enter your first name"
             value={fields.firstName}
             onChange={handleFieldChange}
+            error={errors.firstName}
           />
           <TextField
             id="lastName"
@@ -65,6 +102,7 @@ export function RegisterForm() {
             placeholder="Enter your last name"
             value={fields.lastName}
             onChange={handleFieldChange}
+            error={errors.lastName}
           />
 
           <TextField
@@ -74,6 +112,7 @@ export function RegisterForm() {
             placeholder="Enter your username"
             value={fields.username}
             onChange={handleFieldChange}
+            error={errors.username}
           />
           <TextField
             id="email"
@@ -83,6 +122,7 @@ export function RegisterForm() {
             placeholder="Enter your email"
             value={fields.email}
             onChange={handleFieldChange}
+            error={errors.email}
           />
 
           <TextField
@@ -93,6 +133,7 @@ export function RegisterForm() {
             placeholder="Enter your password"
             value={fields.password}
             onChange={handleFieldChange}
+            error={errors.password}
           />
           <TextField
             id="confirmPassword"
@@ -102,6 +143,7 @@ export function RegisterForm() {
             placeholder="Confirm your password"
             value={fields.confirmPassword}
             onChange={handleFieldChange}
+            error={errors.confirmPassword}
           />
 
           <TextField
@@ -112,6 +154,7 @@ export function RegisterForm() {
             placeholder="Enter your phone number"
             value={fields.phone}
             onChange={handleFieldChange}
+            error={errors.phone}
           />
 
           <DateOfBirthField
@@ -119,7 +162,8 @@ export function RegisterForm() {
             name="dateOfBirth"
             label="Date of Birth"
             value={dateOfBirth}
-            onChange={setDateOfBirth}
+            onChange={handleDateChange}
+            error={errors.dateOfBirth}
           />
 
           <SelectField
@@ -129,6 +173,7 @@ export function RegisterForm() {
             placeholder="Select your country"
             value={fields.country}
             onChange={handleFieldChange}
+            error={errors.country}
           >
             {COUNTRIES.map((country) => (
               <option key={country} value={country}>
