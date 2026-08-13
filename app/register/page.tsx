@@ -2,7 +2,6 @@ import Image from "next/image";
 import type { Metadata } from "next";
 import { Navbar } from "@/src/components/layout/Navbar";
 import { RegisterForm } from "@/src/components/register/RegisterForm";
-import registerBg from "@/src/images/register-bg.jpg";
 
 export const metadata: Metadata = {
   title: "Register | Neatly Hotel",
@@ -16,11 +15,10 @@ export default function RegisterPage() {
 
       <main className="relative flex-1">
         <Image
-          src={registerBg}
+          src="/images/register-bg.jpg"
           alt=""
           fill
           priority
-          placeholder="blur"
           className="object-cover"
         />
 
