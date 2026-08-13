@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -43,12 +44,16 @@ export function AdminSidebar() {
     <aside className="flex h-full min-h-0 w-full flex-col bg-[#2D3E33] text-white">
       {/* Logo */}
       <div className="flex shrink-0 flex-col items-center px-4 pt-10 pb-8">
-        <div className="relative inline-flex items-center justify-center pl-3">
-          <NeatlyMark className="absolute -top-0.5 left-0 h-3 w-3 text-[#E76A3C]" />
-          <span className="font-serif text-[28px] leading-none font-semibold tracking-[0.14em] text-white">
-            NEATLY
-          </span>
-        </div>
+        <Image
+          src="/images/neatly-logo-white.png"
+          alt="NEATLY"
+          width={167}
+          height={45}
+          quality={100}
+          unoptimized
+          className="h-[45px] w-auto mix-blend-screen"
+          priority
+        />
         <p className="mt-3 text-[12px] leading-none text-[#9AA59D]">
           Admin Panel Control
         </p>
@@ -91,19 +96,6 @@ export function AdminSidebar() {
         </button>
       </div>
     </aside>
-  );
-}
-
-function NeatlyMark({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      aria-hidden
-    >
-      <path d="M12 1.2 14.1 9.1 22 11.2 14.1 13.3 12 21.2 9.9 13.3 2 11.2 9.9 9.1 12 1.2Z" />
-    </svg>
   );
 }
 
