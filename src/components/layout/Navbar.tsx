@@ -3,7 +3,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
-import logoNeatly from "@/src/images/logo-neatly.png";
 import { CloseIcon } from "@/src/components/icons/CloseIcon";
 import { MenuIcon } from "@/src/components/icons/MenuIcon";
 
@@ -20,7 +19,14 @@ export function Navbar() {
     <header className="relative z-20 border-b border-brand-border bg-white">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-8">
         <Link href="/" className="flex items-center" onClick={() => setIsMenuOpen(false)}>
-          <Image src={logoNeatly} alt="Neatly" priority className="h-6 w-auto sm:h-7" />
+          <Image
+            src="/images/logo-neatly.png"
+            alt="Neatly"
+            width={167}
+            height={45}
+            priority
+            className="h-6 w-auto sm:h-7"
+          />
         </Link>
 
         <nav className="hidden items-center gap-8 md:flex">
