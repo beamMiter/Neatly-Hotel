@@ -12,9 +12,10 @@ type DateOfBirthFieldProps = {
   label: string;
   value: Date | undefined;
   onChange: (date: Date | undefined) => void;
+  error?: string;
 };
 
-export function DateOfBirthField({ id, name, label, value, onChange }: DateOfBirthFieldProps) {
+export function DateOfBirthField({ id, name, label, value, onChange, error }: DateOfBirthFieldProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -52,9 +53,13 @@ export function DateOfBirthField({ id, name, label, value, onChange }: DateOfBir
           onClick={() => setIsOpen((open) => !open)}
           aria-haspopup="dialog"
           aria-expanded={isOpen}
-          className={`h-11 w-full rounded-md border border-brand-border bg-white px-3.5 pr-10 text-left text-sm focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary ${
-            value ? "text-brand-body" : "text-brand-muted"
-          }`}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? `${id}-error` : undefined}
+          className={`h-11 w-full rounded-md border bg-white px-3.5 pr-10 text-left text-sm focus:outline-none focus:ring-1 ${
+            error
+              ? "border-red-500 focus:border-red-500 focus:ring-red-500"
+              : "border-brand-border focus:border-brand-primary focus:ring-brand-primary"
+          } ${value ? "text-brand-body" : "text-brand-muted"}`}
         >
           {value ? format(value, "dd MMM yyyy") : "Select your date of birth"}
         </button>
@@ -83,6 +88,11 @@ export function DateOfBirthField({ id, name, label, value, onChange }: DateOfBir
           </div>
         )}
       </div>
+      {error && (
+        <p id={`${id}-error`} className="text-xs text-red-600">
+          {error}
+        </p>
+      )}
     </div>
   );
 }
