@@ -15,7 +15,6 @@ export function SelectField({ label, id, placeholder, className, children, ...se
       <div className="relative">
         <select
           id={id}
-          defaultValue=""
           className={`h-11 w-full appearance-none rounded-md border border-brand-border bg-white px-3.5 pr-10 text-sm text-brand-body focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary ${className ?? ""}`}
           {...selectProps}
         >
