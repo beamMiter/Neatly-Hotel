@@ -23,14 +23,20 @@ grant insert on public.room_images to anon, authenticated;
 
 -- No agent/role gating yet — the admin panel isn't behind a login wall,
 -- so these stay permissive like the existing read policies.
+-- `to anon, authenticated` explicitly, matching the existing working SELECT
+-- policies on these tables — a `with check (true)` policy with no `to`
+-- clause (implicit `public` pseudo-role) was created successfully but still
+-- rejected anon-key inserts, so this repo assumes explicit roles are needed.
 drop policy if exists "Room types are publicly insertable" on public.room_types;
 create policy "Room types are publicly insertable"
   on public.room_types for insert
+  to anon, authenticated
   with check (true);
 
 drop policy if exists "Room images are publicly insertable" on public.room_images;
 create policy "Room images are publicly insertable"
   on public.room_images for insert
+  to anon, authenticated
   with check (true);
 
 drop policy if exists "Room image files are publicly insertable" on storage.objects;
