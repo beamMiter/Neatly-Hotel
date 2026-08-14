@@ -7,6 +7,7 @@ import { Geist, Geist_Mono, Noto_Serif_Display, Inter, Open_Sans, IBM_Plex_Sans_
 import './globals.css';
 import Navbar from '../components/layout/Navbar';
 import Footer from '../components/layout/Footer';
+import ChatbotButton from '../components/ui/ChatbotButton';
 
 const geistSans = Geist({
 	variable: '--font-geist-sans',
@@ -51,12 +52,13 @@ const RootLayout = ({ children }: LayoutProps<'/'>) => {
 	return (
 		<html
 			lang="en"
-			className={`${geistSans.variable} ${geistMono.variable} ${notoSerif.variable} ${inter.variable} ${openSans.variable} ${ibmPlexSansThai.variable} h-full antialiased`}
+			className={`${geistSans.variable} ${geistMono.variable} ${notoSerif.variable} ${inter.variable} ${openSans.variable} ${ibmPlexSansThai.variable} h-full scroll-smooth antialiased`}
 		>
 			<body className="min-h-full flex flex-col">
 				<Navbar />
 				{children}
 				<Footer />
+				<ChatbotButton />
 			</body>
 		</html>
 	);
