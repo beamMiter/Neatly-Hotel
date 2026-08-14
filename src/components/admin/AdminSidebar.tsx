@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { PlusIcon } from "@/components/icons/PlusIcon";
+import { signOutAgent } from "@/features/admin/actions";
 
 const NAV_ITEMS = [
   { href: "/admin/customer-booking", label: "Customer Booking", icon: "/icons/icon/wallet.png" },
@@ -54,7 +55,7 @@ export function AdminSidebar() {
       </nav>
 
       <div className="mt-auto border-t border-white/10 pt-4">
-        <form action="/admin/logout" method="POST">
+        <form action={signOutAgent}>
           <button
             type="submit"
             className="group flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm text-admin-sidebar-muted transition-colors hover:bg-admin-sidebar-active/50 hover:text-white"
