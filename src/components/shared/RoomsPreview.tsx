@@ -65,8 +65,14 @@ type RoomCardProps = RoomItem;
 
 const RoomCard = ({ name, image, positionClass, textLeftClass }: RoomCardProps) => {
 	return (
-		<div className={`relative h-96 w-full overflow-hidden lg:absolute ${positionClass}`}>
-			<Image src={image} alt={name} fill sizes="(min-width: 1024px) 40vw, 100vw" className="object-cover" />
+		<div className={`group relative h-96 w-full overflow-hidden lg:absolute ${positionClass}`}>
+			<Image
+				src={image}
+				alt={name}
+				fill
+				sizes="(min-width: 1024px) 40vw, 100vw"
+				className="object-cover transition-transform duration-300 ease-out group-hover:-translate-y-2 group-hover:scale-110"
+			/>
 			<div className="absolute inset-0 bg-black/40" />
 
 			<div className={`absolute bottom-20 left-6 flex flex-col items-start gap-6 ${textLeftClass}`}>
