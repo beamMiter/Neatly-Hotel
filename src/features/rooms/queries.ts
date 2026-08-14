@@ -22,7 +22,7 @@ export async function getRooms({ query, page = 1 }: GetRoomsParams): Promise<Get
   const to = from + ROOMS_PAGE_SIZE - 1;
 
   let request = supabase
-    .from("rooms")
+    .from("room_types")
     .select("id, room_type, price, promotion_price, guests, bed_type, room_size_sqm, image_url", {
       count: "exact",
     })
