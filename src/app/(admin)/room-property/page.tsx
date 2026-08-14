@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { getRooms } from "@/features/rooms/queries";
 import { RoomsTable } from "@/features/rooms/components/RoomsTable";
 import { RoomSearchForm } from "@/features/rooms/components/RoomSearchForm";
@@ -24,13 +25,13 @@ export default async function RoomPropertyPage(props: PageProps<"/room-property"
 
         <div className="flex items-center gap-3">
           <RoomSearchForm defaultValue={query} />
-          <button
-            type="button"
+          <Link
+            href="/room-property/create"
             className="flex h-10 items-center gap-2 whitespace-nowrap rounded-md bg-brand-primary px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-primary-hover"
           >
             <PlusIcon className="h-4 w-4" />
             Create Room
-          </button>
+          </Link>
         </div>
       </header>
 
