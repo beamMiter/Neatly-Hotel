@@ -38,6 +38,10 @@ yarn-error.log*
 /prisma/dev.db
 /prisma/dev.db-journal
 
+# uploaded hotel assets
+/public/uploads/*
+!/public/uploads/.gitkeep
+
 # vercel
 .vercel
 

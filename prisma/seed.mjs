@@ -67,6 +67,19 @@ async function main() {
   await prisma.room.deleteMany();
   await prisma.room.createMany({ data: rooms });
   console.log(`Seeded ${rooms.length} rooms`);
+
+  await prisma.hotelInformation.upsert({
+    where: { id: "default" },
+    create: {
+      id: "default",
+      name: "Neatly Hotel",
+      description:
+        "Set in Bangkok, Thailand. Neatly Hotel offers 5-star accommodation with an outdoor pool, kids' club, sports facilities and a fitness centre. There is also a spa, an indoor pool and saunas. All units at the hotel are equipped with a seating area, a flat-screen TV with satellite channels, a dining area and a private bathroom with free toiletries, a hairdryer and shower. Every room at Neatly Hotel offers air conditioning and a desk.",
+      logoUrl: "/images/logo-neatly.png",
+    },
+    update: {},
+  });
+  console.log("Seeded hotel information");
 }
 
 main()
