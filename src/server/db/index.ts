@@ -1,7 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 
 /**
- * Prisma client — local SQLite for now; switch DATABASE_URL to Supabase Postgres later.
+ * Prisma client — Supabase PostgreSQL via DATABASE_URL.
  */
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
