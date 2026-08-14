@@ -1,11 +1,12 @@
 // ── RootLayout ────────────────────────────────────────────────────────
-// Wraps every page — global font, Navbar
-// แก้ไขได้: metadata, font import, Footer (ถ้าเพิ่มทีหลัง)
+// Wraps every page — global font, Navbar, Footer
+// แก้ไขได้: metadata, font import
 
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono, Noto_Serif_Display } from 'next/font/google';
+import { Geist, Geist_Mono, Noto_Serif_Display, Inter, Open_Sans, IBM_Plex_Sans_Thai } from 'next/font/google';
 import './globals.css';
 import Navbar from '../components/layout/Navbar';
+import Footer from '../components/layout/Footer';
 
 const geistSans = Geist({
 	variable: '--font-geist-sans',
@@ -23,6 +24,24 @@ const notoSerif = Noto_Serif_Display({
 	weight: ['500'],
 });
 
+const inter = Inter({
+	variable: '--font-inter',
+	subsets: ['latin'],
+	weight: ['400', '500', '600'],
+});
+
+const openSans = Open_Sans({
+	variable: '--font-open-sans',
+	subsets: ['latin'],
+	weight: ['600'],
+});
+
+const ibmPlexSansThai = IBM_Plex_Sans_Thai({
+	variable: '--font-ibm-plex-thai',
+	subsets: ['latin'],
+	weight: ['400'],
+});
+
 export const metadata: Metadata = {
 	title: 'Neatly Hotel',
 	description: 'Neatly Hotel booking',
@@ -30,10 +49,14 @@ export const metadata: Metadata = {
 
 const RootLayout = ({ children }: LayoutProps<'/'>) => {
 	return (
-		<html lang="en" className={`${geistSans.variable} ${geistMono.variable} ${notoSerif.variable} h-full antialiased`}>
+		<html
+			lang="en"
+			className={`${geistSans.variable} ${geistMono.variable} ${notoSerif.variable} ${inter.variable} ${openSans.variable} ${ibmPlexSansThai.variable} h-full antialiased`}
+		>
 			<body className="min-h-full flex flex-col">
 				<Navbar />
 				{children}
+				<Footer />
 			</body>
 		</html>
 	);
