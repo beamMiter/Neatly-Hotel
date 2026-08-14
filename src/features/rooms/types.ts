@@ -11,10 +11,3 @@ export type Room = {
   roomSizeSqm: number;
   imageUrl: string | null;
 };
-
-export type RoomTypeDetail = Room & {
-  description: string;
-  mainImageUrl: string | null;
-  galleryImageUrls: string[];
-  amenities: string[];
-};

@@ -5,6 +5,7 @@ import type { ChangeEvent } from "react";
 import Image from "next/image";
 import { PlusIcon } from "@/components/icons/PlusIcon";
 import { CloseIcon } from "@/components/icons/CloseIcon";
+import { ALLOWED_IMAGE_TYPES } from "@/features/rooms/validations";
 
 type RoomImageUploadProps = {
   id: string;
@@ -56,7 +57,14 @@ export function RoomImageUpload({ id, file, onChange }: RoomImageUploadProps) {
     >
       <PlusIcon className="h-5 w-5" />
       <span className="text-sm font-medium">Upload photo</span>
-      <input ref={inputRef} id={id} type="file" accept="image/*" className="hidden" onChange={handleSelect} />
+      <input
+        ref={inputRef}
+        id={id}
+        type="file"
+        accept={ALLOWED_IMAGE_TYPES.join(",")}
+        className="hidden"
+        onChange={handleSelect}
+      />
     </label>
   );
 }
