@@ -24,9 +24,9 @@ const DropdownIcon = () => (
 const DateField = ({ label, placeholder }: DateFieldProps) => {
 	return (
 		<div className="flex w-60 flex-col items-start gap-1">
-			<span className="text-base text-[#2A2E3F]">{label}</span>
+			<span className="[font-family:var(--font-inter)] text-base text-[#2A2E3F]">{label}</span>
 			<div className="flex h-12 w-60 items-center gap-2 rounded border border-[#D6D9E4] bg-white py-3 pr-4 pl-3">
-				<span className="flex-1 text-base text-[#9AA1B9]">{placeholder}</span>
+				<span className="flex-1 [font-family:var(--font-inter)] text-base text-[#9AA1B9]">{placeholder}</span>
 				<CalendarIcon />
 			</div>
 		</div>
@@ -44,16 +44,16 @@ const BookingSearch = () => {
 			</div>
 
 			<div className="flex w-60 flex-col items-start gap-1">
-				<span className="text-base text-[#2A2E3F]">Rooms & Guests</span>
+				<span className="[font-family:var(--font-inter)] text-base text-[#2A2E3F]">Rooms & Guests</span>
 				<div className="flex h-12 w-60 items-center gap-2 rounded border border-[#D6D9E4] bg-white py-3 pr-4 pl-3">
-					<span className="flex-1 text-base text-[#9AA1B9]">1 room, 2 guests</span>
+					<span className="flex-1 [font-family:var(--font-inter)] text-base text-[#9AA1B9]">1 room, 2 guests</span>
 					<DropdownIcon />
 				</div>
 			</div>
 
 			<button
 				type="button"
-				className="flex h-12 w-36 flex-none items-center justify-center gap-2.5 rounded bg-[#C14817] px-8 py-4 text-base font-semibold text-white"
+				className="flex h-12 w-36 flex-none items-center justify-center gap-2.5 rounded bg-[#C14817] px-8 py-4 [font-family:var(--font-open-sans)] text-base font-semibold text-white"
 			>
 				Search
 			</button>

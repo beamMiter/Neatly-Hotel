@@ -14,13 +14,14 @@ const Hero = () => {
 				alt="Neatly hotel hero background"
 				fill
 				priority
+				sizes="100vw"
 				className="object-cover object-[center_60%] -z-10"
 			/>
 
 			{/* ── Dark overlay ── */}
 			<div className="absolute inset-0 bg-black/40 -z-10" />
 
-			<h1 className="relative -mt-70 max-w-201 lg:max-w-275 text-center [font-family:var(--font-noto-serif)] font-normal leading-[125%] tracking-[-0.02em] text-white text-3xl sm:text-5xl lg:text-[88px]">
+			<h1 className="relative -mt-70							  max-w-201 lg:max-w-275 text-center [font-family:var(--font-noto-serif)] font-normal leading-[125%] tracking-[-0.02em] text-white text-3xl sm:text-5xl lg:text-[88px]">
 				A Best Place for Your Neatly Experience
 			</h1>
 
