@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   title: "Room & Property | Neatly Hotel Admin",
 };
 
-export default async function RoomPropertyPage(props: PageProps<"/admin/room-property">) {
+export default async function RoomPropertyPage(props: PageProps<"/room-property">) {
   const searchParams = await props.searchParams;
   const query = typeof searchParams.q === "string" && searchParams.q.trim() ? searchParams.q.trim() : undefined;
   const pageParam = typeof searchParams.page === "string" ? Number(searchParams.page) : 1;
@@ -34,7 +34,7 @@ export default async function RoomPropertyPage(props: PageProps<"/admin/room-pro
         </div>
       </header>
 
-      <div className="flex-1 px-8 py-6">
+      <div className="min-h-0 flex-1 overflow-y-auto px-8 py-6">
         <div className="overflow-hidden rounded-lg border border-brand-border bg-white">
           <RoomsTable rooms={rooms} />
         </div>
