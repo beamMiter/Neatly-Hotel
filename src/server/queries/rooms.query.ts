@@ -25,6 +25,18 @@ export async function getRooms(): Promise<Room[]> {
   return rows.map(mapRoom);
 }
 
+export async function updateRoomStatus(
+  id: string,
+  status: RoomStatus,
+): Promise<Room | null> {
+  const row = await prisma.room.update({
+    where: { id },
+    data: { status },
+  });
+
+  return mapRoom(row);
+}
+
 export async function deleteRoom(id: string): Promise<boolean> {
   try {
     await prisma.room.delete({ where: { id } });

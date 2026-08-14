@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { RoomDeleteDialog } from "@/features/room-management/components/room-delete-dialog";
-import { RoomStatusBadge } from "@/features/room-management/components/room-status-badge";
-import type { Room } from "@/types/rooms";
+import { RoomStatusSelect } from "@/features/room-management/components/room-status-select";
+import type { Room, RoomStatus } from "@/types/rooms";
 
 const PAGE_SIZE = 9;
 
@@ -17,6 +17,7 @@ export function RoomManagementView({
   const [rooms, setRooms] = useState(initialRooms);
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
+  const [updatingRoomId, setUpdatingRoomId] = useState<string | null>(null);
   const [roomToDelete, setRoomToDelete] = useState<Room | null>(null);
   const [deletingRoomId, setDeletingRoomId] = useState<string | null>(null);
 
@@ -42,6 +43,45 @@ export function RoomManagementView({
   function handleSearchChange(value: string) {
     setQuery(value);
     setPage(1);
+  }
+
+  async function handleStatusChange(roomId: string, status: RoomStatus) {
+    const previousRooms = rooms;
+    setUpdatingRoomId(roomId);
+    setRooms((current) =>
+      current.map((room) => (room.id === roomId ? { ...room, status } : room)),
+    );
+
+    try {
+      const response = await fetch(`/api/rooms/${roomId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update room status");
+      }
+
+      const payload = (await response.json()) as {
+        data?: Room;
+      };
+
+      if (payload.data?.status) {
+        setRooms((current) =>
+          current.map((room) =>
+            room.id === roomId
+              ? { ...room, status: payload.data!.status }
+              : room,
+          ),
+        );
+      }
+    } catch (error) {
+      console.error("[room-management] Failed to update status:", error);
+      setRooms(previousRooms);
+    } finally {
+      setUpdatingRoomId(null);
+    }
   }
 
   async function handleConfirmDelete() {
@@ -140,7 +180,11 @@ export function RoomManagementView({
                     {room.bedType}
                   </div>
                   <div className="w-[24%] px-6">
-                    <RoomStatusBadge status={room.status} />
+                    <RoomStatusSelect
+                      status={room.status}
+                      disabled={updatingRoomId === room.id}
+                      onChange={(status) => handleStatusChange(room.id, status)}
+                    />
                   </div>
                   <div className="flex w-[10%] justify-center px-4">
                     <button
