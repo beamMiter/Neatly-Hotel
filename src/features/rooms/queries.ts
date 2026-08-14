@@ -23,7 +23,7 @@ export async function getRooms({ query, page = 1 }: GetRoomsParams): Promise<Get
 
   let request = supabase
     .from("room_types")
-    .select("id, room_type, price, promotion_price, guests, bed_type, room_size_sqm, image_url", {
+    .select("id, room_type, price, promotion_price, guests, bed_type, room_size_sqm, main_image_url", {
       count: "exact",
     })
     .order("created_at", { ascending: true })
@@ -48,7 +48,7 @@ export async function getRooms({ query, page = 1 }: GetRoomsParams): Promise<Get
     guests: row.guests,
     bedType: row.bed_type,
     roomSizeSqm: row.room_size_sqm,
-    imageUrl: row.image_url,
+    imageUrl: row.main_image_url,
   }));
 
   const totalCount = count ?? 0;
