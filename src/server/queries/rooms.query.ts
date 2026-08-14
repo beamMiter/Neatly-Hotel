@@ -36,3 +36,12 @@ export async function updateRoomStatus(
 
   return mapRoom(row);
 }
+
+export async function deleteRoom(id: string): Promise<boolean> {
+  try {
+    await prisma.room.delete({ where: { id } });
+    return true;
+  } catch {
+    return false;
+  }
+}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { RoomDeleteDialog } from "@/features/room-management/components/room-delete-dialog";
 import { RoomStatusSelect } from "@/features/room-management/components/room-status-select";
 import type { Room, RoomStatus } from "@/types/rooms";
 
@@ -17,6 +18,8 @@ export function RoomManagementView({
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [updatingRoomId, setUpdatingRoomId] = useState<string | null>(null);
+  const [roomToDelete, setRoomToDelete] = useState<Room | null>(null);
+  const [deletingRoomId, setDeletingRoomId] = useState<string | null>(null);
 
   const filteredRooms = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -81,6 +84,38 @@ export function RoomManagementView({
     }
   }
 
+  async function handleConfirmDelete() {
+    if (!roomToDelete) return;
+
+    const roomId = roomToDelete.id;
+    const previousRooms = rooms;
+    setDeletingRoomId(roomId);
+    setRooms((current) => current.filter((room) => room.id !== roomId));
+    setPage((currentPage) =>
+      Math.min(
+        currentPage,
+        Math.max(1, Math.ceil((previousRooms.length - 1) / PAGE_SIZE)),
+      ),
+    );
+
+    try {
+      const response = await fetch(`/api/rooms/${roomId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete room");
+      }
+
+      setRoomToDelete(null);
+    } catch (error) {
+      console.error("[room-management] Failed to delete room:", error);
+      setRooms(previousRooms);
+    } finally {
+      setDeletingRoomId(null);
+    }
+  }
+
   return (
     <div className="flex h-full min-h-0 w-full flex-1 flex-col bg-[#F7F8FA]">
       {/* Top bar — full width of content pane */}
@@ -117,10 +152,11 @@ export function RoomManagementView({
       <div className="flex min-h-0 w-full flex-1 flex-col px-10 pt-6 pb-8">
         <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[4px] bg-white">
           <div className="flex h-12 shrink-0 items-center bg-[#E9ECF1] text-[13px] font-medium text-[#667085]">
-            <div className="w-[16%] px-6">Room no.</div>
-            <div className="w-[34%] px-6">Room type</div>
-            <div className="w-[25%] px-6">Bed Type</div>
-            <div className="w-[25%] px-6">Status</div>
+            <div className="w-[14%] px-6">Room no.</div>
+            <div className="w-[30%] px-6">Room type</div>
+            <div className="w-[22%] px-6">Bed Type</div>
+            <div className="w-[24%] px-6">Status</div>
+            <div className="w-[10%] px-4 text-center">Action</div>
           </div>
 
           <div className="flex min-h-0 flex-1 flex-col">
@@ -134,21 +170,32 @@ export function RoomManagementView({
                   key={room.id}
                   className="flex min-h-0 flex-1 items-center border-b border-[#F0F1F5] last:border-b-0"
                 >
-                  <div className="w-[16%] px-6 text-[14px] text-[#344054]">
+                  <div className="w-[14%] px-6 text-[14px] text-[#344054]">
                     {room.roomNo}
                   </div>
-                  <div className="w-[34%] px-6 text-[14px] text-[#344054]">
+                  <div className="w-[30%] px-6 text-[14px] text-[#344054]">
                     {room.roomType}
                   </div>
-                  <div className="w-[25%] px-6 text-[14px] text-[#344054]">
+                  <div className="w-[22%] px-6 text-[14px] text-[#344054]">
                     {room.bedType}
                   </div>
-                  <div className="w-[25%] px-6">
+                  <div className="w-[24%] px-6">
                     <RoomStatusSelect
                       status={room.status}
                       disabled={updatingRoomId === room.id}
                       onChange={(status) => handleStatusChange(room.id, status)}
                     />
+                  </div>
+                  <div className="flex w-[10%] justify-center px-4">
+                    <button
+                      type="button"
+                      aria-label={`Delete room ${room.roomNo}`}
+                      disabled={deletingRoomId === room.id}
+                      onClick={() => setRoomToDelete(room)}
+                      className="flex h-8 w-8 items-center justify-center rounded-[4px] text-[#98A2B3] transition-colors hover:bg-[#FEECE8] hover:text-[#C34A2C] disabled:opacity-50"
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
                   </div>
                 </div>
               ))
@@ -195,6 +242,16 @@ export function RoomManagementView({
           </PaginationButton>
         </div>
       </div>
+
+      <RoomDeleteDialog
+        room={roomToDelete}
+        loading={Boolean(roomToDelete && deletingRoomId === roomToDelete.id)}
+        onCancel={() => {
+          if (deletingRoomId) return;
+          setRoomToDelete(null);
+        }}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   );
 }
@@ -266,6 +323,26 @@ function ChevronRightIcon({ className }: { className?: string }) {
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function TrashIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M4.5 7h15M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7m2.25 0V18.5A1.5 1.5 0 0 1 15.75 20h-7.5A1.5 1.5 0 0 1 7 18.5V7h10.25Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M10 10v6M14 10v6"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
       />
     </svg>
   );

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { hasDatabaseUrl } from "@/server/db";
-import { updateRoomStatus } from "@/server/queries/rooms.query";
+import { deleteRoom, updateRoomStatus } from "@/server/queries/rooms.query";
 import { ROOM_STATUSES, type RoomStatus } from "@/types/rooms";
 
 type RouteContext = {
@@ -47,6 +47,36 @@ export async function PATCH(request: Request, context: RouteContext) {
     console.error("[api/rooms/[id]] PATCH failed:", error);
     return NextResponse.json(
       { error: "Failed to update room status" },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(_request: Request, context: RouteContext) {
+  const { id } = await context.params;
+
+  try {
+    if (!hasDatabaseUrl()) {
+      return NextResponse.json({
+        source: "mock",
+        data: { id },
+      });
+    }
+
+    const deleted = await deleteRoom(id);
+
+    if (!deleted) {
+      return NextResponse.json({ error: "Room not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      source: "database",
+      data: { id },
+    });
+  } catch (error) {
+    console.error("[api/rooms/[id]] DELETE failed:", error);
+    return NextResponse.json(
+      { error: "Failed to delete room" },
       { status: 500 },
     );
   }
