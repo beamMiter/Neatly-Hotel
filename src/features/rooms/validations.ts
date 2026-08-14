@@ -37,6 +37,14 @@ const CREATE_ROOM_TEXT_FIELDS = [
 
 export const MIN_GALLERY_IMAGES = 4;
 
+// Must match the room-images storage bucket's configured restrictions.
+export const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/avif"];
+export const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+
+function isValidRoomImage(file: File) {
+  return file.size > 0 && file.size <= MAX_IMAGE_SIZE_BYTES && ALLOWED_IMAGE_TYPES.includes(file.type);
+}
+
 export type ParseCreateRoomFormDataResult =
   | { success: true; data: CreateRoomInput; mainImage: File; gallery: File[]; amenities: string[] }
   | { success: false; fieldErrors: CreateRoomFieldErrors };
@@ -62,14 +70,19 @@ export function parseCreateRoomFormData(formData: FormData): ParseCreateRoomForm
   }
 
   const mainImageEntry = formData.get("mainImage");
-  const mainImage = mainImageEntry instanceof File && mainImageEntry.size > 0 ? mainImageEntry : null;
-  if (!mainImage) fieldErrors.mainImage = "Main image is required";
+  const mainImage = mainImageEntry instanceof File && isValidRoomImage(mainImageEntry) ? mainImageEntry : null;
+  if (!mainImage) {
+    fieldErrors.mainImage =
+      mainImageEntry instanceof File && mainImageEntry.size > 0
+        ? "Image must be JPEG, PNG, WebP, or AVIF and under 5MB"
+        : "Main image is required";
+  }
 
   const gallery = formData
     .getAll("gallery")
-    .filter((entry): entry is File => entry instanceof File && entry.size > 0);
+    .filter((entry): entry is File => entry instanceof File && isValidRoomImage(entry));
   if (gallery.length < MIN_GALLERY_IMAGES) {
-    fieldErrors.gallery = `Upload at least ${MIN_GALLERY_IMAGES} gallery images`;
+    fieldErrors.gallery = `Upload at least ${MIN_GALLERY_IMAGES} gallery images (JPEG, PNG, WebP, or AVIF, under 5MB each)`;
   }
 
   const amenities = formData

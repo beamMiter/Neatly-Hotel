@@ -5,6 +5,7 @@ import type { ChangeEvent } from "react";
 import Image from "next/image";
 import { PlusIcon } from "@/components/icons/PlusIcon";
 import { CloseIcon } from "@/components/icons/CloseIcon";
+import { ALLOWED_IMAGE_TYPES } from "@/features/rooms/validations";
 
 type RoomGalleryUploadProps = {
   id: string;
@@ -66,7 +67,7 @@ export function RoomGalleryUpload({ id, files, onChange }: RoomGalleryUploadProp
           ref={inputRef}
           id={id}
           type="file"
-          accept="image/*"
+          accept={ALLOWED_IMAGE_TYPES.join(",")}
           multiple
           className="hidden"
           onChange={handleAdd}
