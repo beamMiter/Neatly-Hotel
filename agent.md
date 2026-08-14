@@ -8,34 +8,28 @@ Project structure follows the team fullstack Next.js App Router convention.
 - Tailwind CSS
 - React Compiler enabled (`next.config.ts`)
 - Frontend + backend in the same repo
-- **Local dev:** Prisma + SQLite (`prisma/dev.db`)
-- **Cloud later:** Supabase PostgreSQL (switch when features are ready)
+- **Database:** Prisma + Supabase PostgreSQL (shared)
 
-## Database (local — Prisma)
+## Database (Supabase + Prisma)
 
-Each teammate runs locally; no shared remote DB yet.
+Everyone uses the same Supabase Postgres. Existing tables (`rooms`, `room_types`, …) stay as-is. This app only **adds** `hotel_information`.
 
-1. Copy `.env.example` → `.env.local`
-2. One-time setup:
+1. Copy `.env.example` → `.env.local` and set `DATABASE_URL`
+2. One-time:
    ```bash
    npm install
    npm run db:setup
    ```
-3. Dev server: `npm run dev`
-4. Verify: `/api/rooms` → `"source": "database"`
+   (`db:setup` creates `hotel_information` if missing, then seeds hotel info. It does **not** wipe `rooms`.)
 
 | Script               | Purpose                     |
 | -------------------- | --------------------------- |
-| `npm run db:migrate` | Apply schema migrations     |
-| `npm run db:seed`    | Load sample rooms (45 rows) |
-| `npm run db:setup`   | migrate + seed              |
+| `npm run db:deploy`  | Apply migrations on Supabase |
+| `npm run db:seed`    | Load sample rooms + hotel   |
+| `npm run db:setup`   | deploy + seed               |
 
 Schema: `prisma/schema.prisma`  
-Queries: `src/server/queries/` (uses Prisma client from `src/server/db/`)
-
-### Cloud phase (later)
-
-When ready for Supabase: change `provider` in `prisma/schema.prisma` to `postgresql`, set `DATABASE_URL` to Supabase URI, run `npm run db:migrate`. Reference SQL: `src/server/db/schema.sql`.
+Queries: `src/server/queries/` (Prisma client in `src/server/db/`)
 
 ## Folder Structure
 
@@ -46,7 +40,7 @@ Neatly-Hotel/
 │   ├── schema.prisma
 │   ├── seed.mjs
 │   ├── migrations/
-│   └── dev.db                   # local SQLite (gitignored)
+│   └── dev.db                   # unused after supabase switch (gitignored)
 ├── src/
 │   ├── app/                     # FRONTEND routes + API routes
 │   │   ├── layout.tsx
@@ -98,10 +92,8 @@ Neatly-Hotel/
 
 ## Current Feature Scope
 
-`feat/room-management-list`
+Merged on `dev`: room list, edit status, delete room, hotel information.
 
-- Admin sidebar layout
-- Room management list page (search, table, status badges, pagination)
-- Local Prisma + SQLite (`npm run db:setup`) — list loads from DB with mock fallback
+This branch: switch Prisma from SQLite to Supabase PostgreSQL.
 
-Not in this branch yet: edit status, delete room, hotel information, customer search.
+Not done yet: customer search rooms.
