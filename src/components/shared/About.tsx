@@ -1,6 +1,8 @@
 // ── About ─────────────────────────────────────────────────────────────
-// About section — heading, description, image row (static mockup)
-// แก้ไขได้: heading text, DESCRIPTION, IMAGES paths
+// About section — heading, description, full-bleed image slider
+// แก้ไขได้: heading text, DESCRIPTION, IMAGES paths, arrow icon
+
+import Image from 'next/image';
 
 // ── Data ───────────────────────────────────────────────────────
 const DESCRIPTION = [
@@ -10,57 +12,66 @@ const DESCRIPTION = [
 ];
 
 const IMAGES = [
-	{ id: 1, src: '', alt: 'Neatly Hotel room' },
-	{ id: 2, src: '', alt: 'Neatly Hotel bathroom' },
-	{ id: 3, src: '', alt: 'Neatly Hotel pool' },
-	{ id: 4, src: '', alt: 'Neatly Hotel bedroom' },
-	{ id: 5, src: '', alt: 'Neatly Hotel balcony' },
+	{ id: 1, src: '/images/room-bg-preview/room-preview-auto1.jpg', alt: 'Neatly Hotel room' },
+	{ id: 2, src: '/images/room-bg-preview/room-preview-auto2.jpg', alt: 'Neatly Hotel bathroom' },
+	{ id: 3, src: '/images/room-bg-preview/room-preview-auto3.jpg', alt: 'Neatly Hotel pool' },
+	{ id: 4, src: '/images/room-bg-preview/room-preview-auto4.jpg', alt: 'Neatly Hotel bedroom' },
+	{ id: 5, src: '/images/room-bg-preview/room-preview-auto5.jpg', alt: 'Neatly Hotel balcony' },
 ];
 
 // ── Component ──────────────────────────────────────────────────
 const About = () => {
 	return (
-		<section className="w-full bg-[#F9F8F6] py-20 lg:py-28">
+		<section className="w-full bg-[#F7F7FB] py-20 lg:py-28">
 			<div className="px-6 sm:px-10 lg:px-40 flex flex-col lg:flex-row lg:items-start gap-8 lg:gap-0">
-				<h2 className="w-91 max-w-full font-['Noto_Serif'] font-normal text-4xl lg:text-[68px] leading-[125%] tracking-[-0.02em] text-[#2F3E35]">
+				<h2 className="flex-none whitespace-nowrap [font-family:var(--font-noto-serif)] font-medium text-4xl lg:text-[68px] leading-[125%] tracking-[-0.02em] text-[#2F3E35]">
 					Neatly Hotel
 				</h2>
 
-				<div className="max-w-xl flex flex-col gap-5">
+				<div className="max-w-xl lg:w-232 lg:max-w-none lg:mt-34 flex flex-col gap-5">
 					{DESCRIPTION.map((paragraph, index) => (
-						<p key={index} className="text-sm text-gray-500 leading-relaxed">
+						<p
+							key={index}
+							className="[font-family:var(--font-inter)] text-base leading-[150%] tracking-[-0.02em] text-[#646D89]"
+						>
 							{paragraph}
 						</p>
 					))}
 				</div>
 			</div>
 
-			<div className="relative mt-16">
-				<div className="flex gap-4 overflow-x-hidden px-6 sm:px-10 lg:px-40">
+			<div className="relative mt-20 lg:mt-52 w-full overflow-x-scroll">
+				<div className="flex w-fit flex-row gap-4 px-6 sm:px-10 lg:mx-auto lg:px-0">
 					{IMAGES.map((image) => (
 						<div
 							key={image.id}
-							className="relative flex-none w-64 lg:w-72 h-72 lg:h-80 bg-gray-300 rounded-lg overflow-hidden"
+							className="relative h-72 w-64 flex-none overflow-hidden border border-[#F5F5F7] shadow-[24px_36px_64px_-14px_rgba(161,161,165,0.15)] lg:h-125 lg:w-100"
 						>
-							{/* placeholder — ใส่ path จริงทีหลัง */}
+							<Image
+								src={image.src}
+								alt={image.alt}
+								fill
+								sizes="(min-width: 1024px) 400px, 256px"
+								className="object-cover"
+							/>
 						</div>
 					))}
 				</div>
 
 				<button
 					type="button"
-					className="hidden lg:flex absolute left-64 lg:left-72 top-1/2 -translate-y-1/2 items-center justify-center w-10 h-10 rounded-full bg-white/80 border border-gray-300 text-gray-600 hover:bg-white transition-colors duration-150"
+					className="hidden lg:flex absolute left-40 top-1/2 -translate-y-1/2 h-14 w-14 items-center justify-center"
 					aria-label="Previous image"
 				>
-					‹
+					<Image src="/images/icon/arrow-left-auto.png" alt="" width={56} height={56} />
 				</button>
 
 				<button
 					type="button"
-					className="hidden lg:flex absolute right-64 lg:right-72 top-1/2 -translate-y-1/2 items-center justify-center w-10 h-10 rounded-full bg-white/80 border border-gray-300 text-gray-600 hover:bg-white transition-colors duration-150"
+					className="hidden lg:flex absolute right-40 top-1/2 -translate-y-1/2 h-14 w-14 items-center justify-center"
 					aria-label="Next image"
 				>
-					›
+					<Image src="/images/icon/arrow-right-auto.png" alt="" width={56} height={56} />
 				</button>
 			</div>
 		</section>
