@@ -36,7 +36,7 @@ const DateField = ({ label, placeholder }: DateFieldProps) => {
 // ── Component ──────────────────────────────────────────────────
 const BookingSearch = () => {
 	return (
-		<div className="relative z-10 mx-auto flex w-[70rem] max-w-full flex-col items-end gap-10 rounded bg-white p-[3.75rem] shadow-[4px_4px_16px_rgba(0,0,0,0.08)] lg:flex-row">
+		<div className="relative z-10 mx-auto flex w-280 max-w-full flex-col items-end gap-10 rounded bg-white p-15 shadow-[4px_4px_16px_rgba(0,0,0,0.08)] lg:flex-row">
 			<div className="flex items-center justify-center gap-6">
 				<DateField label="Check In" placeholder="Th, 19 Oct 2022" />
 				<span className="w-2 text-base text-black">-</span>
