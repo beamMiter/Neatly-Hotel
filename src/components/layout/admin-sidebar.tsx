@@ -3,6 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTransition } from "react";
+import { logout } from "@/features/auth/actions";
 
 const NAV_ITEMS = [
   {
@@ -39,6 +41,7 @@ const NAV_ITEMS = [
 
 export function AdminSidebar() {
   const pathname = usePathname();
+  const [pending, startTransition] = useTransition();
 
   return (
     <aside className="flex h-full min-h-0 w-full flex-col bg-[#2D3E33] text-white">
@@ -89,10 +92,12 @@ export function AdminSidebar() {
       <div className="shrink-0 border-t border-white/10">
         <button
           type="button"
-          className="flex h-[52px] w-full items-center gap-3.5 px-8 text-[14px] text-[#C5CFC8] transition-colors hover:bg-white/[0.04] hover:text-white"
+          onClick={() => startTransition(() => logout())}
+          disabled={pending}
+          className="flex h-[52px] w-full items-center gap-3.5 px-8 text-[14px] text-[#C5CFC8] transition-colors hover:bg-white/[0.04] hover:text-white disabled:opacity-60"
         >
           <LogoutIcon className="h-5 w-5 shrink-0" />
-          Log Out
+          {pending ? "Logging out..." : "Log Out"}
         </button>
       </div>
     </aside>
