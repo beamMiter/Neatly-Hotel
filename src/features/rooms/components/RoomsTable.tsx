@@ -1,3 +1,6 @@
+"use client";
+
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import type { Room } from "@/features/rooms/types";
 
@@ -8,6 +11,8 @@ function formatCurrency(value: number) {
 const COLUMNS = ["Image", "Room type", "Price", "Promotion Price", "Guest(s)", "Bed Type", "Room Size"];
 
 export function RoomsTable({ rooms }: { rooms: Room[] }) {
+  const router = useRouter();
+
   if (rooms.length === 0) {
     return <p className="px-8 py-12 text-center text-sm text-brand-muted">No rooms found.</p>;
   }
@@ -26,7 +31,11 @@ export function RoomsTable({ rooms }: { rooms: Room[] }) {
         </thead>
         <tbody>
           {rooms.map((room) => (
-            <tr key={room.id} className="border-b border-brand-border last:border-0">
+            <tr
+              key={room.id}
+              onClick={() => router.push(`/room-property/${room.id}`)}
+              className="cursor-pointer border-b border-brand-border transition-colors last:border-0 hover:bg-brand-surface-alt"
+            >
               <td className="px-6 py-4">
                 <div className="relative h-12 w-16 overflow-hidden rounded-md bg-brand-surface-alt">
                   {room.imageUrl && <Image src={room.imageUrl} alt="" fill className="object-cover" />}
