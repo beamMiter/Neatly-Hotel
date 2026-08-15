@@ -1,7 +1,7 @@
 import "server-only";
 import { supabaseAdmin } from "@/server/db/supabase-admin";
-import type { Room } from "./types";
-import type { CreateRoomInput } from "./validations";
+import type { Room, RoomDetail, RoomImage } from "./types";
+import type { CreateRoomInput, GalleryOrderRef } from "./validations";
 
 export const ROOMS_PAGE_SIZE = 6;
 
@@ -160,4 +160,234 @@ export async function createRoomType({
   }
 
   return { success: true, id: roomTypeId };
+}
+
+type RoomTypeDetailRow = {
+  id: string;
+  name: string;
+  description: string | null;
+  bed_type: string | null;
+  capacity: number | null;
+  size_sqm: number | string | null;
+  base_price: number | string | null;
+  promotion_price: number | string | null;
+  amenities: string[] | null;
+  room_images: { id: string; storage_path: string; sort_order: number; is_cover: boolean }[] | null;
+};
+
+export async function getRoomById(id: string): Promise<RoomDetail | null> {
+  const { data, error } = await supabaseAdmin
+    .from("room_types")
+    .select(
+      "id, name, description, bed_type, capacity, size_sqm, base_price, promotion_price, amenities, room_images(id, storage_path, sort_order, is_cover)"
+    )
+    .eq("id", id)
+    .single();
+
+  if (error || !data) {
+    console.error("[room_types] failed to fetch room detail:", error);
+    return null;
+  }
+
+  const row = data as unknown as RoomTypeDetailRow;
+  const images = (row.room_images ?? []).slice().sort((a, b) => a.sort_order - b.sort_order);
+
+  const toRoomImage = (image: (typeof images)[number]): RoomImage => ({
+    id: image.id,
+    url: supabaseAdmin.storage.from(IMAGE_BUCKET).getPublicUrl(image.storage_path).data.publicUrl,
+    sortOrder: image.sort_order,
+    isCover: image.is_cover,
+  });
+
+  const mainImageRow = images.find((image) => image.is_cover) ?? images[0] ?? null;
+  const galleryRows = images.filter((image) => image.id !== mainImageRow?.id);
+
+  return {
+    id: row.id,
+    roomType: row.name,
+    description: row.description ?? "",
+    price: row.base_price === null ? 0 : Number(row.base_price),
+    promotionPrice: row.promotion_price === null ? null : Number(row.promotion_price),
+    guests: row.capacity ?? 0,
+    bedType: row.bed_type ?? "",
+    roomSizeSqm: row.size_sqm === null ? 0 : Number(row.size_sqm),
+    amenities: row.amenities ?? [],
+    mainImage: mainImageRow ? toRoomImage(mainImageRow) : null,
+    gallery: galleryRows.map(toRoomImage),
+  };
+}
+
+type UpdateRoomTypeParams = {
+  id: string;
+  data: CreateRoomInput;
+  amenities: string[];
+  mainImage: { kind: "new"; file: File } | { kind: "existing"; id: string };
+  galleryOrder: GalleryOrderRef[];
+  galleryNewFiles: File[];
+};
+
+type UpdateRoomTypeResult = { success: true } | { success: false; message: string };
+
+// Batches everything the edit form can change into one call: scalar fields,
+// which existing images are kept vs removed, newly uploaded images, and the
+// final display order (including which image is the cover). Runs as a
+// sequence of awaited steps rather than a single transaction — acceptable
+// for an admin-only, low-traffic form; a partial failure here just leaves
+// some images not yet reflecting the latest reorder, not a corrupt room.
+export async function updateRoomType({
+  id,
+  data,
+  amenities,
+  mainImage,
+  galleryOrder,
+  galleryNewFiles,
+}: UpdateRoomTypeParams): Promise<UpdateRoomTypeResult> {
+  const supabase = supabaseAdmin;
+
+  const { data: existingImages, error: fetchError } = await supabase
+    .from("room_images")
+    .select("id, storage_path")
+    .eq("room_type_id", id);
+
+  if (fetchError) {
+    console.error("[room_images] failed to load existing images:", fetchError);
+    return { success: false, message: "Failed to load existing images" };
+  }
+
+  const keptIds = new Set<string>();
+  if (mainImage.kind === "existing") keptIds.add(mainImage.id);
+  for (const ref of galleryOrder) {
+    if (ref.kind === "existing") keptIds.add(ref.id);
+  }
+
+  const toRemove = (existingImages ?? []).filter((image) => !keptIds.has(image.id));
+
+  const { error: updateError } = await supabase
+    .from("room_types")
+    .update({
+      name: data.roomType,
+      description: data.description,
+      base_price: data.price,
+      promotion_price: data.promotionPrice ?? null,
+      capacity: data.guests,
+      bed_type: data.bedType,
+      size_sqm: data.roomSizeSqm,
+      amenities,
+    })
+    .eq("id", id);
+
+  if (updateError) {
+    console.error("[room_types] update failed:", updateError);
+    return { success: false, message: "Failed to update the room" };
+  }
+
+  if (toRemove.length > 0) {
+    await supabase.storage.from(IMAGE_BUCKET).remove(toRemove.map((image) => image.storage_path));
+    const { error: deleteImagesError } = await supabase
+      .from("room_images")
+      .delete()
+      .in(
+        "id",
+        toRemove.map((image) => image.id)
+      );
+    if (deleteImagesError) {
+      console.error("[room_images] failed to delete removed images:", deleteImagesError);
+    }
+  }
+
+  let mainImageRowId: string | null = mainImage.kind === "existing" ? mainImage.id : null;
+
+  if (mainImage.kind === "new") {
+    const path = `${id}/main-${Date.now()}.${extensionOf(mainImage.file)}`;
+    const { error: uploadError } = await supabase.storage
+      .from(IMAGE_BUCKET)
+      .upload(path, mainImage.file, { contentType: mainImage.file.type });
+
+    if (uploadError) {
+      console.error("[room_images] main image upload failed:", uploadError);
+      return { success: false, message: "Failed to upload the main image" };
+    }
+
+    const { data: inserted, error: insertError } = await supabase
+      .from("room_images")
+      .insert({ room_type_id: id, storage_path: path, sort_order: 0, is_cover: true })
+      .select("id")
+      .single();
+
+    if (insertError || !inserted) {
+      console.error("[room_images] main image insert failed:", insertError);
+      return { success: false, message: "Failed to save the main image" };
+    }
+    mainImageRowId = inserted.id as string;
+  }
+
+  const newFileIdByIndex = new Map<number, string>();
+  for (const [index, file] of galleryNewFiles.entries()) {
+    const path = `${id}/gallery-${Date.now()}-${index}.${extensionOf(file)}`;
+    const { error: uploadError } = await supabase.storage
+      .from(IMAGE_BUCKET)
+      .upload(path, file, { contentType: file.type });
+
+    if (uploadError) {
+      console.error(`[room_images] gallery image upload failed (index ${index}):`, uploadError);
+      continue;
+    }
+
+    const { data: inserted, error: insertError } = await supabase
+      .from("room_images")
+      .insert({ room_type_id: id, storage_path: path, sort_order: 0, is_cover: false })
+      .select("id")
+      .single();
+
+    if (insertError || !inserted) {
+      console.error(`[room_images] gallery image insert failed (index ${index}):`, insertError);
+      continue;
+    }
+    newFileIdByIndex.set(index, inserted.id as string);
+  }
+
+  const orderUpdates: { id: string; sort_order: number; is_cover: boolean }[] = [];
+  if (mainImageRowId) {
+    orderUpdates.push({ id: mainImageRowId, sort_order: 0, is_cover: true });
+  }
+  galleryOrder.forEach((ref, index) => {
+    const imageId = ref.kind === "existing" ? ref.id : newFileIdByIndex.get(ref.index);
+    if (imageId) orderUpdates.push({ id: imageId, sort_order: index + 1, is_cover: false });
+  });
+
+  for (const update of orderUpdates) {
+    const { error } = await supabase
+      .from("room_images")
+      .update({ sort_order: update.sort_order, is_cover: update.is_cover })
+      .eq("id", update.id);
+    if (error) {
+      console.error(`[room_images] failed to update ordering for ${update.id}:`, error);
+    }
+  }
+
+  return { success: true };
+}
+
+type DeleteRoomTypeResult = { success: true } | { success: false; message: string };
+
+export async function deleteRoomType(id: string): Promise<DeleteRoomTypeResult> {
+  const supabase = supabaseAdmin;
+
+  const { data: images } = await supabase.from("room_images").select("storage_path").eq("room_type_id", id);
+
+  const { error } = await supabase.from("room_types").delete().eq("id", id);
+  if (error) {
+    console.error("[room_types] delete failed:", error);
+    return { success: false, message: "Failed to delete the room" };
+  }
+
+  const paths = (images ?? []).map((image) => image.storage_path);
+  if (paths.length > 0) {
+    const { error: removeError } = await supabase.storage.from(IMAGE_BUCKET).remove(paths);
+    if (removeError) {
+      console.error("[room_images] failed to remove storage files after delete:", removeError);
+    }
+  }
+
+  return { success: true };
 }
