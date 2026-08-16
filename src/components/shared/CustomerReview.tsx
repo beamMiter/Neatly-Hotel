@@ -1,24 +1,59 @@
 // ── CustomerReview ────────────────────────────────────────────────────
-// Customer review section — quote with nav arrows, customer info, pagination dots
-// แก้ไขได้: heading text, QUOTE, CUSTOMER (name, avatar), ยังไม่มี carousel logic (static, dot แรก active)
+// Customer review section — quote carousel with nav arrows, customer info, pagination dots
+// แก้ไขได้: heading text, TESTIMONIALS (quote, name), ยังไม่มีรูป avatar จริง (placeholder วงกลมเทา)
 
+'use client';
+
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 
-// ── Data ───────────────────────────────────────────────────────
-const QUOTE_LINES = [
-	'"lorem ipsum dolor sit amet minim mollit non deserunt ullamco est sit aliqua dolor do amet',
-	'sint, velit official consequat duis enim velit mollit, exercitation minim amet consequat',
-	'sunt."',
-];
-
-const CUSTOMER = {
-	name: 'Katherine, Company®',
+// ── Types ──────────────────────────────────────────────────────
+type Testimonial = {
+	id: number;
+	quote: string;
+	customerName: string;
 };
 
-const PAGINATION_DOTS = [1, 2, 3];
+// ── Data ───────────────────────────────────────────────────────
+const TESTIMONIALS: Testimonial[] = [
+	{
+		id: 1,
+		quote:
+			'"Our stay at Neatly Hotel was nothing short of perfect. The room was elegant, the pool area was so relaxing, and the staff made us feel welcome from the moment we arrived."',
+		customerName: 'Katherine, Silverline Co.®',
+	},
+	{
+		id: 2,
+		quote:
+			'"Neatly Hotel exceeded every expectation we had. The staff went above and beyond to make our stay memorable, and the rooms were spotless with stunning views."',
+		customerName: 'Thanawat, Bangkok Ventures®',
+	},
+	{
+		id: 3,
+		quote:
+			'"From check-in to check-out, everything felt effortless. The location is perfect for exploring the city, and breakfast alone is worth the stay."',
+		customerName: 'Melissa, Horizon Group®',
+	},
+];
 
 // ── Component ──────────────────────────────────────────────────
 const CustomerReview = () => {
+	const [activeIndex, setActiveIndex] = useState(0);
+
+	const goTo = (direction: 1 | -1) => {
+		setActiveIndex((prev) => (prev + direction + TESTIMONIALS.length) % TESTIMONIALS.length);
+	};
+
+	useEffect(() => {
+		const interval = setInterval(() => {
+			setActiveIndex((prev) => (prev + 1) % TESTIMONIALS.length);
+		}, 8000);
+
+		return () => clearInterval(interval);
+	}, []);
+
+	const activeTestimonial = TESTIMONIALS[activeIndex];
+
 	return (
 		<section className="w-full bg-[#E6EBE9] py-20 lg:flex lg:h-188 lg:items-center lg:justify-center">
 			<div className="mx-auto flex max-w-270 flex-col items-center gap-18 px-6 sm:px-10 lg:px-0">
@@ -28,42 +63,40 @@ const CustomerReview = () => {
 
 				<div className="flex w-full flex-col items-center gap-8">
 					<div className="flex w-full flex-col items-center gap-6 lg:flex-row lg:justify-center lg:gap-16">
-						<Image
-							src="/images/icon/arrow-left-auto-orange.png"
-							alt="Previous testimonial"
-							width={56}
-							height={56}
-							className="flex-none"
-						/>
+						<button type="button" onClick={() => goTo(-1)} aria-label="Previous testimonial" className="flex-none">
+							<Image src="/images/icon/arrow-left-auto-orange.png" alt="" width={56} height={56} />
+						</button>
 
-						<p className="max-w-210 [font-family:var(--font-inter)] text-center text-lg leading-[150%] font-semibold tracking-[-0.02em] text-[#465C50]">
-							{QUOTE_LINES.map((line, index) => (
-								<span key={line}>
-									{line}
-									{index < QUOTE_LINES.length - 1 && <br />}
-								</span>
-							))}
+						<p
+							key={activeTestimonial.id}
+							className="max-w-210 text-balance animate-[fade-slide_600ms_ease-out] [font-family:var(--font-inter)] text-center text-lg leading-[150%] font-semibold tracking-[-0.02em] text-[#465C50]"
+						>
+							{activeTestimonial.quote}
 						</p>
 
-						<Image
-							src="/images/icon/arrow-right-auto-orange.png"
-							alt="Next testimonial"
-							width={56}
-							height={56}
-							className="flex-none"
-						/>
+						<button type="button" onClick={() => goTo(1)} aria-label="Next testimonial" className="flex-none">
+							<Image src="/images/icon/arrow-right-auto-orange.png" alt="" width={56} height={56} />
+						</button>
 					</div>
 
-					<div className="flex flex-row items-center gap-4">
+					<div key={activeTestimonial.id} className="flex flex-row items-center gap-4 animate-[fade-slide_600ms_ease-out]">
 						<div className="h-8 w-8 flex-none rounded-full border border-[#CCD4D6] bg-[#E9ECED]" />
 						<span className="[font-family:var(--font-inter)] text-base leading-[150%] tracking-[-0.02em] text-[#9AA1B9]">
-							{CUSTOMER.name}
+							{activeTestimonial.customerName}
 						</span>
 					</div>
 
 					<div className="flex flex-row items-center gap-4">
-						{PAGINATION_DOTS.map((dot, index) => (
-							<div key={dot} className={`h-2 w-2 rounded-full ${index === 0 ? 'bg-[#9AA1B9]' : 'bg-[#D6D9E4]'}`} />
+						{TESTIMONIALS.map((testimonial, index) => (
+							<button
+								key={testimonial.id}
+								type="button"
+								onClick={() => setActiveIndex(index)}
+								aria-label={`Go to testimonial ${index + 1}`}
+								className={`h-2 w-2 rounded-full transition-colors duration-150 ${
+									index === activeIndex ? 'bg-[#9AA1B9]' : 'bg-[#D6D9E4]'
+								}`}
+							/>
 						))}
 					</div>
 				</div>
