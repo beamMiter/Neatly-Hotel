@@ -1,15 +1,17 @@
 // ── RoomsPreview ──────────────────────────────────────────────────────
 // Rooms & Suits section (landing page preview) — bento grid of room type cards
-// แก้ไขได้: heading text, ROOMS list (image, name), button text/icon
-// หมายเหตุ: ปุ่มยังไม่มี href/onClick — spec เดิมใส่ label "Ghost" (ชื่อ component variant ไม่ใช่ copy จริง) ใช้ "Explore Room" แทนไปก่อน
+// แก้ไขได้: heading text, ROOMS list (image, name, slug), button text/icon
+// หมายเหตุ: ปุ่ม "Explore Room" ลิงก์ไป /rooms/{slug} แล้ว แต่หน้า /rooms/[slug] จริงยังไม่ได้สร้าง (จะ 404 ไปก่อน)
 // นี่คือ preview ในหน้า landing page เท่านั้น — หน้า /rooms จริง (listing เต็ม) จะแยก component/page ต่างหาก
 
 import Image from 'next/image';
+import Link from 'next/link';
 
 // ── Types ──────────────────────────────────────────────────────
 type RoomItem = {
 	id: number;
 	name: string;
+	slug: string;
 	image: string;
 	positionClass: string;
 	textLeftClass: string;
@@ -20,6 +22,7 @@ const ROOMS: RoomItem[] = [
 	{
 		id: 1,
 		name: 'Superior Garden View',
+		slug: 'superior-garden-view',
 		image: '/images/room-bg-preview/Superior%20Garden%20View.jpg',
 		positionClass: 'lg:left-0 lg:top-0 lg:w-280 lg:h-135',
 		textLeftClass: 'lg:left-15',
@@ -27,6 +30,7 @@ const ROOMS: RoomItem[] = [
 	{
 		id: 2,
 		name: 'Deluxe',
+		slug: 'deluxe',
 		image: '/images/room-bg-preview/Deluxe.jpg',
 		positionClass: 'lg:left-0 lg:top-141 lg:w-160.75 lg:h-100',
 		textLeftClass: 'lg:left-15',
@@ -34,6 +38,7 @@ const ROOMS: RoomItem[] = [
 	{
 		id: 3,
 		name: 'Superior',
+		slug: 'superior',
 		image: '/images/room-bg-preview/Superior.jpg',
 		positionClass: 'lg:left-166.75 lg:top-141 lg:w-113.25 lg:h-100',
 		textLeftClass: 'lg:left-15',
@@ -41,6 +46,7 @@ const ROOMS: RoomItem[] = [
 	{
 		id: 4,
 		name: 'Premier Sea View',
+		slug: 'premier-sea-view',
 		image: '/images/room-bg-preview/Premier%20Sea%20View.jpg',
 		positionClass: 'lg:left-0 lg:top-247 lg:w-113.25 lg:h-175',
 		textLeftClass: 'lg:left-15',
@@ -48,6 +54,7 @@ const ROOMS: RoomItem[] = [
 	{
 		id: 5,
 		name: 'Supreme',
+		slug: 'supreme',
 		image: '/images/room-bg-preview/Supreme.jpg',
 		positionClass: 'lg:left-119.25 lg:top-247 lg:w-160.75 lg:h-84.5',
 		textLeftClass: 'lg:left-20',
@@ -55,6 +62,7 @@ const ROOMS: RoomItem[] = [
 	{
 		id: 6,
 		name: 'Suite',
+		slug: 'suite',
 		image: '/images/room-bg-preview/Suite.jpg',
 		positionClass: 'lg:left-119.25 lg:top-337.5 lg:w-160.75 lg:h-84.5',
 		textLeftClass: 'lg:left-20',
@@ -63,7 +71,7 @@ const ROOMS: RoomItem[] = [
 
 type RoomCardProps = RoomItem;
 
-const RoomCard = ({ name, image, positionClass, textLeftClass }: RoomCardProps) => {
+const RoomCard = ({ name, slug, image, positionClass, textLeftClass }: RoomCardProps) => {
 	return (
 		<div className={`group relative h-96 w-full overflow-hidden lg:absolute ${positionClass}`}>
 			<Image
@@ -80,13 +88,13 @@ const RoomCard = ({ name, image, positionClass, textLeftClass }: RoomCardProps) 
 					{name}
 				</h3>
 
-				<button
-					type="button"
+				<Link
+					href={`/rooms/${slug}`}
 					className="flex items-center gap-2 px-2 py-1 [font-family:var(--font-open-sans)] text-sm leading-4 font-normal text-white"
 				>
 					Explore Room
 					<Image src="/images/icon/explore.png" alt="" width={16} height={16} />
-				</button>
+				</Link>
 			</div>
 		</div>
 	);
