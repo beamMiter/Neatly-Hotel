@@ -2,6 +2,9 @@
 // About section — heading, description, full-bleed image slider
 // แก้ไขได้: heading text, DESCRIPTION, IMAGES paths, arrow icon
 
+'use client';
+
+import { useRef, useState } from 'react';
 import Image from 'next/image';
 
 // ── Data ───────────────────────────────────────────────────────
@@ -21,6 +24,26 @@ const IMAGES = [
 
 // ── Component ──────────────────────────────────────────────────
 const About = () => {
+	const scrollRef = useRef<HTMLDivElement>(null);
+	const [activeIndex, setActiveIndex] = useState(0);
+
+	const scrollToIndex = (index: number) => {
+		const container = scrollRef.current;
+		const card = container?.querySelector<HTMLElement>('[data-card]');
+		if (!container || !card) return;
+
+		const step = card.offsetWidth + 16;
+		container.scrollTo({ left: index * step, behavior: 'smooth' });
+	};
+
+	const goToSlide = (direction: 1 | -1) => {
+		setActiveIndex((prev) => {
+			const next = Math.min(Math.max(prev + direction, 0), IMAGES.length - 1);
+			scrollToIndex(next);
+			return next;
+		});
+	};
+
 	return (
 		<section className="w-full bg-[#F7F7FB] py-20 lg:py-28">
 			<div className="px-6 sm:px-10 lg:px-40 flex flex-col lg:flex-row lg:items-start gap-8 lg:gap-0">
@@ -40,27 +63,31 @@ const About = () => {
 				</div>
 			</div>
 
-			<div className="relative mt-20 lg:mt-52 w-full overflow-x-scroll">
-				<div className="flex w-fit flex-row gap-4 px-6 sm:px-10 lg:mx-auto lg:px-0">
-					{IMAGES.map((image) => (
-						<div
-							key={image.id}
-							className="relative h-72 w-64 flex-none overflow-hidden border border-[#F5F5F7] shadow-[24px_36px_64px_-14px_rgba(161,161,165,0.15)] lg:h-125 lg:w-100"
-						>
-							<Image
-								src={image.src}
-								alt={image.alt}
-								fill
-								sizes="(min-width: 1024px) 400px, 256px"
-								className="object-cover"
-							/>
-						</div>
-					))}
+			<div className="relative mt-20 lg:mt-52 w-full">
+				<div ref={scrollRef} className="scrollbar-hide overflow-x-scroll">
+					<div className="flex w-fit flex-row gap-4 px-6 sm:px-10 lg:mx-auto lg:px-0">
+						{IMAGES.map((image) => (
+							<div
+								key={image.id}
+								data-card
+								className="relative h-72 w-64 flex-none overflow-hidden border border-[#F5F5F7] shadow-[24px_36px_64px_-14px_rgba(161,161,165,0.15)] lg:h-125 lg:w-100"
+							>
+								<Image
+									src={image.src}
+									alt={image.alt}
+									fill
+									sizes="(min-width: 1024px) 400px, 256px"
+									className="object-cover"
+								/>
+							</div>
+						))}
+					</div>
 				</div>
 
 				<button
 					type="button"
-					className="hidden lg:flex absolute left-40 top-1/2 -translate-y-1/2 h-14 w-14 items-center justify-center"
+					onClick={() => goToSlide(-1)}
+					className="hidden lg:flex absolute left-40 top-1/2 -translate-y-1/2 h-28 w-28 items-center justify-center"
 					aria-label="Previous image"
 				>
 					<Image src="/images/icon/arrow-left-auto.png" alt="" width={56} height={56} />
@@ -68,7 +95,8 @@ const About = () => {
 
 				<button
 					type="button"
-					className="hidden lg:flex absolute right-40 top-1/2 -translate-y-1/2 h-14 w-14 items-center justify-center"
+					onClick={() => goToSlide(1)}
+					className="hidden lg:flex absolute right-40 top-1/2 -translate-y-1/2 h-28 w-28 items-center justify-center"
 					aria-label="Next image"
 				>
 					<Image src="/images/icon/arrow-right-auto.png" alt="" width={56} height={56} />
