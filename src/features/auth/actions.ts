@@ -1,8 +1,9 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers";
 import { createClient } from "@/server/db/supabase-server";
+import { RECOVERY_COOKIE_NAME } from "./recovery-session";
 import {
   loginSchema,
   forgotPasswordSchema,
@@ -52,6 +53,21 @@ export async function login(_prevState: LoginState, formData: FormData): Promise
   redirect(role ? "/room-management" : "/");
 }
 
+// The reset link has to be absolute, and `Origin` is both client-controlled
+// and absent on some form posts — a missing one would otherwise build the
+// literal URL "null/forgot-password/confirm". Prefers an explicit
+// NEXT_PUBLIC_SITE_URL, then the (proxy-aware) host the request arrived on.
+async function getSiteOrigin(): Promise<string> {
+  const configured = process.env.NEXT_PUBLIC_SITE_URL;
+  if (configured) return configured.replace(/\/+$/, "");
+
+  const headerList = await headers();
+  const host = headerList.get("x-forwarded-host") ?? headerList.get("host");
+  const protocol = headerList.get("x-forwarded-proto") ?? (process.env.NODE_ENV === "production" ? "https" : "http");
+
+  return host ? `${protocol}://${host}` : "";
+}
+
 type ForgotPasswordError = { fieldErrors?: ForgotPasswordFieldErrors; message?: string; sent?: boolean };
 export type ForgotPasswordState = ForgotPasswordError | undefined;
 
@@ -66,11 +82,17 @@ export async function forgotPassword(
   }
 
   const supabase = await createClient();
-  const origin = (await headers()).get("origin");
-
-  await supabase.auth.resetPasswordForEmail(parsed.data.email, {
-    redirectTo: `${origin}/forgot-password/confirm`,
+  const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
+    redirectTo: `${await getSiteOrigin()}/forgot-password/confirm`,
   });
+
+  if (error) {
+    // Deliberately not surfaced: an unregistered email is not an error here,
+    // and the failures that *are* real (SMTP down, rate limit, redirectTo not
+    // in Supabase's allow-list) shouldn't be distinguishable from success by
+    // the caller either. Logged so they're still debuggable.
+    console.error("[forgotPassword] resetPasswordForEmail failed:", error);
+  }
 
   // Same response whether or not the email is registered — otherwise this
   // endpoint becomes a way to check which emails have an account.
@@ -81,6 +103,13 @@ type NewPasswordError = { fieldErrors?: NewPasswordFieldErrors; message?: string
 export type NewPasswordState = NewPasswordError | undefined;
 
 export async function resetPassword(_prevState: NewPasswordState, formData: FormData): Promise<NewPasswordState> {
+  // Checked before the password is even parsed: an ordinary logged-in session
+  // must not be able to set a new password here without the current one.
+  const cookieStore = await cookies();
+  if (!cookieStore.get(RECOVERY_COOKIE_NAME)) {
+    return { message: "This reset link has expired. Request a new one and try again." };
+  }
+
   const parsed = newPasswordSchema.safeParse({
     password: formData.get("password"),
     confirmPassword: formData.get("confirmPassword"),
@@ -101,8 +130,15 @@ export async function resetPassword(_prevState: NewPasswordState, formData: Form
   if (error) {
     // Most likely: the recovery link expired or was already used, so there's
     // no active recovery session to attach the new password to.
+    console.error("[resetPassword] updateUser failed:", error);
     return { message: "This reset link has expired. Request a new one and try again." };
   }
+
+  // Retire the recovery session instead of leaving it signed in: whoever
+  // opened the link would otherwise stay logged into the account, and the
+  // new password should be what gets them back in.
+  cookieStore.delete(RECOVERY_COOKIE_NAME);
+  await supabase.auth.signOut();
 
   redirect("/login");
 }

@@ -1,14 +1,22 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { forgotPassword } from "@/features/auth/actions";
 import { inter, openSans } from "@/lib/fonts";
 
-export function ForgotPasswordForm() {
+export function ForgotPasswordForm({ linkExpired = false }: { linkExpired?: boolean }) {
   const [state, action, pending] = useActionState(forgotPassword, undefined);
 
   return (
     <form action={action} className="flex w-full max-w-113 flex-col gap-10">
+      {linkExpired && !state && (
+        <p className="text-sm text-red-600">
+          That reset link is no longer valid. Links work once, and only in the browser that requested them — enter your
+          email to get a fresh one.
+        </p>
+      )}
+
       <div className="flex flex-col gap-1">
         <label htmlFor="email" className={`${inter.className} text-base text-[#2A2E3F]`}>
           Email
@@ -40,9 +48,9 @@ export function ForgotPasswordForm() {
 
         <p className={`${inter.className} flex items-center gap-2 text-base tracking-[-0.02em] text-[#646D89]`}>
           Remembered your password?
-          <a href="/login" className={`${openSans.className} text-base font-semibold text-[#E76B39]`}>
+          <Link href="/login" className={`${openSans.className} text-base font-semibold text-[#E76B39]`}>
             Log In
-          </a>
+          </Link>
         </p>
       </div>
     </form>

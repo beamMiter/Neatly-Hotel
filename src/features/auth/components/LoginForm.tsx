@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { login } from "@/features/auth/actions";
 import { inter, openSans } from "@/lib/fonts";
@@ -30,9 +31,9 @@ export function LoginForm() {
           <label htmlFor="password" className={`${inter.className} text-base text-[#2A2E3F]`}>
             Password
           </label>
-          <a href="/forgot-password" className={`${inter.className} text-sm font-semibold text-[#E76B39]`}>
+          <Link href="/forgot-password" className={`${inter.className} text-sm font-semibold text-[#E76B39]`}>
             Forgot password?
-          </a>
+          </Link>
         </div>
         <input
           id="password"
@@ -59,9 +60,9 @@ export function LoginForm() {
 
         <p className={`${inter.className} flex items-center gap-2 text-base tracking-[-0.02em] text-[#646D89]`}>
           Don&apos;t have an account yet?
-          <a href="/register" className={`${openSans.className} text-base font-semibold text-[#E76B39]`}>
+          <Link href="/register" className={`${openSans.className} text-base font-semibold text-[#E76B39]`}>
             Register
-          </a>
+          </Link>
         </p>
       </div>
     </form>

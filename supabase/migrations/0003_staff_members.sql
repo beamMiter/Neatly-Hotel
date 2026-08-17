@@ -1,12 +1,13 @@
 -- Run this once in the Supabase SQL Editor (Project > SQL Editor > New query).
 --
--- staff_members: back-office access gate, separate from `profiles`. A row
--- here with role `admin` can sign in to the admin panel; no row means a
--- regular customer (`user`).
+-- staff_members: back-office access gate, separate from `profiles`. `agent`
+-- and `admin` can both sign in to the admin panel; `admin` is expected to
+-- have broader permissions than `agent` (front-counter staff) once
+-- role-based authorization is built on top of this.
 
 create table if not exists public.staff_members (
   user_id uuid primary key references auth.users (id) on delete cascade,
-  role text not null check (role in ('admin')),
+  role text not null check (role in ('agent', 'admin')),
   is_active boolean not null default true,
   created_at timestamptz not null default now()
 );
@@ -17,8 +18,8 @@ alter table public.staff_members enable row level security;
 -- privileges first. Without this, every query 42501s with "permission
 -- denied for table staff_members" before any policy is even evaluated.
 -- service_role bypasses RLS but NOT this base grant check, so it needs
--- its own explicit grant too (admin.createUser-style backend writes that
--- insert the staff_members row go through this).
+-- its own explicit grant too (admin.createUser-style backend writes,
+-- e.g. agent register inserting the staff_members row, go through this).
 grant select on public.staff_members to authenticated;
 grant select, insert, update, delete on public.staff_members to service_role;
 
