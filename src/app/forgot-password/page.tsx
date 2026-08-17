@@ -1,9 +1,9 @@
 import { Navbar } from "@/components/layout/Navbar";
-import { LoginForm } from "@/features/auth/components/LoginForm";
+import { ForgotPasswordForm } from "@/features/auth/components/ForgotPasswordForm";
 import { notoSerifDisplay } from "@/lib/fonts";
 import { getCloudAssetUrl } from "@/lib/supabase-storage";
 
-export default function LoginPage() {
+export default function ForgotPasswordPage() {
   const heroImageUrl = getCloudAssetUrl("room-images", "site-images/auth/login-pool-exterior.png");
 
   return (
@@ -17,12 +17,17 @@ export default function LoginPage() {
 
         <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto bg-[#F7F7FB] px-6 py-16">
           <div className="flex w-full max-w-113 flex-col gap-15">
-            <h1
-              className={`${notoSerifDisplay.className} font-medium font-stretch-[87.5%] text-[68px] leading-tight tracking-[-0.02em] text-[#2F3E35]`}
-            >
-              Log In
-            </h1>
-            <LoginForm />
+            <div className="flex flex-col gap-3">
+              <h1
+                className={`${notoSerifDisplay.className} font-medium font-stretch-[87.5%] text-[68px] leading-tight tracking-[-0.02em] text-[#2F3E35]`}
+              >
+                Forgot Password
+              </h1>
+              <p className="text-base text-[#646D89]">
+                Enter the email on your account and we&apos;ll send you a link to reset your password.
+              </p>
+            </div>
+            <ForgotPasswordForm />
           </div>
         </div>
       </main>

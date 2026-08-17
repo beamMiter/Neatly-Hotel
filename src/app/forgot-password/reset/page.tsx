@@ -1,9 +1,9 @@
 import { Navbar } from "@/components/layout/Navbar";
-import { LoginForm } from "@/features/auth/components/LoginForm";
+import { NewPasswordForm } from "@/features/auth/components/NewPasswordForm";
 import { notoSerifDisplay } from "@/lib/fonts";
 import { getCloudAssetUrl } from "@/lib/supabase-storage";
 
-export default function LoginPage() {
+export default function ForgotPasswordResetPage() {
   const heroImageUrl = getCloudAssetUrl("room-images", "site-images/auth/login-pool-exterior.png");
 
   return (
@@ -20,9 +20,9 @@ export default function LoginPage() {
             <h1
               className={`${notoSerifDisplay.className} font-medium font-stretch-[87.5%] text-[68px] leading-tight tracking-[-0.02em] text-[#2F3E35]`}
             >
-              Log In
+              Set New Password
             </h1>
-            <LoginForm />
+            <NewPasswordForm />
           </div>
         </div>
       </main>

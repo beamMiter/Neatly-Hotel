@@ -1,6 +1,6 @@
 import { createClient } from "@/server/db/supabase-server";
 
-export type StaffRole = "agent" | "admin";
+export type StaffRole = "admin";
 
 export async function getStaffRole(userId: string): Promise<StaffRole | null> {
   const supabase = await createClient();

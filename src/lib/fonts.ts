@@ -1,6 +1,6 @@
 import { Noto_Serif_Display, Inter, Open_Sans } from "next/font/google";
 
-// Shared across auth pages (login, agent login, ...) — defined once so
+// Shared across auth pages (login, ...) — defined once so
 // next/font dedupes the generated font files instead of every page
 // requesting its own copy.
 //

@@ -26,9 +26,14 @@ export function LoginForm() {
       </div>
 
       <div className="flex flex-col gap-1">
-        <label htmlFor="password" className={`${inter.className} text-base text-[#2A2E3F]`}>
-          Password
-        </label>
+        <div className="flex items-center justify-between">
+          <label htmlFor="password" className={`${inter.className} text-base text-[#2A2E3F]`}>
+            Password
+          </label>
+          <a href="/forgot-password" className={`${inter.className} text-sm font-semibold text-[#E76B39]`}>
+            Forgot password?
+          </a>
+        </div>
         <input
           id="password"
           name="password"

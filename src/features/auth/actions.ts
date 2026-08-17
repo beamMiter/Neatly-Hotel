@@ -1,9 +1,17 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { createClient } from "@/server/db/supabase-server";
-import { supabaseAdmin } from "@/server/db/supabase-admin";
-import { loginSchema, type LoginFieldErrors } from "./validations";
+import {
+  loginSchema,
+  forgotPasswordSchema,
+  newPasswordSchema,
+  getPasswordMismatchError,
+  type LoginFieldErrors,
+  type ForgotPasswordFieldErrors,
+  type NewPasswordFieldErrors,
+} from "./validations";
 import { getStaffRole } from "@/server/queries/staff-members.query";
 
 type LoginError = { fieldErrors?: LoginFieldErrors; message?: string };
@@ -44,41 +52,56 @@ export async function login(_prevState: LoginState, formData: FormData): Promise
   redirect(role ? "/room-management" : "/");
 }
 
-export async function agentRegister(_prevState: LoginState, formData: FormData): Promise<LoginState> {
-  const parsed = loginSchema.safeParse({
-    email: formData.get("email"),
+type ForgotPasswordError = { fieldErrors?: ForgotPasswordFieldErrors; message?: string; sent?: boolean };
+export type ForgotPasswordState = ForgotPasswordError | undefined;
+
+export async function forgotPassword(
+  _prevState: ForgotPasswordState,
+  formData: FormData,
+): Promise<ForgotPasswordState> {
+  const parsed = forgotPasswordSchema.safeParse({ email: formData.get("email") });
+
+  if (!parsed.success) {
+    return { fieldErrors: parsed.error.flatten().fieldErrors as ForgotPasswordFieldErrors };
+  }
+
+  const supabase = await createClient();
+  const origin = (await headers()).get("origin");
+
+  await supabase.auth.resetPasswordForEmail(parsed.data.email, {
+    redirectTo: `${origin}/forgot-password/confirm`,
+  });
+
+  // Same response whether or not the email is registered — otherwise this
+  // endpoint becomes a way to check which emails have an account.
+  return { sent: true, message: "If an account exists for that email, a reset link is on its way." };
+}
+
+type NewPasswordError = { fieldErrors?: NewPasswordFieldErrors; message?: string };
+export type NewPasswordState = NewPasswordError | undefined;
+
+export async function resetPassword(_prevState: NewPasswordState, formData: FormData): Promise<NewPasswordState> {
+  const parsed = newPasswordSchema.safeParse({
     password: formData.get("password"),
+    confirmPassword: formData.get("confirmPassword"),
   });
 
   if (!parsed.success) {
-    return { fieldErrors: parsed.error.flatten().fieldErrors as LoginFieldErrors };
+    return { fieldErrors: parsed.error.flatten().fieldErrors as NewPasswordFieldErrors };
   }
 
-  const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-    email: parsed.data.email,
-    password: parsed.data.password,
-    email_confirm: true,
-  });
-
-  if (authError) {
-    const isDuplicateEmail = authError.code === "email_exists" || authError.status === 422;
-    if (isDuplicateEmail) {
-      return { fieldErrors: { email: "This email is already registered" } };
-    }
-    console.error("[agentRegister] auth.admin.createUser failed:", authError);
-    return { message: "Registration failed. Please try again." };
+  const mismatchError = getPasswordMismatchError(parsed.data.password, parsed.data.confirmPassword);
+  if (mismatchError) {
+    return { fieldErrors: { confirmPassword: mismatchError } };
   }
 
-  const userId = authData.user.id;
-  const { error: staffError } = await supabaseAdmin
-    .from("staff_members")
-    .insert({ user_id: userId, role: "agent" });
+  const supabase = await createClient();
+  const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
 
-  if (staffError) {
-    console.error("[agentRegister] staff_members insert failed:", staffError);
-    // Avoid leaving an orphaned auth user (with no staff record) blocking a retry.
-    await supabaseAdmin.auth.admin.deleteUser(userId);
-    return { message: "Registration failed. Please try again." };
+  if (error) {
+    // Most likely: the recovery link expired or was already used, so there's
+    // no active recovery session to attach the new password to.
+    return { message: "This reset link has expired. Request a new one and try again." };
   }
 
   redirect("/login");
