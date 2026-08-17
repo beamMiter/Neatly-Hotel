@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { SearchPageView } from "@/features/booking/components/SearchPageView";
-import { MOCK_ROOM_TYPES } from "@/features/booking/mock-data";
+import { searchRoomTypes } from "@/features/booking/queries";
 import type { SearchQuery } from "@/features/booking/types";
 
 export const metadata: Metadata = {
@@ -33,5 +33,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     guests: parseCount(first(params.guests), 2),
   };
 
-  return <SearchPageView rooms={MOCK_ROOM_TYPES} initialQuery={initialQuery} />;
+  const rooms = await searchRoomTypes(initialQuery);
+
+  return <SearchPageView rooms={rooms} initialQuery={initialQuery} />;
 }

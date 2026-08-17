@@ -8,7 +8,7 @@ export type RoomType = {
   discountedPrice: number;
   description: string;
   amenities: string[];
-  imageCount: number;
+  imageUrls: string[];
 };
 
 export type SearchQuery = {

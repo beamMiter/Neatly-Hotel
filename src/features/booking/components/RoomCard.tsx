@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { formatThb } from "@/features/booking/mock-data";
+import { formatThb } from "@/features/booking/format";
 import { RoomImagePlaceholder } from "@/features/booking/components/RoomImagePlaceholder";
 import type { RoomType } from "@/features/booking/types";
 
@@ -8,11 +8,15 @@ type RoomCardProps = {
 };
 
 export function RoomCard({ room }: RoomCardProps) {
+  const hasDiscount = room.discountedPrice < room.fullPrice;
+  const cover = room.imageUrls[0];
+
   return (
     <article className="grid gap-6 border-b border-brand-border py-8 lg:grid-cols-[minmax(280px,2fr)_minmax(0,3fr)] lg:gap-10">
       <RoomImagePlaceholder
         label={room.name}
         index={0}
+        src={cover}
         showGalleryHint
         className="aspect-[16/10] w-full lg:min-h-[220px]"
       />
@@ -28,7 +32,9 @@ export function RoomCard({ room }: RoomCardProps) {
           </div>
 
           <div className="shrink-0 text-left sm:text-right">
-            <p className="text-sm text-brand-muted line-through">{formatThb(room.fullPrice)}</p>
+            {hasDiscount && (
+              <p className="text-sm text-brand-muted line-through">{formatThb(room.fullPrice)}</p>
+            )}
             <p className="text-xl font-semibold text-brand-ink">{formatThb(room.discountedPrice)}</p>
             <p className="mt-1 text-xs text-brand-muted">Per Night (Including Taxes & Fees)</p>
           </div>

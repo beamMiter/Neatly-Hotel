@@ -37,9 +37,13 @@ export function SearchPageView({ rooms, initialQuery }: SearchPageViewProps) {
 
       <div className="min-h-0 flex-1 overflow-y-auto" onScroll={handleScroll}>
         <div className="mx-auto max-w-7xl px-4 sm:px-8">
-          {rooms.map((room) => (
-            <RoomCard key={room.id} room={room} />
-          ))}
+          {rooms.length === 0 ? (
+            <p className="py-16 text-center text-sm text-brand-muted">
+              No rooms match this search. Try different dates, rooms, or guests.
+            </p>
+          ) : (
+            rooms.map((room) => <RoomCard key={room.id} room={room} />)
+          )}
         </div>
       </div>
     </div>

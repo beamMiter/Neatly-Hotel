@@ -1,8 +1,11 @@
+import Image from "next/image";
+
 type RoomImagePlaceholderProps = {
   label?: string;
   index?: number;
   className?: string;
   showGalleryHint?: boolean;
+  src?: string;
 };
 
 const TONES = ["#d8d8de", "#c9c9d2", "#bdbdc8", "#e2e2e8"];
@@ -12,18 +15,23 @@ export function RoomImagePlaceholder({
   index = 0,
   className = "",
   showGalleryHint = false,
+  src,
 }: RoomImagePlaceholderProps) {
   const tone = TONES[index % TONES.length];
 
   return (
     <div
       className={`relative flex items-center justify-center overflow-hidden ${className}`}
-      style={{ backgroundColor: tone }}
+      style={src ? undefined : { backgroundColor: tone }}
       aria-label={label}
     >
-      <span className="text-xs font-medium tracking-wide text-white/80 uppercase">{label}</span>
+      {src ? (
+        <Image src={src} alt={label} fill className="object-cover" sizes="(min-width: 1024px) 40vw, 100vw" />
+      ) : (
+        <span className="text-xs font-medium tracking-wide text-white/80 uppercase">{label}</span>
+      )}
       {showGalleryHint && (
-        <span className="absolute bottom-3 left-3 flex h-7 w-7 items-center justify-center rounded-sm bg-black/35 text-white">
+        <span className="absolute bottom-3 left-3 z-10 flex h-7 w-7 items-center justify-center rounded-sm bg-black/35 text-white">
           <GalleryIcon />
         </span>
       )}

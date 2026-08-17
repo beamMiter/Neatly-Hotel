@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Navbar } from "@/components/layout/Navbar";
 import { RoomDetailView } from "@/features/booking/components/RoomDetailView";
-import { getRoomTypeById } from "@/features/booking/mock-data";
+import { getGuestRoomTypeById } from "@/features/booking/queries";
 
 type RoomDetailPageProps = {
   params: Promise<{ id: string }>;
@@ -10,7 +10,7 @@ type RoomDetailPageProps = {
 
 export async function generateMetadata({ params }: RoomDetailPageProps): Promise<Metadata> {
   const { id } = await params;
-  const room = getRoomTypeById(id);
+  const room = await getGuestRoomTypeById(id);
 
   return {
     title: room ? `${room.name} | Neatly Hotel` : "Room | Neatly Hotel",
@@ -20,7 +20,7 @@ export async function generateMetadata({ params }: RoomDetailPageProps): Promise
 
 export default async function RoomDetailPage({ params }: RoomDetailPageProps) {
   const { id } = await params;
-  const room = getRoomTypeById(id);
+  const room = await getGuestRoomTypeById(id);
 
   if (!room) notFound();
 
