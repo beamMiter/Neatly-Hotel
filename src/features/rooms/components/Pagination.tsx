@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 
-const BASE_PATH = "/admin/room-property";
+const BASE_PATH = "/room-property";
 
 function buildHref(query: string | undefined, page: number) {
   const params = new URLSearchParams();
