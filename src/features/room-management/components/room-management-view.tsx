@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createClient } from "@/app/lib/supabase/client";
 import { RoomDeleteDialog } from "@/features/room-management/components/room-delete-dialog";
 import { RoomStatusSelect } from "@/features/room-management/components/room-status-select";
 import type { Room, RoomStatus } from "@/types/rooms";
@@ -20,6 +21,44 @@ export function RoomManagementView({
   const [updatingRoomId, setUpdatingRoomId] = useState<string | null>(null);
   const [roomToDelete, setRoomToDelete] = useState<Room | null>(null);
   const [deletingRoomId, setDeletingRoomId] = useState<string | null>(null);
+  const refreshRequestId = useRef(0);
+
+  const refreshRooms = useCallback(async () => {
+    const requestId = ++refreshRequestId.current;
+
+    try {
+      const response = await fetch("/api/rooms", { cache: "no-store" });
+      if (!response.ok) throw new Error("Failed to refresh rooms");
+
+      const payload = (await response.json()) as { data?: Room[] };
+      if (requestId === refreshRequestId.current && payload.data) {
+        setRooms(payload.data);
+      }
+    } catch (error) {
+      console.error("[room-management] Realtime refresh failed:", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel("room-management:rooms")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "rooms" },
+        () => void refreshRooms(),
+      )
+      .subscribe((status) => {
+        // Re-fetch after the initial connection and every reconnect so events
+        // that happened while this tab was offline cannot leave stale state.
+        if (status === "SUBSCRIBED") void refreshRooms();
+      });
+
+    return () => {
+      refreshRequestId.current += 1;
+      void supabase.removeChannel(channel);
+    };
+  }, [refreshRooms]);
 
   const filteredRooms = useMemo(() => {
     const normalized = query.trim().toLowerCase();
