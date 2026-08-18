@@ -43,6 +43,7 @@ export function RegisterForm() {
   const [photo, setPhoto] = useState<File | null>(null);
   const [errors, setErrors] = useState<RegisterFieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
   const [formStatus, setFormStatus] = useState<{ type: "error"; message: string } | null>(null);
 
   function clearError(name: string) {
@@ -102,6 +103,7 @@ export function RegisterForm() {
         return;
       }
 
+      setIsRedirecting(true);
       router.push("/login");
       return;
     } catch {
@@ -116,6 +118,13 @@ export function RegisterForm() {
       {formStatus && (
         <p role="status" className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">
           {formStatus.message}
+        </p>
+      )}
+
+      {isRedirecting && (
+        <p role="status" className="flex items-center gap-2 rounded-md bg-green-50 px-4 py-3 text-sm text-green-700">
+          <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent" />
+          Account created! Taking you to the login page...
         </p>
       )}
 
@@ -230,10 +239,10 @@ export function RegisterForm() {
 
       <button
         type="submit"
-        disabled={isSubmitting}
+        disabled={isSubmitting || isRedirecting}
         className="h-12 w-full rounded-md bg-brand-primary text-sm font-semibold text-white transition-colors hover:bg-brand-primary-hover disabled:cursor-not-allowed disabled:opacity-70"
       >
-        {isSubmitting ? "Registering..." : "Register"}
+        {isRedirecting ? "Redirecting..." : isSubmitting ? "Registering..." : "Register"}
       </button>
     </form>
   );
