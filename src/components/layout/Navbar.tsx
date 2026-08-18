@@ -1,85 +1,106 @@
-"use client";
+// ── Navbar ────────────────────────────────────────────────────────────
+// Sticky top navbar — logo, nav links, login button, mobile hamburger dropdown
+// แก้ไขได้: NAV_LINKS, logo src, login href
 
-import Image from "next/image";
-import Link from "next/link";
-import { useState } from "react";
-import { CloseIcon } from "@/components/icons/CloseIcon";
-import { MenuIcon } from "@/components/icons/MenuIcon";
+'use client';
 
-const navLinks = [
-  { href: "/about", label: "About Neatly" },
-  { href: "/service-facilities", label: "Service & Facilities" },
-  { href: "/rooms-suits", label: "Rooms & Suits" },
+import { useState } from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
+
+// ── Types ──────────────────────────────────────────────────────
+type NavLink = {
+	label: string;
+	href: string;
+};
+
+// ── Data ───────────────────────────────────────────────────────
+const NAV_LINKS: NavLink[] = [
+	{ label: 'About Neatly', href: '/about' },
+	{ label: 'Service & Facilities', href: '/services' },
+	{ label: 'Rooms & Suits', href: '/rooms' },
 ];
 
-export function Navbar() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+// ── Component ──────────────────────────────────────────────────
+const Navbar = () => {
+	const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  return (
-    <header className="relative z-20 border-b border-brand-border bg-white">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-8">
-        <Link href="/" className="flex items-center" onClick={() => setIsMenuOpen(false)}>
-          <Image
-            src="/images/logo-neatly.png"
-            alt="Neatly"
-            width={167}
-            height={45}
-            priority
-            className="h-6 w-auto sm:h-7"
-          />
-        </Link>
+	return (
+		<header className="relative w-full h-12 lg:h-25 bg-white border-b border-[#E4E6ED]">
+			<nav className="flex items-center h-full px-4 sm:px-10 lg:px-40 gap-6 lg:gap-12">
+				<Link href="/" className="flex-none">
+					<Image
+						src="/images/icon/logo-gereen.png"
+						alt="Neatly logo"
+						width={167}
+						height={45}
+						className="w-23.5 h-auto lg:w-42"
+					/>
+				</Link>
 
-        <nav className="hidden items-center gap-8 md:flex">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="text-sm font-medium text-brand-body transition-colors hover:text-brand-primary"
-            >
-              {link.label}
-            </Link>
-          ))}
-        </nav>
+				<ul className="hidden md:flex items-center h-full">
+					{NAV_LINKS.map((link) => (
+						<li key={link.href} className="h-full">
+							<Link
+								href={link.href}
+								className="flex items-center justify-center h-full px-3 lg:px-6 text-sm font-normal text-black hover:text-[#E76B39] transition-colors duration-150 whitespace-nowrap"
+							>
+								{link.label}
+							</Link>
+						</li>
+					))}
+				</ul>
 
-        <Link
-          href="/login"
-          className="hidden text-sm font-semibold text-brand-primary hover:text-brand-primary-hover md:block"
-        >
-          Log in
-        </Link>
+				<Link
+					href="/login"
+					className="hidden md:flex items-center justify-center h-full px-3 lg:px-6 ml-auto text-sm font-semibold text-[#E76B39] hover:text-[#C14817] transition-colors duration-150 whitespace-nowrap"
+				>
+					Log in
+				</Link>
 
-        <button
-          type="button"
-          aria-label={isMenuOpen ? "Close menu" : "Open menu"}
-          aria-expanded={isMenuOpen}
-          onClick={() => setIsMenuOpen((open) => !open)}
-          className="text-brand-ink md:hidden"
-        >
-          {isMenuOpen ? <CloseIcon className="h-6 w-6" /> : <MenuIcon className="h-6 w-6" />}
-        </button>
-      </div>
+				<button
+					type="button"
+					onClick={() => setIsMenuOpen((prev) => !prev)}
+					aria-label={isMenuOpen ? 'Close menu' : 'Open menu'}
+					aria-expanded={isMenuOpen}
+					className="ml-auto flex h-6 w-6 flex-none flex-col items-center justify-center gap-1.75 md:hidden"
+				>
+					<span
+						className={`h-[1.5px] w-4 bg-[#646D89] transition-transform duration-150 ${isMenuOpen ? 'translate-y-[8.5px] rotate-45' : ''}`}
+					/>
+					<span className={`h-[1.5px] w-4 bg-[#646D89] transition-opacity duration-150 ${isMenuOpen ? 'opacity-0' : ''}`} />
+					<span
+						className={`h-[1.5px] w-4 bg-[#646D89] transition-transform duration-150 ${isMenuOpen ? 'translate-y-[8.5px] -rotate-45' : ''}`}
+					/>
+				</button>
+			</nav>
 
-      {isMenuOpen && (
-        <nav className="flex flex-col gap-1 border-t border-brand-border bg-white px-4 py-3 md:hidden">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              onClick={() => setIsMenuOpen(false)}
-              className="rounded-md px-2 py-2 text-sm font-medium text-brand-body hover:bg-brand-surface"
-            >
-              {link.label}
-            </Link>
-          ))}
-          <Link
-            href="/login"
-            onClick={() => setIsMenuOpen(false)}
-            className="rounded-md px-2 py-2 text-sm font-semibold text-brand-primary hover:bg-brand-surface"
-          >
-            Log in
-          </Link>
-        </nav>
-      )}
-    </header>
-  );
-}
+			{isMenuOpen && (
+				<div className="absolute top-full left-0 z-30 flex w-full flex-col items-start bg-white p-4 shadow-[4px_4px_16px_rgba(0,0,0,0.08)] md:hidden">
+					{NAV_LINKS.map((link) => (
+						<Link
+							key={link.href}
+							href={link.href}
+							onClick={() => setIsMenuOpen(false)}
+							className="flex w-full items-center justify-center px-4 py-6 [font-family:var(--font-open-sans)] text-sm text-black"
+						>
+							{link.label}
+						</Link>
+					))}
+
+					<div className="my-2 h-px w-full bg-[#E4E6ED]" />
+
+					<Link
+						href="/login"
+						onClick={() => setIsMenuOpen(false)}
+						className="flex w-full items-center justify-center px-4 py-6 [font-family:var(--font-open-sans)] text-sm font-semibold text-[#E76B39]"
+					>
+						Log in
+					</Link>
+				</div>
+			)}
+		</header>
+	);
+};
+
+export default Navbar;
