@@ -1,0 +1,32 @@
+"use client";
+
+import BookingSearch from "@/components/shared/BookingSearch";
+import { RoomCard } from "@/features/booking/components/RoomCard";
+import type { RoomType, SearchQuery } from "@/features/booking/types";
+
+type SearchPageViewProps = {
+  rooms: RoomType[];
+  initialQuery: SearchQuery;
+};
+
+export function SearchPageView({ rooms, initialQuery }: SearchPageViewProps) {
+  return (
+    <main className="flex-1 bg-brand-surface">
+      <div className="sticky top-0 z-30 bg-white">
+        <div className="mx-auto max-w-7xl px-4 py-2 sm:px-8">
+          <BookingSearch compact initialQuery={initialQuery} />
+        </div>
+      </div>
+
+      <div className="mx-auto max-w-7xl px-4 sm:px-8">
+        {rooms.length === 0 ? (
+          <p className="py-16 text-center text-sm text-brand-muted">
+            No rooms match this search. Try different dates, rooms, or guests.
+          </p>
+        ) : (
+          rooms.map((room) => <RoomCard key={room.id} room={room} />)
+        )}
+      </div>
+    </main>
+  );
+}

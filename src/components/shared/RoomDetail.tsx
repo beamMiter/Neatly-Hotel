@@ -26,7 +26,42 @@ const GrayArrowIcon = ({ direction }: { direction: 'left' | 'right' }) => (
 
 const RoomDetail = ({ room, otherRooms }: RoomDetailProps) => {
 	const gallerySliderRef = useRef<HTMLDivElement>(null);
+	const galleryTrackRef = useRef<HTMLDivElement>(null);
+	const galleryIndexRef = useRef(0);
 	const otherRoomsSliderRef = useRef<HTMLDivElement>(null);
+
+	const centerGalleryCard = (index: number, instant = false) => {
+		const container = gallerySliderRef.current;
+		const cards = container?.querySelectorAll<HTMLElement>('[data-gallery-card]');
+		const card = cards?.[index];
+		if (!container || !card) return;
+
+		const target = card.offsetLeft - (container.clientWidth - card.offsetWidth) / 2;
+		if (instant) {
+			container.scrollLeft = target;
+			return;
+		}
+		smoothScrollTo(container, target);
+	};
+
+	const prepareGallery = () => {
+		const container = gallerySliderRef.current;
+		const track = galleryTrackRef.current;
+		const card = track?.querySelector<HTMLElement>('[data-gallery-card]');
+		if (!container || !track || !card) return;
+
+		const pad = Math.max(24, (container.clientWidth - card.offsetWidth) / 2);
+		track.style.paddingLeft = `${pad}px`;
+		track.style.paddingRight = `${pad}px`;
+		centerGalleryCard(galleryIndexRef.current, true);
+	};
+
+	const scrollGallery = (direction: 1 | -1) => {
+		const count = room.gallery.length;
+		if (count <= 1) return;
+		galleryIndexRef.current = (galleryIndexRef.current + direction + count) % count;
+		centerGalleryCard(galleryIndexRef.current);
+	};
 
 	const scrollSlider = (ref: React.RefObject<HTMLDivElement | null>, direction: 1 | -1) => {
 		const container = ref.current;
@@ -34,7 +69,9 @@ const RoomDetail = ({ room, otherRooms }: RoomDetailProps) => {
 		if (!container || !card) return;
 
 		const step = card.offsetWidth + 24;
-		smoothScrollTo(container, container.scrollLeft + direction * step);
+		const maxScrollLeft = container.scrollWidth - container.clientWidth;
+		const target = Math.min(maxScrollLeft, Math.max(0, container.scrollLeft + direction * step));
+		smoothScrollTo(container, target);
 	};
 
 	useEffect(() => {
@@ -60,14 +97,21 @@ const RoomDetail = ({ room, otherRooms }: RoomDetailProps) => {
 	const amenitiesMidpoint = Math.ceil(room.amenities.length / 2);
 	const amenitiesColumns = [room.amenities.slice(0, amenitiesMidpoint), room.amenities.slice(amenitiesMidpoint)];
 
+	useEffect(() => {
+		galleryIndexRef.current = 0;
+		prepareGallery();
+		window.addEventListener('resize', prepareGallery);
+		return () => window.removeEventListener('resize', prepareGallery);
+	}, [room.gallery]);
+
 	return (
 		<div className="w-full bg-[#F7F7FB]">
 			{/* ── Image slider ── */}
 			<div className="relative w-full pt-10 lg:pt-16">
-				<div ref={gallerySliderRef} className="scrollbar-hide overflow-x-scroll">
-					<div className="flex w-fit flex-row gap-6 px-6 sm:px-10 lg:mx-auto lg:px-0">
+				<div ref={gallerySliderRef} className="scrollbar-hide overflow-x-auto">
+					<div ref={galleryTrackRef} className="flex w-max flex-row gap-6">
 						{room.gallery.map((src, index) => (
-							<div key={index} data-card className="relative h-72 w-full flex-none overflow-hidden rounded lg:h-145.25 lg:w-232.5">
+							<div key={index} data-gallery-card className="relative h-72 w-[min(100vw-3rem,58.125rem)] flex-none overflow-hidden rounded lg:h-145.25 lg:w-232.5">
 								<Image
 									src={src}
 									alt={`${room.name} photo ${index + 1}`}
@@ -82,8 +126,8 @@ const RoomDetail = ({ room, otherRooms }: RoomDetailProps) => {
 
 				<button
 					type="button"
-					onClick={() => scrollSlider(gallerySliderRef, -1)}
-					className="hidden lg:flex absolute left-40 top-1/2 -translate-y-1/2 h-14 w-14 items-center justify-center"
+					onClick={() => scrollGallery(-1)}
+					className="hidden lg:flex absolute left-40 top-1/2 -translate-y-1/2 h-14 w-14 items-center justify-center rounded-full border border-[#9AA1B9] bg-white/5"
 					aria-label="Previous photo"
 				>
 					<Image src="/images/icon/arrow-left-auto.svg" alt="" width={56} height={56} />
@@ -91,8 +135,8 @@ const RoomDetail = ({ room, otherRooms }: RoomDetailProps) => {
 
 				<button
 					type="button"
-					onClick={() => scrollSlider(gallerySliderRef, 1)}
-					className="hidden lg:flex absolute right-40 top-1/2 -translate-y-1/2 h-14 w-14 items-center justify-center"
+					onClick={() => scrollGallery(1)}
+					className="hidden lg:flex absolute right-40 top-1/2 -translate-y-1/2 h-14 w-14 items-center justify-center rounded-full border border-[#9AA1B9] bg-white/5"
 					aria-label="Next photo"
 				>
 					<Image src="/images/icon/arrow-right-auto.svg" alt="" width={56} height={56} />

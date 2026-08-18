@@ -15,7 +15,7 @@ type CalendarDay = {
 
 // ── Data ───────────────────────────────────────────────────────
 const WEEKDAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-const WEEKDAY_SHORT = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -51,6 +51,12 @@ const formatDate = (date: Date) => {
 	return `${weekday}, ${date.getDate()} ${month} ${date.getFullYear()}`;
 };
 
+const startOfLocalDay = (date = new Date()) =>
+	new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+const addLocalDays = (date: Date, days: number) =>
+	new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
+
 const isSameDay = (a: Date | null, b: Date | null) => {
 	return !!a && !!b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 };
@@ -59,14 +65,36 @@ const isBetween = (date: Date, start: Date | null, end: Date | null) => {
 	return !!start && !!end && date > start && date < end;
 };
 
+type DatePickerProps = {
+	checkIn?: Date | null;
+	checkOut?: Date | null;
+	onChange?: (checkIn: Date | null, checkOut: Date | null) => void;
+};
+
 // ── Component ──────────────────────────────────────────────────
-const DatePicker = () => {
+const DatePicker = ({ checkIn: checkInProp, checkOut: checkOutProp, onChange }: DatePickerProps) => {
 	const today = new Date();
 	const [viewYear, setViewYear] = useState(today.getFullYear());
 	const [viewMonth, setViewMonth] = useState(today.getMonth());
-	const [checkIn, setCheckIn] = useState<Date | null>(null);
-	const [checkOut, setCheckOut] = useState<Date | null>(null);
+	const [uncontrolledCheckIn, setUncontrolledCheckIn] = useState<Date | null>(
+		checkInProp ?? startOfLocalDay(),
+	);
+	const [uncontrolledCheckOut, setUncontrolledCheckOut] = useState<Date | null>(
+		checkOutProp ?? addLocalDays(startOfLocalDay(), 1),
+	);
 	const [isOpen, setIsOpen] = useState(false);
+
+	const checkIn = onChange ? (checkInProp ?? null) : uncontrolledCheckIn;
+	const checkOut = onChange ? (checkOutProp ?? null) : uncontrolledCheckOut;
+
+	const setRange = (nextCheckIn: Date | null, nextCheckOut: Date | null) => {
+		if (onChange) {
+			onChange(nextCheckIn, nextCheckOut);
+			return;
+		}
+		setUncontrolledCheckIn(nextCheckIn);
+		setUncontrolledCheckOut(nextCheckOut);
+	};
 
 	const nextMonthDate = new Date(viewYear, viewMonth + 1, 1);
 	const leftDays = getCalendarDays(viewYear, viewMonth);
@@ -86,22 +114,21 @@ const DatePicker = () => {
 
 	const handleSelectDay = (date: Date) => {
 		if (isSameDay(date, checkIn)) {
-			setCheckIn(null);
-			setCheckOut(null);
+			setRange(null, null);
 			return;
 		}
 
 		if (isSameDay(date, checkOut)) {
-			setCheckOut(null);
+			setRange(checkIn, null);
 			return;
 		}
 
 		if (!checkIn || date < checkIn) {
-			setCheckIn(date);
+			setRange(date, null);
 			return;
 		}
 
-		setCheckOut(date);
+		setRange(checkIn, date);
 	};
 
 	const renderCalendarGrid = (days: CalendarDay[]) => (
@@ -151,7 +178,7 @@ const DatePicker = () => {
 				<span className="[font-family:var(--font-inter)] text-base text-[#2A2E3F]">Check In</span>
 				<span className="flex h-12 w-full items-center gap-2 rounded border border-[#D6D9E4] bg-white py-3 pr-4 pl-3 lg:w-60">
 					<span className="flex-1 text-left [font-family:var(--font-inter)] text-base text-[#9AA1B9]">
-						{checkIn ? formatDate(checkIn) : 'Th, 19 Oct 2022'}
+						{checkIn ? formatDate(checkIn) : formatDate(startOfLocalDay())}
 					</span>
 					<span
 						className={`flex h-8 w-8 flex-none items-center justify-center rounded-full transition-colors duration-150 ${isOpen ? 'bg-gray-200' : 'hover:bg-gray-100'}`}
@@ -171,7 +198,7 @@ const DatePicker = () => {
 				<span className="[font-family:var(--font-inter)] text-base text-[#2A2E3F]">Check Out</span>
 				<span className="flex h-12 w-full items-center gap-2 rounded border border-[#D6D9E4] bg-white py-3 pr-4 pl-3 lg:w-60">
 					<span className="flex-1 text-left [font-family:var(--font-inter)] text-base text-[#9AA1B9]">
-						{checkOut ? formatDate(checkOut) : 'Fri, 19 Oct 2022'}
+						{checkOut ? formatDate(checkOut) : formatDate(addLocalDays(startOfLocalDay(), 1))}
 					</span>
 					<span
 						className={`flex h-8 w-8 flex-none items-center justify-center rounded-full transition-colors duration-150 ${isOpen ? 'bg-gray-200' : 'hover:bg-gray-100'}`}
