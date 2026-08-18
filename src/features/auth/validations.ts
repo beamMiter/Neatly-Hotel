@@ -1,6 +1,33 @@
 import { z } from "zod";
 import { differenceInYears } from "date-fns";
 
+export const loginSchema = z.object({
+  email: z.string().trim().min(1, "Email is required").email("Enter a valid email address"),
+  password: z.string().min(1, "Password is required"),
+});
+
+export type LoginInput = z.infer<typeof loginSchema>;
+export type LoginFieldErrors = Partial<Record<keyof LoginInput, string>>;
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().trim().min(1, "Email is required").email("Enter a valid email address"),
+});
+
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+export type ForgotPasswordFieldErrors = Partial<Record<keyof ForgotPasswordInput, string>>;
+
+export const newPasswordSchema = z.object({
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .regex(/[a-zA-Z]/, "Password must contain at least one letter")
+    .regex(/[0-9]/, "Password must contain at least one number"),
+  confirmPassword: z.string().min(1, "Please confirm your password"),
+});
+
+export type NewPasswordInput = z.infer<typeof newPasswordSchema>;
+export type NewPasswordFieldErrors = Partial<Record<keyof NewPasswordInput, string>>;
+
 export const registerSchema = z.object({
   firstName: z.string().trim().min(1, "First name is required").max(50, "First name is too long"),
   lastName: z.string().trim().min(1, "Last name is required").max(50, "Last name is too long"),
