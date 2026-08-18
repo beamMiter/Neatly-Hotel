@@ -32,7 +32,7 @@ export function Pagination({ currentPage, totalPages, query }: PaginationProps) 
           isFirstPage ? "pointer-events-none opacity-40" : "hover:bg-brand-surface-alt"
         }`}
       >
-        <Image src="/icons/icon/arrow-left.png" alt="Previous page" width={16} height={16} />
+        <Image src="/icons/icon/arrow-left.svg" alt="Previous page" width={16} height={16} />
       </Link>
 
       {pages.map((page) => (
@@ -56,7 +56,7 @@ export function Pagination({ currentPage, totalPages, query }: PaginationProps) 
           isLastPage ? "pointer-events-none opacity-40" : "hover:bg-brand-surface-alt"
         }`}
       >
-        <Image src="/icons/icon/arrow-right.png" alt="Next page" width={16} height={16} />
+        <Image src="/icons/icon/arrow-right.svg" alt="Next page" width={16} height={16} />
       </Link>
     </nav>
   );

@@ -48,13 +48,13 @@ export function AdminSidebar() {
       {/* Logo */}
       <div className="flex shrink-0 flex-col items-center px-4 pt-10 pb-8">
         <Image
-          src="/images/neatly-logo-white.png"
+          src="/images/neatly-logo-white.svg"
           alt="NEATLY"
           width={167}
           height={45}
           quality={100}
           unoptimized
-          className="h-[45px] w-auto mix-blend-screen"
+          className="h-[45px] w-auto"
           priority
         />
         <p className="mt-3 text-[12px] leading-none text-[#9AA59D]">

@@ -86,7 +86,7 @@ const RoomDetail = ({ room, otherRooms }: RoomDetailProps) => {
 					className="hidden lg:flex absolute left-40 top-1/2 -translate-y-1/2 h-14 w-14 items-center justify-center"
 					aria-label="Previous photo"
 				>
-					<Image src="/images/icon/arrow-left-auto.png" alt="" width={56} height={56} />
+					<Image src="/images/icon/arrow-left-auto.svg" alt="" width={56} height={56} />
 				</button>
 
 				<button
@@ -95,7 +95,7 @@ const RoomDetail = ({ room, otherRooms }: RoomDetailProps) => {
 					className="hidden lg:flex absolute right-40 top-1/2 -translate-y-1/2 h-14 w-14 items-center justify-center"
 					aria-label="Next photo"
 				>
-					<Image src="/images/icon/arrow-right-auto.png" alt="" width={56} height={56} />
+					<Image src="/images/icon/arrow-right-auto.svg" alt="" width={56} height={56} />
 				</button>
 			</div>
 
@@ -219,7 +219,7 @@ const RoomDetail = ({ room, otherRooms }: RoomDetailProps) => {
 												className="flex items-center gap-2 px-2 py-1 [font-family:var(--font-open-sans)] text-sm leading-4 font-normal text-white"
 											>
 												Explore Room
-												<Image src="/images/icon/explore.png" alt="" width={16} height={16} />
+												<Image src="/images/icon/explore.svg" alt="" width={16} height={16} />
 											</Link>
 										</div>
 									</div>

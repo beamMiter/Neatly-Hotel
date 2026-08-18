@@ -14,6 +14,6 @@ values (
   'default',
   'Neatly Hotel',
   'Set in Bangkok, Thailand. Neatly Hotel offers 5-star accommodation with an outdoor pool, kids'' club, sports facilities and a fitness centre. There is also a spa, an indoor pool and saunas. All units at the hotel are equipped with a seating area, a flat-screen TV with satellite channels, a dining area and a private bathroom with free toiletries, a hairdryer and shower. Every room at Neatly Hotel offers air conditioning and a desk.',
-  '/images/logo-neatly.png'
+  '/images/logo-neatly.svg'
 )
 on conflict (id) do nothing;
