@@ -127,7 +127,7 @@ const RoomDetail = ({ room, otherRooms }: RoomDetailProps) => {
 				<button
 					type="button"
 					onClick={() => scrollGallery(-1)}
-					className="hidden lg:flex absolute left-40 top-1/2 -translate-y-1/2 h-14 w-14 items-center justify-center rounded-full border border-[#9AA1B9] bg-white/80"
+					className="hidden lg:flex absolute left-40 top-1/2 -translate-y-1/2 h-14 w-14 items-center justify-center rounded-full border border-[#9AA1B9] bg-white/5"
 					aria-label="Previous photo"
 				>
 					<Image src="/images/icon/arrow-left-auto.svg" alt="" width={56} height={56} />
@@ -136,7 +136,7 @@ const RoomDetail = ({ room, otherRooms }: RoomDetailProps) => {
 				<button
 					type="button"
 					onClick={() => scrollGallery(1)}
-					className="hidden lg:flex absolute right-40 top-1/2 -translate-y-1/2 h-14 w-14 items-center justify-center rounded-full border border-[#9AA1B9] bg-white/80"
+					className="hidden lg:flex absolute right-40 top-1/2 -translate-y-1/2 h-14 w-14 items-center justify-center rounded-full border border-[#9AA1B9] bg-white/5"
 					aria-label="Next photo"
 				>
 					<Image src="/images/icon/arrow-right-auto.svg" alt="" width={56} height={56} />
