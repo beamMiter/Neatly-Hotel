@@ -102,7 +102,7 @@ const RoomDetail = ({ room, otherRooms }: RoomDetailProps) => {
 			{/* ── Detail ── */}
 			<div className="mx-auto flex max-w-184.5 flex-col gap-20 px-6 py-16 sm:px-10 lg:px-0 lg:py-24">
 				<div className="flex flex-col items-start gap-15">
-					<h1 className="whitespace-nowrap [font-family:var(--font-noto-serif)] font-medium text-4xl lg:text-[68px] leading-[125%] tracking-[-0.02em] text-[#2F3E35]">
+					<h1 className="whitespace-nowrap [font-family:var(--font-noto-serif)] font-medium font-stretch-[87.5%] text-4xl lg:text-[68px] leading-[125%] tracking-[-0.02em] text-[#2F3E35]">
 						{room.name}
 					</h1>
 
@@ -187,7 +187,7 @@ const RoomDetail = ({ room, otherRooms }: RoomDetailProps) => {
 			{/* ── Other rooms ── */}
 			<div className="w-full bg-[#E6EBE9] py-20 lg:py-26">
 				<div className="mx-auto flex max-w-282 flex-col items-center gap-15 px-6 sm:px-10 lg:items-start lg:px-0">
-					<h2 className="[font-family:var(--font-noto-serif)] font-medium text-3xl lg:text-[44px] leading-[125%] tracking-[-0.02em] text-black">
+					<h2 className="[font-family:var(--font-noto-serif)] font-medium font-stretch-[87.5%] text-3xl lg:text-[44px] leading-[125%] tracking-[-0.02em] text-black">
 						Other Rooms
 					</h2>
 
@@ -210,7 +210,7 @@ const RoomDetail = ({ room, otherRooms }: RoomDetailProps) => {
 										<div className="absolute inset-0 bg-black/30" />
 
 										<div className="absolute bottom-12 left-6 flex flex-col items-start gap-6">
-											<h3 className="whitespace-nowrap [font-family:var(--font-noto-serif)] font-medium text-2xl lg:text-[44px] leading-[125%] tracking-[-0.02em] text-white">
+											<h3 className="whitespace-nowrap [font-family:var(--font-noto-serif)] font-medium font-stretch-[87.5%] text-2xl lg:text-[44px] leading-[125%] tracking-[-0.02em] text-white">
 												{otherRoom.name}
 											</h3>
 

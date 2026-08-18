@@ -71,7 +71,7 @@ const Services = () => {
 	return (
 		<section className="w-full bg-[#465C50] py-20 lg:h-120 lg:flex lg:items-center lg:justify-center">
 			<div className="mx-auto flex max-w-276 flex-col items-center gap-18 px-6 sm:px-10 lg:px-0">
-				<h2 className="text-center [font-family:var(--font-noto-serif)] font-medium text-[44px] lg:whitespace-nowrap lg:text-[68px] leading-[125%] tracking-[-0.02em] text-white">
+				<h2 className="text-center [font-family:var(--font-noto-serif)] font-medium font-stretch-[87.5%] text-[44px] lg:whitespace-nowrap lg:text-[68px] leading-[125%] tracking-[-0.02em] text-white">
 					Service & Facilities
 				</h2>
 

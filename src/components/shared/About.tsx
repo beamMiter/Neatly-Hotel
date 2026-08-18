@@ -48,7 +48,7 @@ const About = () => {
 	return (
 		<section className="w-full bg-[#F7F7FB] py-20 lg:py-28">
 			<div className="px-6 sm:px-10 lg:px-40 flex flex-col lg:flex-row lg:items-start gap-8 lg:gap-0">
-				<h2 className="flex-none whitespace-nowrap [font-family:var(--font-noto-serif)] font-medium text-[44px] lg:text-[68px] leading-[125%] tracking-[-0.02em] text-[#2F3E35]">
+				<h2 className="flex-none whitespace-nowrap [font-family:var(--font-noto-serif)] font-medium font-stretch-[87.5%] text-[44px] lg:text-[68px] leading-[125%] tracking-[-0.02em] text-[#2F3E35]">
 					Neatly Hotel
 				</h2>
 
