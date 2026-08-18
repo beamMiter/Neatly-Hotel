@@ -54,7 +54,7 @@ export function AdminSidebar() {
           height={45}
           quality={100}
           unoptimized
-          className="h-[45px] w-auto mix-blend-screen"
+          className="h-[45px] w-auto"
           priority
         />
         <p className="mt-3 text-[12px] leading-none text-[#9AA59D]">
