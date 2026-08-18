@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { ChangeEvent } from "react";
+import { useRouter } from "next/navigation";
 import { TextField } from "@/components/ui/TextField";
 import { SelectField } from "@/components/ui/SelectField";
 import { DateOfBirthField } from "./DateOfBirthField";
@@ -36,12 +37,14 @@ const initialFields: FormFields = {
 };
 
 export function RegisterForm() {
+  const router = useRouter();
   const [fields, setFields] = useState<FormFields>(initialFields);
   const [dateOfBirth, setDateOfBirth] = useState<Date | undefined>(undefined);
   const [photo, setPhoto] = useState<File | null>(null);
   const [errors, setErrors] = useState<RegisterFieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formStatus, setFormStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const [formStatus, setFormStatus] = useState<{ type: "error"; message: string } | null>(null);
 
   function clearError(name: string) {
     setErrors((prev) => (prev[name as keyof RegisterFieldErrors] ? { ...prev, [name]: undefined } : prev));
@@ -100,10 +103,10 @@ export function RegisterForm() {
         return;
       }
 
-      setFormStatus({ type: "success", message: "Account created! You can now log in." });
-      setFields(initialFields);
-      setDateOfBirth(undefined);
-      setPhoto(null);
+      setIsRedirecting(true);
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      router.push("/login");
+      return;
     } catch {
       setFormStatus({ type: "error", message: "Something went wrong. Please try again." });
     } finally {
@@ -114,15 +117,15 @@ export function RegisterForm() {
   return (
     <form className="flex flex-col gap-8" noValidate onSubmit={handleSubmit}>
       {formStatus && (
-        <p
-          role="status"
-          className={`rounded-md px-4 py-3 text-sm ${
-            formStatus.type === "success"
-              ? "bg-green-50 text-green-700"
-              : "bg-red-50 text-red-700"
-          }`}
-        >
+        <p role="status" className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">
           {formStatus.message}
+        </p>
+      )}
+
+      {isRedirecting && (
+        <p role="status" className="flex items-center gap-2 rounded-md bg-green-50 px-4 py-3 text-sm text-green-700">
+          <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent" />
+          Account created! Taking you to the login page...
         </p>
       )}
 
@@ -237,10 +240,10 @@ export function RegisterForm() {
 
       <button
         type="submit"
-        disabled={isSubmitting}
+        disabled={isSubmitting || isRedirecting}
         className="h-12 w-full rounded-md bg-brand-primary text-sm font-semibold text-white transition-colors hover:bg-brand-primary-hover disabled:cursor-not-allowed disabled:opacity-70"
       >
-        {isSubmitting ? "Registering..." : "Register"}
+        {isRedirecting ? "Redirecting..." : isSubmitting ? "Registering..." : "Register"}
       </button>
     </form>
   );
