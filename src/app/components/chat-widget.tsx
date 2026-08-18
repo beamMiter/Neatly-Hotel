@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
 import type { Room, SearchState } from "@/app/lib/hotel";
 
@@ -120,17 +121,6 @@ export default function ChatWidget({ greetingMessage = defaultGreeting }: { gree
     }
   }
 
-  function showRoomDetails(room: Room) {
-    setMessages((current) => [
-      ...current,
-      {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content: `${room.name}\n${room.description}\n${room.size} · ${room.bed} · รองรับ ${room.capacity} ท่าน\nราคา ${room.price.toLocaleString("th-TH")} บาทต่อคืน`,
-      },
-    ]);
-  }
-
   function startBooking(room: Room) {
     setMessages((current) => [
       ...current,
@@ -232,7 +222,9 @@ export default function ChatWidget({ greetingMessage = defaultGreeting }: { gree
                   <div className="relative z-[1] -mr-4 mt-4 flex snap-x gap-[9px] overflow-x-auto pr-4 pb-2">
                     {message.rooms.map((room, index) => (
                       <article className="h-[317px] w-[255px] min-w-[255px] snap-start overflow-hidden rounded-lg bg-white shadow-[0_5px_18px_rgba(52,61,78,.08)]" key={room.id}>
-                        <div className={`h-[155px] bg-cover bg-center ${index % 3 === 0 ? "bg-[linear-gradient(155deg,transparent_0_30%,rgba(52,74,65,.25)_31%),linear-gradient(18deg,#ccb28e_0_28%,#e7edf2_29%_62%,#98b6c9_63%)]" : index % 3 === 1 ? "bg-[linear-gradient(90deg,rgba(81,68,57,.72)_0_24%,transparent_25%),linear-gradient(160deg,#d9d3ca_0_45%,#f2eee8_46%_70%,#a5b6bd_71%)]" : "bg-[linear-gradient(25deg,#8eaa94_0_26%,transparent_27%),linear-gradient(150deg,#e9d5b8_0_48%,#bfd4e0_49%)]"}`} role="img" aria-label={`ภาพห้อง ${room.name}`} />
+                        <div className={`relative h-[155px] overflow-hidden bg-cover bg-center ${index % 3 === 0 ? "bg-[linear-gradient(155deg,transparent_0_30%,rgba(52,74,65,.25)_31%),linear-gradient(18deg,#ccb28e_0_28%,#e7edf2_29%_62%,#98b6c9_63%)]" : index % 3 === 1 ? "bg-[linear-gradient(90deg,rgba(81,68,57,.72)_0_24%,transparent_25%),linear-gradient(160deg,#d9d3ca_0_45%,#f2eee8_46%_70%,#a5b6bd_71%)]" : "bg-[linear-gradient(25deg,#8eaa94_0_26%,transparent_27%),linear-gradient(150deg,#e9d5b8_0_48%,#bfd4e0_49%)]"}`} role="img" aria-label={`ภาพห้อง ${room.name}`}>
+                          {room.imageUrl && <Image src={room.imageUrl} alt={room.name} fill className="object-cover" sizes="255px" />}
+                        </div>
                         <div className="flex h-[122px] flex-col justify-center gap-1.5 px-4 pt-2.5 pb-4">
                           <div>
                             <h3 className="m-0 text-base leading-6 font-semibold tracking-[-.02em] text-[#2A2E3F]">{room.name}</h3>
@@ -241,7 +233,7 @@ export default function ChatWidget({ greetingMessage = defaultGreeting }: { gree
                           <p className="m-0 line-clamp-2 min-h-[42px] text-sm leading-[21px] font-medium tracking-[-.02em] text-[#9AA1B9]">{room.size} with {room.bed.toLowerCase()}, bathroom and space for {room.capacity} guests. {room.description}</p>
                         </div>
                         <div className="grid h-10 grid-cols-2 bg-[#FAEDE8]">
-                          <button className="flex cursor-pointer items-center justify-between border-0 border-r border-[#f1ddd5] bg-transparent px-4 text-base leading-4 font-semibold text-[#E76B39]" type="button" onClick={() => showRoomDetails(room)}>Details <span className="text-2xl font-light" aria-hidden="true">›</span></button>
+                          <Link className="flex cursor-pointer items-center justify-between border-r border-[#f1ddd5] bg-transparent px-4 text-base leading-4 font-semibold text-[#E76B39]" href={room.detailHref}>Details <span className="text-2xl font-light" aria-hidden="true">›</span></Link>
                           <button className="cursor-pointer border-0 bg-[#C14817] px-3 text-sm font-semibold text-white" type="button" onClick={() => startBooking(room)}>Book Now</button>
                         </div>
                       </article>

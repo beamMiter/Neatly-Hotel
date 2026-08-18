@@ -1,3 +1,6 @@
+import "server-only";
+import { searchRoomTypes } from "@/features/booking/queries";
+
 export type SearchState = {
   checkIn: string | null;
   checkOut: string | null;
@@ -14,6 +17,9 @@ export type Room = {
   size: string;
   bed: string;
   available: boolean;
+  imageUrl: string | null;
+  amenities: string[];
+  detailHref: string;
 };
 
 export const emptySearchState: SearchState = {
@@ -23,49 +29,32 @@ export const emptySearchState: SearchState = {
   budget: null,
 };
 
-// ฐานข้อมูลจำลองสำหรับพัฒนา UI สามารถเปลี่ยนเป็น query จากฐานข้อมูลจริงได้ภายหลัง
-const roomDatabase: Room[] = [
-  {
-    id: "deluxe-king",
-    name: "Deluxe King",
-    description: "ห้องพักโปร่งสบาย พร้อมมุมนั่งเล่นและวิวสวน",
-    capacity: 2,
-    price: 2800,
-    size: "32 ตร.ม.",
-    bed: "1 King Bed",
-    available: true,
-  },
-  {
-    id: "family-garden",
-    name: "Family Garden",
-    description: "พื้นที่กว้างสำหรับครอบครัว พร้อมระเบียงส่วนตัว",
-    capacity: 4,
-    price: 4200,
-    size: "46 ตร.ม.",
-    bed: "1 King + 2 Single",
-    available: true,
-  },
-  {
-    id: "neatly-suite",
-    name: "Neatly Suite",
-    description: "ห้องสวีทพร้อมห้องนั่งเล่นแยกเป็นสัดส่วน",
-    capacity: 3,
-    price: 5900,
-    size: "58 ตร.ม.",
-    bed: "1 King Bed",
-    available: true,
-  },
-];
+export async function searchAvailableRooms(search: SearchState): Promise<Room[]> {
+  if (!search.checkIn || !search.checkOut || !search.guests || !search.budget) return [];
 
-export function searchAvailableRooms(search: SearchState) {
-  if (!search.guests || !search.budget) return [];
+  const roomTypes = await searchRoomTypes({
+    checkIn: search.checkIn,
+    checkOut: search.checkOut,
+    rooms: 1,
+    guests: search.guests,
+  });
 
-  return roomDatabase.filter(
-    (room) =>
-      room.available &&
-      room.capacity >= search.guests! &&
-      room.price <= search.budget!,
-  );
+  return roomTypes
+    .filter((room) => room.discountedPrice <= search.budget!)
+    .slice(0, 6)
+    .map((room) => ({
+      id: room.id,
+      name: room.name,
+      description: room.description,
+      capacity: room.guests,
+      price: room.discountedPrice,
+      size: `${room.sizeSqm} sqm`,
+      bed: room.bedType,
+      available: true,
+      imageUrl: room.imageUrls[0] ?? null,
+      amenities: room.amenities,
+      detailHref: `/rooms/${room.id}`,
+    }));
 }
 
 export function getMissingSearchFields(search: SearchState) {

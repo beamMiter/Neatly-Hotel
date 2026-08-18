@@ -176,7 +176,7 @@ search state ปัจจุบัน: ${JSON.stringify(state)}`,
   return JSON.parse(response.output_text) as Analysis;
 }
 
-function searchResponse(analysis: Analysis, current: SearchState) {
+async function searchResponse(analysis: Analysis, current: SearchState) {
   const search = mergeSearchState(current, {
     checkIn: analysis.checkIn,
     checkOut: analysis.checkOut,
@@ -204,7 +204,7 @@ function searchResponse(analysis: Analysis, current: SearchState) {
     };
   }
 
-  const rooms = searchAvailableRooms(search);
+  const rooms = await searchAvailableRooms(search);
   return {
     intent: "search_room" as const,
     message: rooms.length
@@ -256,7 +256,7 @@ export async function POST(request: Request) {
       : analyzeLocally(lastMessage.content, hasStoredSearchState || hasSearchHistory);
 
     if (analysis.intent === "search_room") {
-      return Response.json({ ...searchResponse(analysis, currentSearch), mode: process.env.OPENAI_API_KEY ? "openai" : "demo" });
+      return Response.json({ ...(await searchResponse(analysis, currentSearch)), mode: process.env.OPENAI_API_KEY ? "openai" : "demo" });
     }
     if (analysis.intent === "faq") {
       return Response.json({
