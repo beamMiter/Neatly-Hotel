@@ -73,7 +73,7 @@ type RoomCardProps = RoomItem;
 
 const RoomCard = ({ name, slug, image, positionClass, textLeftClass }: RoomCardProps) => {
 	return (
-		<div className={`group relative h-62.5 w-full overflow-hidden lg:absolute lg:h-auto ${positionClass}`}>
+		<div className={`group relative h-62.5 w-full overflow-hidden lg:absolute ${positionClass}`}>
 			<Image
 				src={image}
 				alt={name}

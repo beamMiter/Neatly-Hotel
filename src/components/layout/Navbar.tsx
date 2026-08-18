@@ -70,7 +70,7 @@ const Navbar = () => {
 					/>
 					<span className={`h-[1.5px] w-4 bg-[#646D89] transition-opacity duration-150 ${isMenuOpen ? 'opacity-0' : ''}`} />
 					<span
-						className={`h-[1.5px] w-4 bg-[#646D89] transition-transform duration-150 ${isMenuOpen ? '-translate-y-[8.5px] -rotate-45' : ''}`}
+						className={`h-[1.5px] w-4 bg-[#646D89] transition-transform duration-150 ${isMenuOpen ? 'translate-y-[8.5px] -rotate-45' : ''}`}
 					/>
 				</button>
 			</nav>
