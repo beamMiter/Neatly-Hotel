@@ -156,7 +156,7 @@ const DatePicker = () => {
 					<span
 						className={`flex h-8 w-8 flex-none items-center justify-center rounded-full transition-colors duration-150 ${isOpen ? 'bg-gray-200' : 'hover:bg-gray-100'}`}
 					>
-						<Image src="/images/icon/calender.png" alt="" width={24} height={24} />
+						<Image src="/images/icon/calender.svg" alt="" width={24} height={24} />
 					</span>
 				</span>
 			</button>
@@ -176,7 +176,7 @@ const DatePicker = () => {
 					<span
 						className={`flex h-8 w-8 flex-none items-center justify-center rounded-full transition-colors duration-150 ${isOpen ? 'bg-gray-200' : 'hover:bg-gray-100'}`}
 					>
-						<Image src="/images/icon/calender.png" alt="" width={24} height={24} />
+						<Image src="/images/icon/calender.svg" alt="" width={24} height={24} />
 					</span>
 				</span>
 			</button>

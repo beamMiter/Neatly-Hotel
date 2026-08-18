@@ -43,12 +43,6 @@ const ibmPlexSansThai = IBM_Plex_Sans_Thai({
 	weight: ['400'],
 });
 
-const notoSerif = Noto_Serif({
-  variable: "--font-noto-serif",
-  subsets: ["latin"],
-  weight: ["400", "600", "700"],
-});
-
 export const metadata: Metadata = {
 	title: 'Neatly Hotel',
 	description: 'Neatly Hotel booking',

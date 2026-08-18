@@ -93,7 +93,7 @@ const RoomCard = ({ name, slug, image, positionClass, textLeftClass }: RoomCardP
 					className="flex items-center gap-2 px-2 py-1 [font-family:var(--font-open-sans)] text-sm leading-4 font-normal text-white"
 				>
 					Explore Room
-					<Image src="/images/icon/explore.png" alt="" width={16} height={16} />
+					<Image src="/images/icon/explore.svg" alt="" width={16} height={16} />
 				</Link>
 			</div>
 		</div>

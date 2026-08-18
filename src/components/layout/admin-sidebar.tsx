@@ -48,7 +48,7 @@ export function AdminSidebar() {
       {/* Logo */}
       <div className="flex shrink-0 flex-col items-center px-4 pt-10 pb-8">
         <Image
-          src="/images/neatly-logo-white.png"
+          src="/images/neatly-logo-white.svg"
           alt="NEATLY"
           width={167}
           height={45}

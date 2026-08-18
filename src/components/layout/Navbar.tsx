@@ -30,7 +30,7 @@ const Navbar = () => {
 			<nav className="flex items-center h-full px-4 sm:px-10 lg:px-40 gap-6 lg:gap-12">
 				<Link href="/" className="flex-none">
 					<Image
-						src="/images/icon/logo-gereen.png"
+						src="/images/icon/logo-gereen.svg"
 						alt="Neatly logo"
 						width={167}
 						height={45}
