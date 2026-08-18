@@ -102,8 +102,8 @@ export async function createRoomType({
   gallery,
   amenities,
 }: CreateRoomTypeParams): Promise<CreateRoomTypeResult> {
-  // Uses the admin client (secret key, bypasses RLS): there's no agent
-  // session to scope this write to yet, and the anon-role INSERT policy
+  // Uses the admin client (secret key, bypasses RLS): there's no signed-in
+  // admin session to scope this write to yet, and the anon-role INSERT policy
   // on room_types/room_images was confirmed correct at the SQL level
   // (works under `set role anon`) but still rejected requests made through
   // the REST API even after a schema reload — a platform-level quirk this
