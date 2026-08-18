@@ -72,13 +72,13 @@ const RoomsGuestsPicker = () => {
 	const summary = `${rooms} room${rooms > 1 ? 's' : ''}, ${guests} guest${guests > 1 ? 's' : ''}`;
 
 	return (
-		<div className="relative flex w-60 flex-col items-start gap-1">
+		<div className="relative flex w-full flex-col items-start gap-1 lg:w-60">
 			<span className="[font-family:var(--font-inter)] text-base text-[#2A2E3F]">Rooms & Guests</span>
 
 			<button
 				type="button"
 				onClick={() => setIsOpen((prev) => !prev)}
-				className="flex h-12 w-60 items-center gap-2 rounded border border-[#D6D9E4] bg-white py-3 pr-4 pl-3"
+				className="flex h-12 w-full items-center gap-2 rounded border border-[#D6D9E4] bg-white py-3 pr-4 pl-3 lg:w-60"
 			>
 				<span className="flex-1 text-left [font-family:var(--font-inter)] text-base text-[#9AA1B9]">{summary}</span>
 				<DropdownIcon />

@@ -73,7 +73,7 @@ type RoomCardProps = RoomItem;
 
 const RoomCard = ({ name, slug, image, positionClass, textLeftClass }: RoomCardProps) => {
 	return (
-		<div className={`group relative h-96 w-full overflow-hidden lg:absolute ${positionClass}`}>
+		<div className={`group relative h-62.5 w-full overflow-hidden lg:absolute lg:h-auto ${positionClass}`}>
 			<Image
 				src={image}
 				alt={name}
@@ -83,8 +83,8 @@ const RoomCard = ({ name, slug, image, positionClass, textLeftClass }: RoomCardP
 			/>
 			<div className="absolute inset-0 bg-black/40" />
 
-			<div className={`absolute bottom-20 left-6 flex flex-col items-start gap-6 ${textLeftClass}`}>
-				<h3 className="whitespace-nowrap [font-family:var(--font-noto-serif)] font-medium text-2xl lg:text-[44px] leading-[125%] tracking-[-0.02em] text-white">
+			<div className={`absolute bottom-10 left-4 flex flex-col items-start gap-6 lg:bottom-20 ${textLeftClass}`}>
+				<h3 className="whitespace-nowrap [font-family:var(--font-noto-serif)] font-medium text-[32px] lg:text-[44px] leading-[125%] tracking-[-0.02em] text-white">
 					{name}
 				</h3>
 
@@ -104,11 +104,11 @@ const RoomCard = ({ name, slug, image, positionClass, textLeftClass }: RoomCardP
 const RoomsPreview = () => {
 	return (
 		<section className="w-full bg-[#F7F7FB] flex flex-col items-center gap-18 py-20 lg:py-28">
-			<h2 className="whitespace-nowrap [font-family:var(--font-noto-serif)] font-medium text-4xl lg:text-[68px] leading-[125%] tracking-[-0.02em] text-[#2F3E35]">
+			<h2 className="whitespace-nowrap px-6 text-center [font-family:var(--font-noto-serif)] font-medium text-[44px] lg:px-0 lg:text-[68px] leading-[125%] tracking-[-0.02em] text-[#2F3E35]">
 				Rooms & Suits
 			</h2>
 
-			<div className="flex w-full max-w-280 flex-col gap-6 px-6 sm:px-10 lg:relative lg:h-422 lg:gap-0 lg:px-0">
+			<div className="flex w-full max-w-280 flex-col gap-4 lg:relative lg:h-422 lg:gap-0">
 				{ROOMS.map((room) => (
 					<RoomCard key={room.id} {...room} />
 				))}

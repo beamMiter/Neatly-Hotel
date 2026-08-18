@@ -142,10 +142,14 @@ const DatePicker = () => {
 	);
 
 	return (
-		<div className="relative flex items-center justify-center gap-6">
-			<button type="button" onClick={() => setIsOpen((prev) => !prev)} className="flex w-60 flex-col items-start gap-1">
+		<div className="relative flex w-full flex-col items-stretch gap-6 lg:w-auto lg:flex-row lg:items-center lg:justify-center">
+			<button
+				type="button"
+				onClick={() => setIsOpen((prev) => !prev)}
+				className="flex w-full flex-col items-start gap-1 lg:w-60"
+			>
 				<span className="[font-family:var(--font-inter)] text-base text-[#2A2E3F]">Check In</span>
-				<span className="flex h-12 w-60 items-center gap-2 rounded border border-[#D6D9E4] bg-white py-3 pr-4 pl-3">
+				<span className="flex h-12 w-full items-center gap-2 rounded border border-[#D6D9E4] bg-white py-3 pr-4 pl-3 lg:w-60">
 					<span className="flex-1 text-left [font-family:var(--font-inter)] text-base text-[#9AA1B9]">
 						{checkIn ? formatDate(checkIn) : 'Th, 19 Oct 2022'}
 					</span>
@@ -157,11 +161,15 @@ const DatePicker = () => {
 				</span>
 			</button>
 
-			<span className="mt-7 flex h-12 w-2 items-center text-base text-black">-</span>
+			<span className="hidden lg:mt-7 lg:flex lg:h-12 lg:w-2 lg:items-center lg:text-base lg:text-black">-</span>
 
-			<button type="button" onClick={() => setIsOpen((prev) => !prev)} className="flex w-60 flex-col items-start gap-1">
+			<button
+				type="button"
+				onClick={() => setIsOpen((prev) => !prev)}
+				className="flex w-full flex-col items-start gap-1 lg:w-60"
+			>
 				<span className="[font-family:var(--font-inter)] text-base text-[#2A2E3F]">Check Out</span>
-				<span className="flex h-12 w-60 items-center gap-2 rounded border border-[#D6D9E4] bg-white py-3 pr-4 pl-3">
+				<span className="flex h-12 w-full items-center gap-2 rounded border border-[#D6D9E4] bg-white py-3 pr-4 pl-3 lg:w-60">
 					<span className="flex-1 text-left [font-family:var(--font-inter)] text-base text-[#9AA1B9]">
 						{checkOut ? formatDate(checkOut) : 'Fri, 19 Oct 2022'}
 					</span>
@@ -177,7 +185,7 @@ const DatePicker = () => {
 				<>
 					<div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
 
-					<div className="absolute top-full left-0 z-20 mt-2 flex origin-top flex-col gap-4 rounded border border-[#D6D9E4] bg-white p-6 shadow-lg animate-[dropdown-in_150ms_ease-out]">
+					<div className="absolute top-full left-0 z-20 mt-2 flex w-max origin-top flex-col gap-4 rounded border border-[#D6D9E4] bg-white p-4 shadow-lg animate-[dropdown-in_150ms_ease-out] lg:p-6">
 						<div className="flex items-center justify-between gap-8">
 							<button
 								type="button"
@@ -191,7 +199,7 @@ const DatePicker = () => {
 								<span className="[font-family:var(--font-inter)] text-base font-medium text-[#2A2E3F]">
 									{MONTH_LABELS[viewMonth]} {viewYear}
 								</span>
-								<span className="[font-family:var(--font-inter)] text-base font-medium text-[#2A2E3F]">
+								<span className="hidden [font-family:var(--font-inter)] text-base font-medium text-[#2A2E3F] lg:block">
 									{MONTH_LABELS[nextMonthDate.getMonth()]} {nextMonthDate.getFullYear()}
 								</span>
 							</div>
@@ -207,7 +215,7 @@ const DatePicker = () => {
 
 						<div className="flex gap-8">
 							{renderCalendarGrid(leftDays)}
-							{renderCalendarGrid(rightDays)}
+							<div className="hidden lg:block">{renderCalendarGrid(rightDays)}</div>
 						</div>
 					</div>
 				</>

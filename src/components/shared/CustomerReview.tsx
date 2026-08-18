@@ -57,13 +57,18 @@ const CustomerReview = () => {
 	return (
 		<section className="w-full bg-[#E6EBE9] py-20 lg:flex lg:h-188 lg:items-center lg:justify-center">
 			<div className="mx-auto flex max-w-270 flex-col items-center gap-18 px-6 sm:px-10 lg:px-0">
-				<h2 className="whitespace-nowrap [font-family:var(--font-noto-serif)] font-medium text-4xl lg:text-[68px] leading-[125%] tracking-[-0.02em] text-[#2F3E35]">
+				<h2 className="text-center [font-family:var(--font-noto-serif)] font-medium text-[44px] lg:whitespace-nowrap lg:text-[68px] leading-[125%] tracking-[-0.02em] text-[#2F3E35]">
 					Our Customer Says
 				</h2>
 
 				<div className="flex w-full flex-col items-center gap-8">
 					<div className="flex w-full flex-col items-center gap-6 lg:flex-row lg:justify-center lg:gap-16">
-						<button type="button" onClick={() => goTo(-1)} aria-label="Previous testimonial" className="flex-none">
+						<button
+							type="button"
+							onClick={() => goTo(-1)}
+							aria-label="Previous testimonial"
+							className="hidden flex-none lg:block"
+						>
 							<Image src="/images/icon/arrow-left-auto-orange.png" alt="" width={56} height={56} />
 						</button>
 
@@ -74,7 +79,12 @@ const CustomerReview = () => {
 							{activeTestimonial.quote}
 						</p>
 
-						<button type="button" onClick={() => goTo(1)} aria-label="Next testimonial" className="flex-none">
+						<button
+							type="button"
+							onClick={() => goTo(1)}
+							aria-label="Next testimonial"
+							className="hidden flex-none lg:block"
+						>
 							<Image src="/images/icon/arrow-right-auto-orange.png" alt="" width={56} height={56} />
 						</button>
 					</div>
@@ -98,6 +108,16 @@ const CustomerReview = () => {
 								}`}
 							/>
 						))}
+					</div>
+
+					<div className="flex flex-row items-center gap-8 lg:hidden">
+						<button type="button" onClick={() => goTo(-1)} aria-label="Previous testimonial">
+							<Image src="/images/icon/arrow-left-auto-orange.png" alt="" width={56} height={56} />
+						</button>
+
+						<button type="button" onClick={() => goTo(1)} aria-label="Next testimonial">
+							<Image src="/images/icon/arrow-right-auto-orange.png" alt="" width={56} height={56} />
+						</button>
 					</div>
 				</div>
 			</div>

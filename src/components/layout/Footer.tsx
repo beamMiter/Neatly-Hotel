@@ -50,8 +50,8 @@ const Footer = () => {
 
 	return (
 		<footer className="w-full bg-[#2F3E35]">
-			<div className="mx-auto flex max-w-300 flex-col gap-12 px-6 pt-16 sm:px-10 lg:px-0 lg:pt-16.5">
-				<div className="flex flex-col items-start gap-12 lg:flex-row lg:justify-between">
+			<div className="mx-auto flex max-w-300 flex-col gap-6 px-4 pt-10 pb-10 sm:px-10 lg:gap-12 lg:px-0 lg:pt-16.5 lg:pb-0">
+				<div className="flex flex-col items-start gap-6 lg:flex-row lg:justify-between lg:gap-12">
 					<div className="flex flex-col items-start gap-10">
 						<Image src="/images/icon/logo-white.png" alt="Neatly Hotel" width={180} height={49} />
 
@@ -65,7 +65,7 @@ const Footer = () => {
 						</div>
 					</div>
 
-					<div className="flex w-full flex-col items-start gap-6 lg:w-95">
+					<div className="flex w-full flex-col items-start gap-4 lg:w-95 lg:gap-6">
 						<span className="[font-family:var(--font-inter)] text-base leading-[150%] font-medium tracking-[-0.02em] text-white uppercase">
 							Contact
 						</span>
@@ -106,7 +106,7 @@ const Footer = () => {
 					</div>
 				</div>
 
-				<div className="flex flex-col items-center gap-6 border-t border-[#465C50] py-10 lg:flex-row lg:justify-between">
+				<div className="flex flex-col items-center gap-6 border-t border-[#465C50] pt-6 lg:flex-row lg:justify-between lg:py-10">
 					<div className="flex flex-row items-center gap-3">
 						{SOCIAL_LINKS.map((social) => (
 							<a key={social.id} href={social.href} target="_blank" rel="noopener noreferrer">

@@ -6,6 +6,7 @@
 
 import { useRef, useState } from 'react';
 import Image from 'next/image';
+import { smoothScrollTo } from '../../utils/smoothScroll';
 
 // ── Data ───────────────────────────────────────────────────────
 const DESCRIPTION = [
@@ -33,7 +34,7 @@ const About = () => {
 		if (!container || !card) return;
 
 		const step = card.offsetWidth + 16;
-		container.scrollTo({ left: index * step, behavior: 'smooth' });
+		smoothScrollTo(container, index * step);
 	};
 
 	const goToSlide = (direction: 1 | -1) => {
@@ -47,7 +48,7 @@ const About = () => {
 	return (
 		<section className="w-full bg-[#F7F7FB] py-20 lg:py-28">
 			<div className="px-6 sm:px-10 lg:px-40 flex flex-col lg:flex-row lg:items-start gap-8 lg:gap-0">
-				<h2 className="flex-none whitespace-nowrap [font-family:var(--font-noto-serif)] font-medium text-4xl lg:text-[68px] leading-[125%] tracking-[-0.02em] text-[#2F3E35]">
+				<h2 className="flex-none whitespace-nowrap [font-family:var(--font-noto-serif)] font-medium text-[44px] lg:text-[68px] leading-[125%] tracking-[-0.02em] text-[#2F3E35]">
 					Neatly Hotel
 				</h2>
 
@@ -70,13 +71,13 @@ const About = () => {
 							<div
 								key={image.id}
 								data-card
-								className="relative h-72 w-64 flex-none overflow-hidden border border-[#F5F5F7] shadow-[24px_36px_64px_-14px_rgba(161,161,165,0.15)] lg:h-125 lg:w-100"
+								className="relative h-56.25 w-45 flex-none overflow-hidden border border-[#F5F5F7] shadow-[24px_36px_64px_-14px_rgba(161,161,165,0.15)] lg:h-125 lg:w-100"
 							>
 								<Image
 									src={image.src}
 									alt={image.alt}
 									fill
-									sizes="(min-width: 1024px) 400px, 256px"
+									sizes="(min-width: 1024px) 400px, 180px"
 									className="object-cover"
 								/>
 							</div>
