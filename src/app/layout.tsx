@@ -1,13 +1,11 @@
 // ── RootLayout ────────────────────────────────────────────────────────
-// Wraps every page — global font, Navbar, Footer
+// Wraps every page (bare — fonts only) — Navbar/Footer/ChatbotButton อยู่ที่ src/app/(main)/layout.tsx แทน
+// เพราะ auth pages (login/register/forgot-password) และ admin ไม่ต้องการ chrome ของหน้าหลัก
 // แก้ไขได้: metadata, font import
 
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono, Noto_Serif_Display, Inter, Open_Sans, IBM_Plex_Sans_Thai } from 'next/font/google';
+import { Geist, Geist_Mono, Noto_Serif, Inter, Open_Sans, IBM_Plex_Sans_Thai } from 'next/font/google';
 import './globals.css';
-import Navbar from '../components/layout/Navbar';
-import Footer from '../components/layout/Footer';
-import ChatbotButton from '../components/ui/ChatbotButton';
 
 const geistSans = Geist({
 	variable: '--font-geist-sans',
@@ -17,12 +15,6 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
 	variable: '--font-geist-mono',
 	subsets: ['latin'],
-});
-
-const notoSerif = Noto_Serif_Display({
-	variable: '--font-noto-serif',
-	subsets: ['latin'],
-	weight: ['500'],
 });
 
 const inter = Inter({
@@ -54,12 +46,7 @@ const RootLayout = ({ children }: LayoutProps<'/'>) => {
 			lang="en"
 			className={`${geistSans.variable} ${geistMono.variable} ${notoSerif.variable} ${inter.variable} ${openSans.variable} ${ibmPlexSansThai.variable} h-full scroll-smooth antialiased`}
 		>
-			<body className="min-h-full flex flex-col">
-				<Navbar />
-				{children}
-				<Footer />
-				<ChatbotButton />
-			</body>
+			<body className="min-h-full flex flex-col">{children}</body>
 		</html>
 	);
 };
