@@ -104,6 +104,7 @@ export function RegisterForm() {
       }
 
       setIsRedirecting(true);
+      await new Promise((resolve) => setTimeout(resolve, 5000));
       router.push("/login");
       return;
     } catch {
