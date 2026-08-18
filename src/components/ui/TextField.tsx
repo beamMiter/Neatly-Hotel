@@ -25,7 +25,7 @@ export function TextField({ label, id, error, className, type, ...inputProps }: 
           type={isPassword && isPasswordVisible ? "text" : type}
           aria-invalid={Boolean(error)}
           aria-describedby={error ? `${id}-error` : undefined}
-          className={`h-11 w-full rounded-md border bg-white px-3.5 text-sm text-brand-body placeholder:text-brand-muted focus:outline-none focus:ring-1 ${
+          className={`h-11 w-full rounded-md border bg-white px-3.5 text-sm text-brand-body placeholder:text-brand-muted focus:outline-none focus:ring-1 [&::-ms-reveal]:hidden [&::-ms-clear]:hidden ${
             isPassword ? "pr-10" : ""
           } ${
             error
