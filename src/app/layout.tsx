@@ -4,7 +4,7 @@
 // แก้ไขได้: metadata, font import
 
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono, Noto_Serif, Inter, Open_Sans, IBM_Plex_Sans_Thai } from 'next/font/google';
+import { Geist, Geist_Mono, Noto_Serif_Display, Inter, Open_Sans, IBM_Plex_Sans_Thai } from 'next/font/google';
 import './globals.css';
 
 const geistSans = Geist({
@@ -15,6 +15,12 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
 	variable: '--font-geist-mono',
 	subsets: ['latin'],
+});
+
+const notoSerif = Noto_Serif_Display({
+	variable: '--font-noto-serif',
+	subsets: ['latin'],
+	weight: 'variable',
 });
 
 const inter = Inter({
