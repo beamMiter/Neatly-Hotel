@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { headers, cookies } from "next/headers";
 import { createClient } from "@/server/db/supabase-server";
+import { supabaseAdmin } from "@/server/db/supabase-admin";
 import { RECOVERY_COOKIE_NAME } from "./recovery-session";
 import {
   loginSchema,
@@ -18,6 +19,21 @@ import { getStaffRole } from "@/server/queries/staff-members.query";
 type LoginError = { fieldErrors?: LoginFieldErrors; message?: string };
 export type LoginState = LoginError | undefined;
 
+// profiles has no email column (it lives in auth.users), so a username login
+// needs an extra admin-privileged hop: username -> profile id -> user email.
+// Runs pre-auth (no session yet), so this must use supabaseAdmin, not the
+// RLS-bound server client.
+async function resolveLoginEmail(identifier: string): Promise<string | null> {
+  if (identifier.includes("@")) return identifier;
+
+  const { data: profile } = await supabaseAdmin.from("profiles").select("id").eq("username", identifier).maybeSingle();
+
+  if (!profile) return null;
+
+  const { data } = await supabaseAdmin.auth.admin.getUserById(profile.id);
+  return data.user?.email ?? null;
+}
+
 async function signIn(formData: FormData): Promise<LoginError | { userId: string }> {
   const parsed = loginSchema.safeParse({
     email: formData.get("email"),
@@ -28,8 +44,13 @@ async function signIn(formData: FormData): Promise<LoginError | { userId: string
     return { fieldErrors: parsed.error.flatten().fieldErrors as LoginFieldErrors };
   }
 
+  const email = await resolveLoginEmail(parsed.data.email);
+  if (!email) {
+    return { message: "Invalid email or password" };
+  }
+
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password: parsed.data.password });
 
   if (error || !data.user) {
     return { message: "Invalid email or password" };
@@ -145,6 +166,9 @@ export async function resetPassword(_prevState: NewPasswordState, formData: Form
 
 export async function logout() {
   const supabase = await createClient();
-  await supabase.auth.signOut();
+  // Ends this browser's session only. supabase-js defaults to "global", which
+  // revokes every session the account has — signing out on one laptop would
+  // drop the same user's phone mid-booking.
+  await supabase.auth.signOut({ scope: "local" });
   redirect("/login");
 }
