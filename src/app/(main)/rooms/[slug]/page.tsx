@@ -3,9 +3,9 @@
 // แก้ไขได้: ยังไม่ได้ต่อ backend จริง (mock data จาก src/data/rooms.ts)
 
 import { notFound } from 'next/navigation';
-import { ROOMS, getRoomBySlug } from '../../../data/rooms';
-import RoomDetail from '../../../components/shared/RoomDetail';
-import { shuffle } from '../../../utils/shuffle';
+import { ROOMS, getRoomBySlug } from '@/data/rooms';
+import RoomDetail from '@/components/shared/RoomDetail';
+import { shuffle } from '@/utils/shuffle';
 
 type RoomDetailPageProps = {
 	params: Promise<{ slug: string }>;

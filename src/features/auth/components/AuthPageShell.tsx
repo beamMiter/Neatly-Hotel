@@ -1,4 +1,4 @@
-import { Navbar } from "@/components/layout/Navbar";
+import Navbar from "@/components/layout/Navbar";
 import { notoSerifDisplay } from "@/lib/fonts";
 import { getCloudAssetUrl } from "@/lib/supabase-storage";
 
