@@ -69,7 +69,7 @@ const CustomerReview = () => {
 							aria-label="Previous testimonial"
 							className="hidden flex-none lg:block"
 						>
-							<Image src="/images/icon/arrow-left-auto-orange.png" alt="" width={56} height={56} />
+							<Image src="/images/icon/arrow-left-auto-orange.svg" alt="" width={56} height={56} />
 						</button>
 
 						<p
@@ -85,7 +85,7 @@ const CustomerReview = () => {
 							aria-label="Next testimonial"
 							className="hidden flex-none lg:block"
 						>
-							<Image src="/images/icon/arrow-right-auto-orange.png" alt="" width={56} height={56} />
+							<Image src="/images/icon/arrow-right-auto-orange.svg" alt="" width={56} height={56} />
 						</button>
 					</div>
 
@@ -112,11 +112,11 @@ const CustomerReview = () => {
 
 					<div className="flex flex-row items-center gap-8 lg:hidden">
 						<button type="button" onClick={() => goTo(-1)} aria-label="Previous testimonial">
-							<Image src="/images/icon/arrow-left-auto-orange.png" alt="" width={56} height={56} />
+							<Image src="/images/icon/arrow-left-auto-orange.svg" alt="" width={56} height={56} />
 						</button>
 
 						<button type="button" onClick={() => goTo(1)} aria-label="Next testimonial">
-							<Image src="/images/icon/arrow-right-auto-orange.png" alt="" width={56} height={56} />
+							<Image src="/images/icon/arrow-right-auto-orange.svg" alt="" width={56} height={56} />
 						</button>
 					</div>
 				</div>

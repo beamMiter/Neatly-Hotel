@@ -91,7 +91,7 @@ const About = () => {
 					className="hidden lg:flex absolute left-40 top-1/2 -translate-y-1/2 h-28 w-28 items-center justify-center"
 					aria-label="Previous image"
 				>
-					<Image src="/images/icon/arrow-left-auto.png" alt="" width={56} height={56} />
+					<Image src="/images/icon/arrow-left-auto.svg" alt="" width={56} height={56} />
 				</button>
 
 				<button
@@ -100,7 +100,7 @@ const About = () => {
 					className="hidden lg:flex absolute right-40 top-1/2 -translate-y-1/2 h-28 w-28 items-center justify-center"
 					aria-label="Next image"
 				>
-					<Image src="/images/icon/arrow-right-auto.png" alt="" width={56} height={56} />
+					<Image src="/images/icon/arrow-right-auto.svg" alt="" width={56} height={56} />
 				</button>
 			</div>
 		</section>

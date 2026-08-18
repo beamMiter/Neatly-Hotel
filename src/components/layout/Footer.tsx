@@ -53,7 +53,7 @@ const Footer = () => {
 			<div className="mx-auto flex max-w-300 flex-col gap-6 px-4 pt-10 pb-10 sm:px-10 lg:gap-12 lg:px-0 lg:pt-16.5 lg:pb-0">
 				<div className="flex flex-col items-start gap-6 lg:flex-row lg:justify-between lg:gap-12">
 					<div className="flex flex-col items-start gap-10">
-						<Image src="/images/icon/logo-white.png" alt="Neatly Hotel" width={180} height={49} />
+						<Image src="/images/icon/logo-white.svg" alt="Neatly Hotel" width={180} height={49} />
 
 						<div className="flex flex-col items-start gap-2">
 							<span className="[font-family:var(--font-inter)] text-xl leading-[150%] font-semibold tracking-[-0.02em] text-white">
@@ -78,7 +78,7 @@ const Footer = () => {
 										onClick={() => handleCopy(item.id, item.value)}
 										className="flex flex-row items-start gap-4"
 									>
-										<Image src={`/images/icon/${item.icon}.png`} alt="" width={20} height={20} className="flex-none" />
+										<Image src={`/images/icon/${item.icon}.svg`} alt="" width={20} height={20} className="flex-none" />
 										<span className="max-w-86 [font-family:var(--font-ibm-plex-thai)] text-base leading-[150%] text-white">
 											{item.label}
 										</span>
@@ -96,7 +96,7 @@ const Footer = () => {
 									rel="noopener noreferrer"
 									className="flex flex-row items-start gap-4"
 								>
-									<Image src={`/images/icon/${item.icon}.png`} alt="" width={20} height={20} className="flex-none" />
+									<Image src={`/images/icon/${item.icon}.svg`} alt="" width={20} height={20} className="flex-none" />
 									<span className="max-w-86 [font-family:var(--font-ibm-plex-thai)] text-base leading-[150%] text-white">
 										{item.label}
 									</span>
@@ -110,7 +110,7 @@ const Footer = () => {
 					<div className="flex flex-row items-center gap-3">
 						{SOCIAL_LINKS.map((social) => (
 							<a key={social.id} href={social.href} target="_blank" rel="noopener noreferrer">
-								<Image src={`/images/icon/${social.icon}.png`} alt={social.label} width={24} height={24} />
+								<Image src={`/images/icon/${social.icon}.svg`} alt={social.label} width={24} height={24} />
 							</a>
 						))}
 					</div>

@@ -78,7 +78,7 @@ const Services = () => {
 				<div className="flex flex-wrap justify-center gap-4">
 					{SERVICES.map((service) => (
 						<div key={service.id} className="group relative flex w-36 flex-col items-center gap-4.75">
-							<Image src={`/images/icon/${service.icon}.png`} alt="" width={60} height={60} />
+							<Image src={`/images/icon/${service.icon}.svg`} alt="" width={60} height={60} />
 							<span className="[font-family:var(--font-inter)] text-base leading-[150%] tracking-[-0.02em] text-white">
 								{service.label}
 							</span>
@@ -98,7 +98,7 @@ const Services = () => {
 
 								<div className="flex flex-col items-center gap-3 p-5">
 									{!service.previewImage && (
-										<Image src={`/images/icon/${service.icon}.png`} alt="" width={40} height={40} />
+										<Image src={`/images/icon/${service.icon}.svg`} alt="" width={40} height={40} />
 									)}
 									<span className="[font-family:var(--font-inter)] text-sm leading-[150%] font-semibold tracking-[-0.02em] text-[#2A2E3F]">
 										{service.label}

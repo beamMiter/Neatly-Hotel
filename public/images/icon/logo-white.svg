@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 49" fill="none" role="img" aria-label="Neatly Hotel">
+  <path
+    d="M8 6.5 10.2 11.8 15.8 12.2 11.4 15.6 12.8 21 8 18.2 3.2 21 4.6 15.6 0.2 12.2 5.8 11.8 8 6.5Z"
+    fill="#E05A3A"
+  />
+  <text
+    x="18"
+    y="36"
+    fill="#FFFFFF"
+    font-family="Georgia, 'Times New Roman', serif"
+    font-size="30"
+    font-weight="700"
+    letter-spacing="0.02em"
+  >
+    NEATLY
+  </text>
+</svg>
