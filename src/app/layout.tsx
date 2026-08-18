@@ -22,7 +22,7 @@ const geistMono = Geist_Mono({
 const notoSerif = Noto_Serif_Display({
 	variable: '--font-noto-serif',
 	subsets: ['latin'],
-	weight: ['500'],
+	weight: 'variable',
 });
 
 const inter = Inter({
