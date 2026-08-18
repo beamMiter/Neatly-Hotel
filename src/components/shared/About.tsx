@@ -8,13 +8,6 @@ import { useRef, useState } from 'react';
 import Image from 'next/image';
 import { smoothScrollTo } from '../../utils/smoothScroll';
 
-// ── Data ───────────────────────────────────────────────────────
-const DESCRIPTION = [
-	"Set in Bangkok, Thailand. Neatly Hotel offers 5-star accommodation with an outdoor pool, kids' club, sports facilities and a fitness centre. There is also a spa, an indoor pool and saunas.",
-	'All units at the hotel are equipped with a seating area, a flat-screen TV with satellite channels, a dining area and a private bathroom with free toiletries, a bathtub and a hairdryer. Every room in Neatly Hotel features a furnished balcony. Some rooms are equipped with a coffee machine.',
-	'Free WiFi and entertainment facilities are available at property and also rentals are provided to explore the area.',
-];
-
 const IMAGES = [
 	{ id: 1, src: '/images/room-bg-preview/room-preview-auto1.jpg', alt: 'Neatly Hotel room' },
 	{ id: 2, src: '/images/room-bg-preview/room-preview-auto2.jpg', alt: 'Neatly Hotel bathroom' },
@@ -23,8 +16,23 @@ const IMAGES = [
 	{ id: 5, src: '/images/room-bg-preview/room-preview-auto5.jpg', alt: 'Neatly Hotel balcony' },
 ];
 
+type AboutProps = {
+	name: string;
+	description: string;
+};
+
+function splitDescription(description: string) {
+	const paragraphs = description
+		.split(/\n\s*\n/)
+		.map((paragraph) => paragraph.trim())
+		.filter(Boolean);
+
+	return paragraphs.length > 0 ? paragraphs : [description];
+}
+
 // ── Component ──────────────────────────────────────────────────
-const About = () => {
+const About = ({ name, description }: AboutProps) => {
+	const paragraphs = splitDescription(description);
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const [activeIndex, setActiveIndex] = useState(0);
 
@@ -49,11 +57,11 @@ const About = () => {
 		<section className="w-full bg-[#F7F7FB] py-20 lg:py-28">
 			<div className="px-6 sm:px-10 lg:px-40 flex flex-col lg:flex-row lg:items-start gap-8 lg:gap-0">
 				<h2 className="flex-none whitespace-nowrap [font-family:var(--font-noto-serif)] font-medium font-stretch-[87.5%] text-[44px] lg:text-[68px] leading-[125%] tracking-[-0.02em] text-[#2F3E35]">
-					Neatly Hotel
+					{name}
 				</h2>
 
 				<div className="max-w-xl lg:w-232 lg:max-w-none lg:mt-34 flex flex-col gap-5">
-					{DESCRIPTION.map((paragraph, index) => (
+					{paragraphs.map((paragraph, index) => (
 						<p
 							key={index}
 							className="[font-family:var(--font-inter)] text-base leading-[150%] tracking-[-0.02em] text-[#646D89]"

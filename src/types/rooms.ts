@@ -35,3 +35,9 @@ export type Room = {
   bedType: BedType;
   status: RoomStatus;
 };
+
+export type RoomTypeOption = {
+  id: string | null;
+  name: string;
+  bedType: string | null;
+};

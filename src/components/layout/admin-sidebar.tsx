@@ -47,16 +47,18 @@ export function AdminSidebar() {
     <aside className="flex h-full min-h-0 w-full flex-col bg-[#2D3E33] text-white">
       {/* Logo */}
       <div className="flex shrink-0 flex-col items-center px-4 pt-10 pb-8">
-        <Image
-          src="/images/neatly-logo-white.svg"
-          alt="NEATLY"
-          width={167}
-          height={45}
-          quality={100}
-          unoptimized
-          className="h-[45px] w-auto"
-          priority
-        />
+        <Link href="/" aria-label="Go to landing page">
+          <Image
+            src="/images/neatly-logo-white.svg"
+            alt="NEATLY"
+            width={167}
+            height={45}
+            quality={100}
+            unoptimized
+            className="h-[45px] w-auto"
+            priority
+          />
+        </Link>
         <p className="mt-3 text-[12px] leading-none text-[#9AA59D]">
           Admin Panel Control
         </p>

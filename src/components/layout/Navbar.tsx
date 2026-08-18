@@ -21,8 +21,15 @@ const NAV_LINKS: NavLink[] = [
 	{ label: 'Rooms & Suits', href: '/rooms' },
 ];
 
+type NavbarProps = {
+	logoUrl?: string | null;
+	hotelName?: string;
+};
+
+const DEFAULT_LOGO = '/images/icon/logo-gereen.svg';
+
 // ── Component ──────────────────────────────────────────────────
-const Navbar = () => {
+const Navbar = ({ logoUrl, hotelName = 'Neatly Hotel' }: NavbarProps) => {
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
 
 	return (
@@ -30,10 +37,11 @@ const Navbar = () => {
 			<nav className="flex items-center h-full px-4 sm:px-10 lg:px-40 gap-6 lg:gap-12">
 				<Link href="/" className="flex-none">
 					<Image
-						src="/images/icon/logo-gereen.svg"
-						alt="Neatly logo"
+						src={logoUrl || DEFAULT_LOGO}
+						alt={`${hotelName} logo`}
 						width={167}
 						height={45}
+						unoptimized={Boolean(logoUrl?.startsWith('/uploads/'))}
 						className="w-23.5 h-auto lg:w-42"
 					/>
 				</Link>
