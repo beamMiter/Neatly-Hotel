@@ -8,6 +8,8 @@ import { useState } from 'react';
 
 // ── Data ───────────────────────────────────────────────────────
 const MIN_COUNT = 1;
+const MAX_ROOMS = 3;
+const MAX_GUESTS = 8;
 
 // ── Sub components ────────────────────────────────────────────
 const DropdownIcon = () => (
@@ -36,10 +38,11 @@ type CounterRowProps = {
 	count: number;
 	onDecrease: () => void;
 	onIncrease: () => void;
+	increaseDisabled?: boolean;
 };
 
 // ── Sub components ────────────────────────────────────────────
-const CounterRow = ({ label, count, onDecrease, onIncrease }: CounterRowProps) => (
+const CounterRow = ({ label, count, onDecrease, onIncrease, increaseDisabled = false }: CounterRowProps) => (
 	<div className="flex h-10 w-full items-center px-4 py-2">
 		<span className="flex-1 [font-family:var(--font-inter)] text-base text-[#646D89]">{label}</span>
 		<div className="flex w-19.5 items-center justify-between gap-1">
@@ -55,7 +58,8 @@ const CounterRow = ({ label, count, onDecrease, onIncrease }: CounterRowProps) =
 			<button
 				type="button"
 				onClick={onIncrease}
-				className="flex h-6 w-6 items-center justify-center rounded-full transition-transform duration-150 hover:bg-gray-100 active:scale-90"
+				disabled={increaseDisabled}
+				className="flex h-6 w-6 items-center justify-center rounded-full transition-transform duration-150 hover:bg-gray-100 active:scale-90 disabled:opacity-40 disabled:hover:bg-transparent"
 			>
 				<PlusIcon />
 			</button>
@@ -63,11 +67,42 @@ const CounterRow = ({ label, count, onDecrease, onIncrease }: CounterRowProps) =
 	</div>
 );
 
+type RoomsGuestsPickerProps = {
+	rooms?: number;
+	guests?: number;
+	onRoomsChange?: (rooms: number) => void;
+	onGuestsChange?: (guests: number) => void;
+};
+
 // ── Component ──────────────────────────────────────────────────
-const RoomsGuestsPicker = () => {
-	const [rooms, setRooms] = useState(1);
-	const [guests, setGuests] = useState(2);
+const RoomsGuestsPicker = ({
+	rooms: roomsProp,
+	guests: guestsProp,
+	onRoomsChange,
+	onGuestsChange,
+}: RoomsGuestsPickerProps) => {
+	const [uncontrolledRooms, setUncontrolledRooms] = useState(roomsProp ?? 1);
+	const [uncontrolledGuests, setUncontrolledGuests] = useState(guestsProp ?? 2);
 	const [isOpen, setIsOpen] = useState(false);
+
+	const rooms = onRoomsChange ? (roomsProp ?? 1) : uncontrolledRooms;
+	const guests = onGuestsChange ? (guestsProp ?? 2) : uncontrolledGuests;
+
+	const setRooms = (value: number) => {
+		if (onRoomsChange) {
+			onRoomsChange(value);
+			return;
+		}
+		setUncontrolledRooms(value);
+	};
+
+	const setGuests = (value: number) => {
+		if (onGuestsChange) {
+			onGuestsChange(value);
+			return;
+		}
+		setUncontrolledGuests(value);
+	};
 
 	const summary = `${rooms} room${rooms > 1 ? 's' : ''}, ${guests} guest${guests > 1 ? 's' : ''}`;
 
@@ -92,14 +127,16 @@ const RoomsGuestsPicker = () => {
 						<CounterRow
 							label="Room"
 							count={rooms}
-							onDecrease={() => setRooms((prev) => Math.max(MIN_COUNT, prev - 1))}
-							onIncrease={() => setRooms((prev) => prev + 1)}
+							onDecrease={() => setRooms(Math.max(MIN_COUNT, rooms - 1))}
+							onIncrease={() => setRooms(Math.min(MAX_ROOMS, rooms + 1))}
+							increaseDisabled={rooms >= MAX_ROOMS}
 						/>
 						<CounterRow
 							label="Guest"
 							count={guests}
-							onDecrease={() => setGuests((prev) => Math.max(MIN_COUNT, prev - 1))}
-							onIncrease={() => setGuests((prev) => prev + 1)}
+							onDecrease={() => setGuests(Math.max(MIN_COUNT, guests - 1))}
+							onIncrease={() => setGuests(Math.min(MAX_GUESTS, guests + 1))}
+							increaseDisabled={guests >= MAX_GUESTS}
 						/>
 					</div>
 				</>
