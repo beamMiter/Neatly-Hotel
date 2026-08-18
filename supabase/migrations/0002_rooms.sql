@@ -5,7 +5,7 @@
 -- This migration only:
 --   1. adds the two room_types columns the Room & Property UI needs that
 --      aren't part of that schema (promotion_price, amenities)
---   2. grants INSERT + adds INSERT policies for the agent-facing create-room
+--   2. grants INSERT + adds INSERT policies for the admin create-room
 --      flow. SELECT was already open on both tables, but INSERT was not:
 --      room_types was missing a working RLS policy (an earlier same-named
 --      policy existed but still rejected inserts, so it's dropped and
@@ -21,7 +21,7 @@ alter table public.room_types
 grant insert on public.room_types to anon, authenticated;
 grant insert on public.room_images to anon, authenticated;
 
--- No agent/role gating yet — the admin panel isn't behind a login wall,
+-- No admin role gating yet — the admin panel isn't behind a login wall,
 -- so these stay permissive like the existing read policies.
 -- `to anon, authenticated` explicitly, matching the existing working SELECT
 -- policies on these tables — a `with check (true)` policy with no `to`
