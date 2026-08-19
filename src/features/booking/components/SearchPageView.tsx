@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import BookingSearch from "@/components/shared/BookingSearch";
 import { RoomCard } from "@/features/booking/components/RoomCard";
 import type { RoomType, SearchQuery } from "@/features/booking/types";
@@ -10,8 +11,13 @@ type SearchPageViewProps = {
 };
 
 export function SearchPageView({ rooms, initialQuery }: SearchPageViewProps) {
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialQuery.checkIn, initialQuery.checkOut, initialQuery.rooms, initialQuery.guests]);
+
   return (
-    <main className="flex-1 bg-brand-surface">
+    <main className="flex-1 animate-[fade-slide_400ms_ease-out] bg-brand-surface">
       <div className="sticky top-0 z-30 bg-white">
         <div className="mx-auto max-w-7xl px-4 py-2 sm:px-8">
           <BookingSearch compact initialQuery={initialQuery} />
