@@ -6,7 +6,7 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
+import Link, { useLinkStatus } from 'next/link';
 
 // ── Types ──────────────────────────────────────────────────────
 type NavLink = {
@@ -14,15 +14,33 @@ type NavLink = {
 	href: string;
 };
 
+// ── Sub components ────────────────────────────────────────────
+// ต้องอยู่เป็น child ของ <Link> เท่านั้น (useLinkStatus อ่าน context จาก Link ที่ครอบมันอยู่)
+const LoginLinkSpinner = () => {
+	const { pending } = useLinkStatus();
+	if (!pending) return null;
+
+	return (
+		<span className="absolute inset-0 z-20 flex items-center justify-center bg-[#C14817]">
+			<span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+		</span>
+	);
+};
+
 // ── Data ───────────────────────────────────────────────────────
 const NAV_LINKS: NavLink[] = [
-	{ label: 'About Neatly', href: '/about' },
-	{ label: 'Service & Facilities', href: '/services' },
-	{ label: 'Rooms & Suits', href: '/rooms' },
+	{ label: 'About Neatly', href: '/#about' },
+	{ label: 'Service & Facilities', href: '/#services' },
+	{ label: 'Rooms & Suits', href: '/#rooms-preview' },
 ];
 
+// ── Types ──────────────────────────────────────────────────────
+type NavbarProps = {
+	hideLogin?: boolean;
+};
+
 // ── Component ──────────────────────────────────────────────────
-const Navbar = () => {
+const Navbar = ({ hideLogin = false }: NavbarProps) => {
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
 
 	return (
@@ -51,12 +69,16 @@ const Navbar = () => {
 					))}
 				</ul>
 
-				<Link
-					href="/login"
-					className="hidden md:flex items-center justify-center h-full px-3 lg:px-6 ml-auto text-sm font-semibold text-[#E76B39] hover:text-[#C14817] transition-colors duration-150 whitespace-nowrap"
-				>
-					Log in
-				</Link>
+				{!hideLogin && (
+					<Link
+						href="/login"
+						className="group relative hidden md:flex flex-none items-center justify-center overflow-hidden rounded h-10 border border-white px-6 ml-auto text-sm font-semibold text-[#C14817] whitespace-nowrap"
+					>
+						<span className="absolute inset-0 -translate-x-full bg-[#C14817] transition-transform duration-300 ease-out group-hover:translate-x-0" />
+						<span className="relative z-10 transition-colors duration-300 group-hover:text-white">Log in</span>
+						<LoginLinkSpinner />
+					</Link>
+				)}
 
 				<button
 					type="button"
@@ -88,15 +110,19 @@ const Navbar = () => {
 						</Link>
 					))}
 
-					<div className="my-2 h-px w-full bg-[#E4E6ED]" />
+					{!hideLogin && (
+						<>
+							<div className="my-2 h-px w-full bg-[#E4E6ED]" />
 
-					<Link
-						href="/login"
-						onClick={() => setIsMenuOpen(false)}
-						className="flex w-full items-center justify-center px-4 py-6 [font-family:var(--font-open-sans)] text-sm font-semibold text-[#E76B39]"
-					>
-						Log in
-					</Link>
+							<Link
+								href="/login"
+								onClick={() => setIsMenuOpen(false)}
+								className="flex w-full items-center justify-center px-4 py-6 [font-family:var(--font-open-sans)] text-sm font-semibold text-[#E76B39]"
+							>
+								Log in
+							</Link>
+						</>
+					)}
 				</div>
 			)}
 		</header>
