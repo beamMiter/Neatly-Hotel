@@ -73,7 +73,10 @@ type RoomCardProps = RoomItem;
 
 const RoomCard = ({ name, slug, image, positionClass, textLeftClass }: RoomCardProps) => {
 	return (
-		<div className={`group relative h-62.5 w-full overflow-hidden lg:absolute ${positionClass}`}>
+		<Link
+			href={`/rooms/${slug}`}
+			className={`group relative block h-62.5 w-full cursor-pointer overflow-hidden lg:absolute ${positionClass}`}
+		>
 			<Image
 				src={image}
 				alt={name}
@@ -88,22 +91,19 @@ const RoomCard = ({ name, slug, image, positionClass, textLeftClass }: RoomCardP
 					{name}
 				</h3>
 
-				<Link
-					href={`/rooms/${slug}`}
-					className="flex items-center gap-2 px-2 py-1 [font-family:var(--font-open-sans)] text-sm leading-4 font-normal text-white"
-				>
+				<span className="flex items-center gap-2 px-2 py-1 [font-family:var(--font-open-sans)] text-sm leading-4 font-normal text-white">
 					Explore Room
 					<Image src="/images/icon/explore.svg" alt="" width={16} height={16} />
-				</Link>
+				</span>
 			</div>
-		</div>
+		</Link>
 	);
 };
 
 // ── Component ──────────────────────────────────────────────────
 const RoomsPreview = () => {
 	return (
-		<section className="w-full bg-[#F7F7FB] flex flex-col items-center gap-18 py-20 lg:py-28">
+		<section id="rooms-preview" className="w-full bg-[#F7F7FB] flex flex-col items-center gap-18 py-20 lg:py-28">
 			<h2 className="whitespace-nowrap px-6 text-center [font-family:var(--font-noto-serif)] font-medium font-stretch-[87.5%] text-[44px] lg:px-0 lg:text-[68px] leading-[125%] tracking-[-0.02em] text-[#2F3E35]">
 				Rooms & Suits
 			</h2>
