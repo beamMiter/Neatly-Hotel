@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getRooms } from "@/features/rooms/queries";
+import { getRooms } from "@/server/queries/room-types.query";
 import { RoomsTable } from "@/features/rooms/components/RoomsTable";
 import { RoomSearchForm } from "@/features/rooms/components/RoomSearchForm";
 import { Pagination } from "@/features/rooms/components/Pagination";

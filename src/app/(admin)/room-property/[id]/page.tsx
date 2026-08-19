@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getRoomById } from "@/features/rooms/queries";
+import { getRoomById } from "@/server/queries/room-types.query";
 import { EditRoomForm } from "@/features/rooms/components/EditRoomForm";
 
 export const metadata: Metadata = {

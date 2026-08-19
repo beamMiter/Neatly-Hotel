@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { parseCreateRoomFormData } from "@/features/rooms/validations";
-import { createRoomType } from "@/features/rooms/queries";
+import { createRoomType } from "@/server/queries/room-types.query";
 
 export async function POST(request: Request) {
   const formData = await request.formData().catch(() => null);

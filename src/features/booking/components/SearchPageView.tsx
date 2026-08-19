@@ -3,10 +3,10 @@
 import { useEffect } from "react";
 import BookingSearch from "@/components/shared/BookingSearch";
 import { RoomCard } from "@/features/booking/components/RoomCard";
-import type { RoomType, SearchQuery } from "@/features/booking/types";
+import type { RoomSearchResult, SearchQuery } from "@/types/room-search";
 
 type SearchPageViewProps = {
-  rooms: RoomType[];
+  rooms: RoomSearchResult[];
   initialQuery: SearchQuery;
 };
 

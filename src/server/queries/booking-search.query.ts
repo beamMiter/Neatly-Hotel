@@ -1,6 +1,6 @@
 import "server-only";
 import { supabaseAdmin } from "@/server/db/supabase-admin";
-import type { RoomType, SearchQuery } from "@/features/booking/types";
+import type { RoomSearchResult, SearchQuery } from "@/types/room-search";
 
 const IMAGE_BUCKET = "room-images";
 
@@ -66,7 +66,7 @@ function imageUrlsFrom(images: RoomTypeRow["room_images"]): string[] {
     );
 }
 
-function mapRoomType(row: RoomTypeRow): RoomType {
+function mapRoomType(row: RoomTypeRow): RoomSearchResult {
   const fullPrice = toNumber(row.base_price);
   const promo = row.promotion_price === null ? null : toNumber(row.promotion_price);
   const imageUrls = imageUrlsFrom(row.room_images);
@@ -125,7 +125,7 @@ function isAvailableRoom(room: RoomRow, bookedRoomIds: Set<string> | null) {
   return true;
 }
 
-export async function searchRoomTypes(query: SearchQuery): Promise<RoomType[]> {
+export async function searchRoomTypes(query: SearchQuery): Promise<RoomSearchResult[]> {
   const [{ data: typeRows, error: typesError }, { data: roomRows, error: roomsError }] =
     await Promise.all([
       supabaseAdmin.from("room_types").select(ROOM_TYPE_SELECT).order("created_at", { ascending: true }),
@@ -158,7 +158,7 @@ export async function searchRoomTypes(query: SearchQuery): Promise<RoomType[]> {
     .map(mapRoomType);
 }
 
-export async function getGuestRoomTypeById(id: string): Promise<RoomType | null> {
+export async function getGuestRoomTypeById(id: string): Promise<RoomSearchResult | null> {
   const { data, error } = await supabaseAdmin
     .from("room_types")
     .select(ROOM_TYPE_SELECT)

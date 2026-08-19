@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { formatThb } from "@/features/booking/format";
 import { RoomImagePlaceholder } from "@/features/booking/components/RoomImagePlaceholder";
-import type { RoomType } from "@/features/booking/types";
+import type { RoomSearchResult } from "@/types/room-search";
 
 type RoomCardProps = {
-  room: RoomType;
+  room: RoomSearchResult;
 };
 
 export function RoomCard({ room }: RoomCardProps) {

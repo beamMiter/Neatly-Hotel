@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { BED_TYPES } from "./types";
+import { BED_TYPES } from "@/types/room-type";
 
 export const createRoomSchema = z.object({
   roomType: z
