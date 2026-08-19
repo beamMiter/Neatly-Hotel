@@ -1,5 +1,5 @@
 // ── MainLayout ────────────────────────────────────────────────────────
-// Wraps the public marketing/booking pages (landing, search, room detail) — Navbar, Footer, ChatbotButton
+// Wraps the public marketing/booking pages (landing, search, room detail) — Navbar, Footer, chat widget
 // แก้ไขได้: อยู่แค่หน้าในกลุ่มนี้ — auth pages (login/register/forgot-password) ไม่ใช้ layout นี้
 
 import { Suspense } from 'react';
