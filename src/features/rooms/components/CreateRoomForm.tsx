@@ -276,7 +276,6 @@ export function CreateRoomForm() {
               <span className="text-sm text-brand-body">Image Gallery(At least {MIN_GALLERY_IMAGES} pictures) *</span>
               <RoomGalleryUpload
                 id="galleryImages"
-                files={galleryFiles}
                 onChange={(files) => {
                   setGalleryFiles(files);
                   setErrors((prev) => (prev.gallery ? { ...prev, gallery: undefined } : prev));
