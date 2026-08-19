@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { ChevronDownIcon } from "@/components/icons/ChevronDownIcon";
 import { RoomStatusBadge } from "@/features/room-management/components/room-status-badge";
 import {
   createPhysicalRoomSchema,
@@ -17,6 +18,7 @@ type CreateRoomFormProps = {
 
 export function CreateRoomForm({ roomTypes }: CreateRoomFormProps) {
   const router = useRouter();
+  const [roomNo, setRoomNo] = useState("");
   const [roomTypeId, setRoomTypeId] = useState("");
   const [roomType, setRoomType] = useState("");
   const [bedType, setBedType] = useState<BedType | "">("");
@@ -51,6 +53,7 @@ export function CreateRoomForm({ roomTypes }: CreateRoomFormProps) {
     setFormError("");
 
     const parsed = createPhysicalRoomSchema.safeParse({
+      roomNo,
       roomType,
       roomTypeId: roomTypeId || null,
       bedType,
@@ -123,12 +126,29 @@ export function CreateRoomForm({ roomTypes }: CreateRoomFormProps) {
       <div className="min-h-0 flex-1 overflow-y-auto px-10 py-6">
         <div className="rounded-[4px] bg-white px-10 py-8">
           <div className="flex max-w-[560px] flex-col gap-6">
+            <Field id="room-no" label="Room no." required error={errors.roomNo}>
+              <input
+                id="room-no"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                autoComplete="off"
+                placeholder="e.g. 201, 1201"
+                value={roomNo}
+                onChange={(event) => {
+                  setRoomNo(event.target.value.replace(/\D/g, ""));
+                  setErrors((current) => ({ ...current, roomNo: undefined }));
+                }}
+                className={inputClassName(Boolean(errors.roomNo))}
+              />
+            </Field>
+
             <Field id="room-type" label="Room type" required error={errors.roomType}>
-              <select
+              <SelectField
                 id="room-type"
                 value={roomTypeId || roomType}
                 onChange={(event) => handleRoomTypeChange(event.target.value)}
-                className={fieldClassName(Boolean(errors.roomType))}
+                hasError={Boolean(errors.roomType)}
               >
                 <option value="" disabled>
                   Select room type
@@ -138,18 +158,18 @@ export function CreateRoomForm({ roomTypes }: CreateRoomFormProps) {
                     {option.name}
                   </option>
                 ))}
-              </select>
+              </SelectField>
             </Field>
 
             <Field id="bed-type" label="Bed Type" required error={errors.bedType}>
-              <select
+              <SelectField
                 id="bed-type"
                 value={bedType}
                 onChange={(event) => {
                   setBedType(event.target.value as BedType);
                   setErrors((current) => ({ ...current, bedType: undefined }));
                 }}
-                className={fieldClassName(Boolean(errors.bedType))}
+                hasError={Boolean(errors.bedType)}
               >
                 <option value="" disabled>
                   Select bed type
@@ -159,25 +179,25 @@ export function CreateRoomForm({ roomTypes }: CreateRoomFormProps) {
                     {option}
                   </option>
                 ))}
-              </select>
+              </SelectField>
             </Field>
 
             <Field id="status" label="Status" required error={errors.status}>
-              <select
+              <SelectField
                 id="status"
                 value={status}
                 onChange={(event) => {
                   setStatus(event.target.value as RoomStatus);
                   setErrors((current) => ({ ...current, status: undefined }));
                 }}
-                className={fieldClassName(Boolean(errors.status))}
+                hasError={Boolean(errors.status)}
               >
                 {ROOM_STATUSES.map((option) => (
                   <option key={option} value={option}>
                     {option}
                   </option>
                 ))}
-              </select>
+              </SelectField>
               <div className="mt-2">
                 <RoomStatusBadge status={status} />
               </div>
@@ -224,8 +244,44 @@ function Field({
   );
 }
 
-function fieldClassName(hasError: boolean) {
-  return `h-11 w-full rounded-[4px] border bg-white px-3.5 text-[14px] text-[#344054] outline-none ${
+function SelectField({
+  id,
+  value,
+  onChange,
+  hasError,
+  children,
+}: {
+  id: string;
+  value: string;
+  onChange: React.ChangeEventHandler<HTMLSelectElement>;
+  hasError: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="relative">
+      <select
+        id={id}
+        value={value}
+        onChange={onChange}
+        className={selectClassName(hasError)}
+      >
+        {children}
+      </select>
+      <ChevronDownIcon className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#667085]" />
+    </div>
+  );
+}
+
+function inputClassName(hasError: boolean) {
+  return `h-11 w-full rounded-[4px] border bg-white px-4 text-[14px] text-[#344054] outline-none placeholder:text-[#98A2B3] ${
+    hasError
+      ? "border-[#C83B3B] focus:border-[#C83B3B]"
+      : "border-[#D0D5DD] focus:border-[#C34A2C]"
+  }`;
+}
+
+function selectClassName(hasError: boolean) {
+  return `h-11 w-full appearance-none rounded-[4px] border bg-white px-4 pr-11 text-[14px] text-[#344054] outline-none ${
     hasError
       ? "border-[#C83B3B] focus:border-[#C83B3B]"
       : "border-[#D0D5DD] focus:border-[#C34A2C]"

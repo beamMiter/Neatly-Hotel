@@ -1,3 +1,9 @@
+import { HOTEL_LAYOUT } from "@/data/hotel-layout";
+import {
+  buildLayoutRoomSeeds,
+  enrichRoomFromLayout,
+  sortRoomsByLayout,
+} from "@/lib/rooms/layout-rooms";
 import { prisma } from "@/server/db";
 import type { BedType, Room, RoomStatus, RoomTypeOption } from "@/types/rooms";
 
@@ -17,12 +23,41 @@ function mapRoom(row: {
   };
 }
 
-export async function getRooms(): Promise<Room[]> {
-  const rows = await prisma.room.findMany({
-    orderBy: { roomNo: "asc" },
-  });
+async function syncLayoutRoomsIfNeeded(): Promise<void> {
+  const count = await prisma.room.count();
+  if (count >= HOTEL_LAYOUT.totalRooms) return;
 
-  return rows.map(mapRoom);
+  const typeRows = await prisma.roomType.findMany({
+    select: { id: true, name: true },
+  });
+  const typeByName = new Map(typeRows.map((type) => [type.name, type.id]));
+  const seeds = buildLayoutRoomSeeds();
+
+  for (const room of seeds) {
+    await prisma.room.upsert({
+      where: { roomNo: room.roomNo },
+      create: {
+        roomNo: room.roomNo,
+        roomType: room.roomType,
+        bedType: room.bedType,
+        status: room.status,
+        roomTypeId: typeByName.get(room.roomType) ?? null,
+      },
+      update: {
+        roomType: room.roomType,
+        bedType: room.bedType,
+        roomTypeId: typeByName.get(room.roomType) ?? null,
+      },
+    });
+  }
+}
+
+export async function getRooms(): Promise<Room[]> {
+  await syncLayoutRoomsIfNeeded();
+
+  const rows = await prisma.room.findMany();
+
+  return sortRoomsByLayout(rows.map(mapRoom).map(enrichRoomFromLayout));
 }
 
 export async function updateRoomStatus(
@@ -34,7 +69,7 @@ export async function updateRoomStatus(
     data: { status },
   });
 
-  return mapRoom(row);
+  return enrichRoomFromLayout(mapRoom(row));
 }
 
 export async function deleteRoom(id: string): Promise<boolean> {
@@ -73,35 +108,16 @@ export async function getRoomTypeOptions(): Promise<RoomTypeOption[]> {
   }));
 }
 
-async function getNextRoomNo(): Promise<string> {
-  const latest = await prisma.room.findFirst({
-    orderBy: { roomNo: "desc" },
-    select: { roomNo: true },
-  });
-
-  if (!latest) {
-    return "0001";
-  }
-
-  const num = Number.parseInt(latest.roomNo, 10);
-  if (Number.isNaN(num)) {
-    return "0001";
-  }
-
-  return String(num + 1).padStart(4, "0");
-}
-
 export async function createRoom(input: {
+  roomNo: string;
   roomType: string;
   roomTypeId?: string | null;
   bedType: BedType;
   status: RoomStatus;
 }): Promise<Room> {
-  const roomNo = await getNextRoomNo();
-
   const row = await prisma.room.create({
     data: {
-      roomNo,
+      roomNo: input.roomNo,
       roomType: input.roomType,
       bedType: input.bedType,
       status: input.status,
@@ -109,5 +125,5 @@ export async function createRoom(input: {
     },
   });
 
-  return mapRoom(row);
+  return enrichRoomFromLayout(mapRoom(row));
 }

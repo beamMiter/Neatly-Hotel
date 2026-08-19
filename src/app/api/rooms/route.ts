@@ -2,17 +2,20 @@ import { NextResponse } from "next/server";
 import { createPhysicalRoomSchema } from "@/features/room-management/validations";
 import { hasDatabaseUrl } from "@/server/db";
 import { createRoom, getRooms } from "@/server/queries/rooms.query";
-import { MOCK_ROOMS } from "@/lib/rooms/mock-data";
+
+function databaseUnavailableResponse() {
+  return NextResponse.json(
+    { error: "Database is not configured. Set DATABASE_URL to Supabase Postgres." },
+    { status: 503 },
+  );
+}
 
 export async function GET() {
-  try {
-    if (!hasDatabaseUrl()) {
-      return NextResponse.json({
-        source: "mock",
-        data: MOCK_ROOMS,
-      });
-    }
+  if (!hasDatabaseUrl()) {
+    return databaseUnavailableResponse();
+  }
 
+  try {
     const rooms = await getRooms();
     return NextResponse.json({
       source: "database",
@@ -21,17 +24,17 @@ export async function GET() {
   } catch (error) {
     console.error("[api/rooms] GET failed:", error);
     return NextResponse.json(
-      {
-        source: "mock",
-        error: "Failed to fetch rooms from database",
-        data: MOCK_ROOMS,
-      },
+      { error: "Failed to fetch rooms from Supabase" },
       { status: 500 },
     );
   }
 }
 
 export async function POST(request: Request) {
+  if (!hasDatabaseUrl()) {
+    return databaseUnavailableResponse();
+  }
+
   try {
     const body = (await request.json()) as unknown;
     const parsed = createPhysicalRoomSchema.safeParse(body);
@@ -43,23 +46,8 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!hasDatabaseUrl()) {
-      return NextResponse.json(
-        {
-          source: "mock",
-          data: {
-            id: `mock-${Date.now()}`,
-            roomNo: "9999",
-            roomType: parsed.data.roomType,
-            bedType: parsed.data.bedType,
-            status: parsed.data.status,
-          },
-        },
-        { status: 201 },
-      );
-    }
-
     const room = await createRoom({
+      roomNo: parsed.data.roomNo,
       roomType: parsed.data.roomType,
       roomTypeId: parsed.data.roomTypeId,
       bedType: parsed.data.bedType,
@@ -69,6 +57,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ source: "database", data: room }, { status: 201 });
   } catch (error) {
     console.error("[api/rooms] POST failed:", error);
+
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      error.code === "P2002"
+    ) {
+      return NextResponse.json(
+        { error: "This room number already exists. Please use a different one." },
+        { status: 409 },
+      );
+    }
+
     return NextResponse.json({ error: "Failed to create room" }, { status: 500 });
   }
 }
