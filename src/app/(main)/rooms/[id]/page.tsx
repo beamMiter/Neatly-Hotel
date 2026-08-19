@@ -4,7 +4,7 @@ import RoomDetail from "@/components/shared/RoomDetail";
 import { toLandingRoom } from "@/features/booking/format";
 import { getGuestRoomTypeById, searchRoomTypes } from "@/features/booking/queries";
 import { ROOMS, getRoomBySlug } from "@/data/rooms";
-import { shuffle } from "@/utils/shuffle";
+import { shuffle } from "@/lib/shuffle";
 
 type RoomDetailPageProps = {
   params: Promise<{ id: string }>;
