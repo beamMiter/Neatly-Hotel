@@ -21,7 +21,7 @@ export function DeleteRoomModal({ open, onClose, onConfirm, isDeleting }: Delete
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="text-brand-muted transition-colors hover:text-brand-body"
+            className="cursor-pointer text-brand-muted transition-colors hover:text-brand-body"
           >
             <CloseIcon className="h-4 w-4" />
           </button>
@@ -34,14 +34,14 @@ export function DeleteRoomModal({ open, onClose, onConfirm, isDeleting }: Delete
             type="button"
             onClick={onConfirm}
             disabled={isDeleting}
-            className="rounded-md border border-brand-primary px-4 py-2 text-sm font-semibold text-brand-primary transition-colors hover:bg-brand-surface-alt disabled:cursor-not-allowed disabled:opacity-70"
+            className="cursor-pointer rounded-md border border-brand-primary px-4 py-2 text-sm font-semibold text-brand-primary transition-colors hover:bg-brand-surface-alt disabled:cursor-not-allowed disabled:opacity-70"
           >
             {isDeleting ? "Deleting..." : "Yes, I want to delete"}
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md bg-brand-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-primary-hover"
+            className="cursor-pointer rounded-md bg-brand-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-primary-hover"
           >
             No, I don&apos;t
           </button>

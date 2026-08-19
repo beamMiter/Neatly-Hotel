@@ -49,7 +49,7 @@ export function RoomCard({ room }: RoomCardProps) {
           </Link>
           <button
             type="button"
-            className="rounded-sm bg-brand-primary px-6 py-3 text-sm font-medium text-white hover:bg-brand-primary-hover"
+            className="cursor-pointer rounded-sm bg-brand-primary px-6 py-3 text-sm font-medium text-white hover:bg-brand-primary-hover"
           >
             Book Now
           </button>

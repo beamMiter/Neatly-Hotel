@@ -76,7 +76,7 @@ const Footer = () => {
 									<button
 										type="button"
 										onClick={() => handleCopy(item.id, item.value)}
-										className="flex flex-row items-start gap-4"
+										className="flex cursor-pointer flex-row items-start gap-4"
 									>
 										<Image src={`/images/icon/${item.icon}.svg`} alt="" width={20} height={20} className="flex-none" />
 										<span className="max-w-86 [font-family:var(--font-ibm-plex-thai)] text-base leading-[150%] text-white">

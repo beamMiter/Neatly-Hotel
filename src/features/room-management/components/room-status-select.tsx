@@ -144,7 +144,7 @@ export function RoomStatusSelect({
           setOpen(true);
           setQuery("");
         }}
-        className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[#C34A2C]/40 disabled:cursor-not-allowed disabled:opacity-60"
+        className="cursor-pointer rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[#C34A2C]/40 disabled:cursor-not-allowed disabled:opacity-60"
       >
         <RoomStatusBadge status={status} />
       </button>
@@ -195,7 +195,7 @@ export function RoomStatusSelect({
                         role="option"
                         aria-selected={item === status}
                         onClick={() => handleSelect(item)}
-                        className="flex w-full items-center rounded-[4px] px-2 py-2 text-left transition-colors hover:bg-[#F9FAFB]"
+                        className="flex w-full cursor-pointer items-center rounded-[4px] px-2 py-2 text-left transition-colors hover:bg-[#F9FAFB]"
                       >
                         <RoomStatusBadge status={item} />
                       </button>

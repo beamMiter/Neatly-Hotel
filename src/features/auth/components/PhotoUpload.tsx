@@ -41,7 +41,7 @@ export function PhotoUpload({ id, name, file, onChange }: PhotoUploadProps) {
           type="button"
           onClick={handleRemove}
           aria-label="Remove photo"
-          className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-brand-ink text-white shadow"
+          className="absolute -right-2 -top-2 flex h-6 w-6 cursor-pointer items-center justify-center rounded-full bg-brand-ink text-white shadow"
         >
           <CloseIcon className="h-3.5 w-3.5" />
         </button>

@@ -231,7 +231,7 @@ export function RoomManagementView({
                       aria-label={`Delete room ${room.roomNo}`}
                       disabled={deletingRoomId === room.id}
                       onClick={() => setRoomToDelete(room)}
-                      className="flex h-8 w-8 items-center justify-center rounded-[4px] text-[#98A2B3] transition-colors hover:bg-[#FEECE8] hover:text-[#C34A2C] disabled:opacity-50"
+                      className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-[4px] text-[#98A2B3] transition-colors hover:bg-[#FEECE8] hover:text-[#C34A2C] disabled:cursor-default disabled:opacity-50"
                     >
                       <TrashIcon className="h-4 w-4" />
                     </button>
@@ -261,7 +261,7 @@ export function RoomManagementView({
                 key={pageNumber}
                 type="button"
                 onClick={() => setPage(pageNumber)}
-                className={`flex h-8 min-w-8 items-center justify-center rounded-[3px] text-[14px] ${
+                className={`flex h-8 min-w-8 cursor-pointer items-center justify-center rounded-[3px] text-[14px] ${
                   active
                     ? "border border-[#D0D5DD] bg-white text-[#344054]"
                     : "text-[#98A2B3]"
@@ -312,7 +312,7 @@ function PaginationButton({
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className="flex h-8 w-8 items-center justify-center text-[#98A2B3] disabled:text-[#D0D5DD]"
+      className="flex h-8 w-8 cursor-pointer items-center justify-center text-[#98A2B3] disabled:cursor-default disabled:text-[#D0D5DD]"
     >
       {children}
     </button>

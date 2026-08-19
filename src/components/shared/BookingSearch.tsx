@@ -120,7 +120,7 @@ const BookingSearch = ({ initialQuery, compact = false }: BookingSearchProps) =>
 			<button
 				type="button"
 				onClick={handleSearch}
-				className="flex h-12 w-full flex-none items-center justify-center gap-2.5 rounded bg-[#C14817] px-8 py-4 [font-family:var(--font-open-sans)] text-base font-semibold text-white transition-transform duration-150 active:scale-90 lg:w-36"
+				className="flex h-12 w-full flex-none cursor-pointer items-center justify-center gap-2.5 rounded bg-[#C14817] px-8 py-4 [font-family:var(--font-open-sans)] text-base font-semibold text-white transition-transform duration-150 active:scale-90 lg:w-36"
 			>
 				Search
 			</button>

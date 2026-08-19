@@ -113,7 +113,7 @@ export function CreateRoomForm() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="rounded-md bg-brand-primary px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-primary-hover disabled:cursor-not-allowed disabled:opacity-70"
+            className="cursor-pointer rounded-md bg-brand-primary px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-primary-hover disabled:cursor-not-allowed disabled:opacity-70"
           >
             {isSubmitting ? "Creating..." : "Create"}
           </button>

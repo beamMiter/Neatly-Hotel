@@ -108,7 +108,7 @@ export function HotelInformationView({ hotel }: HotelInformationViewProps) {
         <button
           type="submit"
           disabled={saving}
-          className="flex h-10 items-center rounded-[4px] bg-[#C34A2C] px-5 text-[14px] font-medium text-white disabled:opacity-60"
+          className="flex h-10 cursor-pointer items-center rounded-[4px] bg-[#C34A2C] px-5 text-[14px] font-medium text-white disabled:cursor-default disabled:opacity-60"
         >
           {saving ? "Updating..." : "Update"}
         </button>
@@ -153,7 +153,7 @@ export function HotelInformationView({ hotel }: HotelInformationViewProps) {
                     type="button"
                     onClick={handleRemoveLogo}
                     aria-label="Remove hotel logo"
-                    className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-[#E53935] text-white"
+                    className="absolute -top-2 -right-2 flex h-6 w-6 cursor-pointer items-center justify-center rounded-full bg-[#E53935] text-white"
                   >
                     <CloseIcon className="h-3.5 w-3.5" />
                   </button>
