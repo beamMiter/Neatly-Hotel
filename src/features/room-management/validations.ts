@@ -2,6 +2,12 @@ import { z } from "zod";
 import { BED_TYPES, ROOM_STATUSES } from "@/types/rooms";
 
 export const createPhysicalRoomSchema = z.object({
+  roomNo: z
+    .string({ message: "Room no. is required" })
+    .trim()
+    .min(1, "Room no. is required")
+    .max(16, "Room no. is too long")
+    .regex(/^\d+$/, "Room no. must contain numbers only"),
   roomType: z
     .string({ message: "Room type is required" })
     .trim()

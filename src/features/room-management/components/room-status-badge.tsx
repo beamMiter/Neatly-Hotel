@@ -1,4 +1,4 @@
-import { ROOM_STATUS_STYLES } from "@/lib/rooms/mock-data";
+import { ROOM_STATUS_STYLES } from "@/lib/rooms/room-status-styles";
 import type { RoomStatus } from "@/types/rooms";
 
 type RoomStatusBadgeProps = {

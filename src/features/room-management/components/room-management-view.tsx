@@ -6,6 +6,7 @@ import { createClient } from "@/app/lib/supabase/client";
 import { PlusIcon } from "@/components/icons/PlusIcon";
 import { RoomDeleteDialog } from "@/features/room-management/components/room-delete-dialog";
 import { RoomStatusSelect } from "@/features/room-management/components/room-status-select";
+import { formatRoomLocation } from "@/lib/rooms/layout-rooms";
 import type { Room, RoomStatus } from "@/types/rooms";
 
 const PAGE_SIZE = 9;
@@ -67,11 +68,13 @@ export function RoomManagementView({
     if (!normalized) return rooms;
 
     return rooms.filter((room) => {
+      const location = formatRoomLocation(room)?.toLowerCase() ?? "";
       return (
         room.roomNo.toLowerCase().includes(normalized) ||
         room.roomType.toLowerCase().includes(normalized) ||
         room.bedType.toLowerCase().includes(normalized) ||
-        room.status.toLowerCase().includes(normalized)
+        room.status.toLowerCase().includes(normalized) ||
+        location.includes(normalized)
       );
     });
   }, [rooms, query]);
@@ -80,7 +83,6 @@ export function RoomManagementView({
   const currentPage = Math.min(page, totalPages);
   const startIndex = (currentPage - 1) * PAGE_SIZE;
   const pageRooms = filteredRooms.slice(startIndex, startIndex + PAGE_SIZE);
-  const fillCard = pageRooms.length === PAGE_SIZE;
 
   function handleSearchChange(value: string) {
     setQuery(value);
@@ -191,32 +193,35 @@ export function RoomManagementView({
         </div>
       </header>
 
-      {/* Content pane — table card */}
-      <div className="flex min-h-0 w-full flex-1 flex-col px-10 pt-6 pb-8">
-        <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[4px] bg-white">
-          <div className="flex h-12 shrink-0 items-center bg-[#E9ECF1] text-[13px] font-medium text-[#667085]">
-            <div className="w-[14%] px-6">Room no.</div>
-            <div className="w-[30%] px-6">Room type</div>
-            <div className="w-[22%] px-6">Bed Type</div>
-            <div className="w-[24%] px-6">Status</div>
-            <div className="w-[10%] px-4 text-center">Action</div>
-          </div>
+      {/* Content pane — table card + pagination pinned to bottom */}
+      <div className="flex min-h-0 flex-1 flex-col px-10 pt-6 pb-8">
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="overflow-hidden rounded-[4px] bg-white">
+            <div className="flex h-12 items-center bg-[#E9ECF1] text-[13px] font-medium text-[#667085]">
+              <div className="w-[14%] px-6">Room no.</div>
+              <div className="w-[30%] px-6">Room type</div>
+              <div className="w-[22%] px-6">Bed Type</div>
+              <div className="w-[24%] px-6">Status</div>
+              <div className="w-[10%] px-4 text-center">Action</div>
+            </div>
 
-          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
             {pageRooms.length === 0 ? (
-              <div className="flex flex-1 items-center justify-center text-[14px] text-[#9CA3AF]">
+              <div className="flex items-center justify-center py-12 text-[14px] text-[#9CA3AF]">
                 No rooms found.
               </div>
             ) : (
               pageRooms.map((room) => (
                 <div
                   key={room.id}
-                  className={`flex items-center border-b border-[#F0F1F5] last:border-b-0 ${
-                    fillCard ? "min-h-0 flex-1" : "h-14 shrink-0"
-                  }`}
+                  className="flex min-h-16 items-center border-b border-[#F0F1F5] last:border-b-0"
                 >
-                  <div className="w-[14%] px-6 text-[14px] text-[#344054]">
-                    {room.roomNo}
+                  <div className="w-[14%] px-6">
+                    <p className="text-[14px] text-[#344054]">{room.roomNo}</p>
+                    {formatRoomLocation(room) ? (
+                      <p className="text-[12px] text-[#98A2B3]">
+                        {formatRoomLocation(room)}
+                      </p>
+                    ) : null}
                   </div>
                   <div className="w-[30%] px-6 text-[14px] text-[#344054]">
                     {room.roomType}
@@ -248,7 +253,7 @@ export function RoomManagementView({
           </div>
         </div>
 
-        {/* Pagination outside card */}
+        {/* Pagination — fixed at bottom of content area */}
         <div className="mt-6 flex shrink-0 items-center justify-center gap-2.5">
           <PaginationButton
             label="Previous page"

@@ -34,6 +34,8 @@ export type Room = {
   roomType: string;
   bedType: BedType;
   status: RoomStatus;
+  building?: string;
+  floor?: number | null;
 };
 
 export type RoomTypeOption = {

@@ -13,8 +13,19 @@ function isRoomStatus(value: unknown): value is RoomStatus {
   );
 }
 
+function databaseUnavailableResponse() {
+  return NextResponse.json(
+    { error: "Database is not configured. Set DATABASE_URL to Supabase Postgres." },
+    { status: 503 },
+  );
+}
+
 export async function PATCH(request: Request, context: RouteContext) {
   const { id } = await context.params;
+
+  if (!hasDatabaseUrl()) {
+    return databaseUnavailableResponse();
+  }
 
   try {
     const body = (await request.json()) as { status?: unknown };
@@ -24,13 +35,6 @@ export async function PATCH(request: Request, context: RouteContext) {
         { error: "Invalid room status" },
         { status: 400 },
       );
-    }
-
-    if (!hasDatabaseUrl()) {
-      return NextResponse.json({
-        source: "mock",
-        data: { id, status: body.status },
-      });
     }
 
     const room = await updateRoomStatus(id, body.status);
@@ -55,14 +59,11 @@ export async function PATCH(request: Request, context: RouteContext) {
 export async function DELETE(_request: Request, context: RouteContext) {
   const { id } = await context.params;
 
-  try {
-    if (!hasDatabaseUrl()) {
-      return NextResponse.json({
-        source: "mock",
-        data: { id },
-      });
-    }
+  if (!hasDatabaseUrl()) {
+    return databaseUnavailableResponse();
+  }
 
+  try {
     const deleted = await deleteRoom(id);
 
     if (!deleted) {
