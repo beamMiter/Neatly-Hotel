@@ -8,6 +8,31 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
+# Stack
+
+- Next.js App Router (TypeScript)
+- Tailwind CSS
+- React Compiler เปิดอยู่ (`next.config.ts`)
+- Frontend + backend อยู่ repo เดียวกัน
+- Database: Prisma + Supabase PostgreSQL (ใช้ฐานข้อมูลร่วมกันทั้งทีม)
+- Path alias: `@/*` → `./src/*`
+
+## Setup ฐานข้อมูล
+
+1. copy `.env.example` → `.env.local` แล้วใส่ `DATABASE_URL`
+2. รันครั้งแรก:
+   ```bash
+   npm install
+   npm run db:setup
+   ```
+
+| Script | ทำอะไร |
+|---|---|
+| `npm run db:deploy` | apply migration ที่มีอยู่ขึ้น Supabase |
+| `npm run db:seed` | seed ข้อมูลตัวอย่าง |
+| `npm run db:setup` | deploy + seed |
+| `npm run db:migrate` | สร้าง migration ใหม่ — **ห้ามรันโดยไม่ถามทีมก่อน** ดูหัวข้อ "Database schema" ด้านล่าง |
+
 # โครงสร้างโปรเจกต์ — ของแต่ละอย่างอยู่ตรงไหน
 
 โปรเจกต์นี้มีหลายคนทำงานคู่ขนานกัน ที่ผ่านมาต่างคนต่างสร้างที่อยู่ของตัวเองขึ้นมาเพราะไม่มีกติกาเขียนไว้ ผลคือมี Supabase client 4 ตัว, ที่เก็บ query 3 แบบ, และ type ชื่อ `Room` ที่นิยามซ้ำ 5 จุด หัวข้อนี้คือกติกาที่ตกลงกันแล้วเพื่อไม่ให้เกิดซ้ำ
