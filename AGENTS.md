@@ -35,7 +35,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # โครงสร้างโปรเจกต์ — ของแต่ละอย่างอยู่ตรงไหน
 
-โปรเจกต์นี้มีหลายคนทำงานคู่ขนานกัน ที่ผ่านมาต่างคนต่างสร้างที่อยู่ของตัวเองขึ้นมาเพราะไม่มีกติกาเขียนไว้ ผลคือมี Supabase client 4 ตัว, ที่เก็บ query 3 แบบ, และ type ชื่อ `Room` ที่นิยามซ้ำ 5 จุด หัวข้อนี้คือกติกาที่ตกลงกันแล้วเพื่อไม่ให้เกิดซ้ำ
+โปรเจกต์นี้มีหลายคนทำงานคู่ขนานกัน ที่ผ่านมาต่างคนต่างสร้างที่อยู่ของตัวเองขึ้นมาเพราะไม่มีกติกาเขียนไว้ ผลคือเคยมี Supabase client 4 ตัว, ที่เก็บ query 3 แบบ, และ type ชื่อ `Room` ที่นิยามซ้ำ 5 จุด — ตอนนี้รวม Supabase client และ query layer หลักเสร็จแล้ว (ดูตารางท้ายไฟล์ว่าเหลืออะไรอีก) หัวข้อนี้คือกติกาที่ตกลงกันแล้วเพื่อไม่ให้ของซ้ำแบบนี้งอกใหม่
 
 ## กติกาว่าอะไรอยู่ตรงไหน
 
@@ -64,6 +64,14 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 เหตุผล: ไฟล์ query เป็น infrastructure ที่ใช้ร่วมกัน มันจึงห้าม import type จากใน `src/features/<name>/` (นั่นคือ layer กลับทิศ) type ที่ query layer ใช้จึงต้องอยู่ในที่กลาง
 
 อย่ายกทุก type ไปกอง `src/types/` เพราะ "ดูเหมือนใช้ซ้ำได้" — type ที่หน้าตาคล้ายกันแต่คนละผู้ใช้งาน (เช่นห้องในมุม admin vs ในมุมลูกค้าที่ค้นหา) ควรแยกกันและ**ตั้งชื่อให้ต่างกัน** ไม่ใช่ `Room` เหมือนกันหมด
+
+ตัวอย่างจริงที่ทำตามกติกานี้แล้ว — คำว่า "ห้อง" มีความหมายต่างกัน 3 อย่างในระบบ ตั้งชื่อแยกกันชัดเจนแทนที่จะใช้ `Room` ซ้ำ:
+
+| ไฟล์ | ความหมาย | ใช้กับ |
+|---|---|---|
+| `src/types/rooms.ts` → `Room` | ห้องจริงเชิงกายภาพ (เลขห้อง, สถานะทำความสะอาด) | Room Management |
+| `src/types/room-type.ts` → `RoomTypeSummary`/`RoomTypeDetail` | ประเภทห้องที่ขาย (ราคา, สิ่งอำนวยความสะดวก) | Room & Property (admin) |
+| `src/types/room-search.ts` → `RoomSearchResult` | ผลค้นหาห้องว่างของลูกค้า | หน้า `/search`, `/rooms/[id]` |
 
 ## Prisma กับ RLS — จุดที่พลาดแล้วเงียบ
 
@@ -94,11 +102,14 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 | ไฟล์ที่ยังผิดที่ | ควรย้ายไป |
 |---|---|
-| `src/app/lib/supabase/{client,server,env}.ts` | `src/server/db/` |
 | `src/app/lib/chatbot-faq.ts` | `src/server/queries/chatbot.query.ts` |
-| `src/app/lib/hotel.ts` | แยกเป็น query กับ logic ของ chatbot |
+| `src/app/lib/hotel.ts` | แยกเป็น query กับ logic ของ chatbot (ย้ายเข้า `src/features/chatbot/`) |
 | `src/app/components/chat-widget.tsx` | `src/features/chatbot/components/` |
-| `src/features/rooms/queries.ts` | `src/server/queries/room-types.query.ts` |
-| `src/features/booking/queries.ts` | `src/server/queries/booking-search.query.ts` |
 
-Supabase client ที่ใช้ได้ตอนนี้คือ `src/server/db/supabase-server.ts` (ฝั่ง server ผูก cookie) และ `src/server/db/supabase-admin.ts` (service role ข้าม RLS) — ถ้าเห็นโค้ด import จาก `@/app/lib/supabase/*` นั่นคือของเก่า
+ทำไปแล้ว (อย่าย้ายซ้ำ): Supabase client รวมเหลือ `src/server/db/{supabase-server,supabase-admin,supabase-browser}.ts` แล้ว (`src/app/lib/supabase/*` ถูกลบ) และ `features/rooms/queries.ts`/`features/booking/queries.ts` ย้ายไป `src/server/queries/{room-types,booking-search}.query.ts` แล้ว พร้อม type ที่เกี่ยวข้องย้ายไป `src/types/{room-type,room-search}.ts`
+
+## หมายเหตุ: local dev มี 2 ฐานข้อมูลที่ไม่ได้ sync กัน
+
+`NEXT_PUBLIC_SUPABASE_URL` (Supabase client, local `supabase start`) กับ `DATABASE_URL` (Prisma) **ชี้ไปคนละฐานข้อมูลกันตอนรัน local** — local Supabase Postgres มีแค่ `profiles`/`staff_members` เท่านั้น ไม่มี `room_types`/`rooms`/`hotel_information` เพราะตารางกลุ่มนี้ถูก migrate ผ่าน Prisma ไปที่อื่น
+
+ผลคือ `/search`, `/room-property` (ใช้ Supabase client) จะขึ้น "ไม่พบห้อง" ตอนรัน local ทั้งที่ `/room-management` (ใช้ Prisma) เห็นข้อมูลปกติ — **นี่ไม่ใช่บั๊ก** เป็นช่องว่างที่ Phase 5 (ย้าย schema ทั้งหมดมาที่ Prisma) จะแก้ให้ตรงกัน อย่าเสียเวลาไล่หาสาเหตุถ้าเจออาการนี้ตอน dev local
