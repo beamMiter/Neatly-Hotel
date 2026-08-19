@@ -4,8 +4,9 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Image from 'next/image';
+import { useInterval } from '../../animations/useInterval';
 
 // ── Types ──────────────────────────────────────────────────────
 type Testimonial = {
@@ -44,13 +45,9 @@ const CustomerReview = () => {
 		setActiveIndex((prev) => (prev + direction + TESTIMONIALS.length) % TESTIMONIALS.length);
 	};
 
-	useEffect(() => {
-		const interval = setInterval(() => {
-			setActiveIndex((prev) => (prev + 1) % TESTIMONIALS.length);
-		}, 8000);
-
-		return () => clearInterval(interval);
-	}, []);
+	useInterval(() => {
+		setActiveIndex((prev) => (prev + 1) % TESTIMONIALS.length);
+	}, 8000);
 
 	const activeTestimonial = TESTIMONIALS[activeIndex];
 
@@ -67,7 +64,7 @@ const CustomerReview = () => {
 							type="button"
 							onClick={() => goTo(-1)}
 							aria-label="Previous testimonial"
-							className="hidden flex-none lg:block"
+							className="hidden flex-none cursor-pointer lg:block"
 						>
 							<Image src="/images/icon/arrow-left-auto-orange.svg" alt="" width={56} height={56} />
 						</button>
@@ -83,7 +80,7 @@ const CustomerReview = () => {
 							type="button"
 							onClick={() => goTo(1)}
 							aria-label="Next testimonial"
-							className="hidden flex-none lg:block"
+							className="hidden flex-none cursor-pointer lg:block"
 						>
 							<Image src="/images/icon/arrow-right-auto-orange.svg" alt="" width={56} height={56} />
 						</button>
@@ -103,7 +100,7 @@ const CustomerReview = () => {
 								type="button"
 								onClick={() => setActiveIndex(index)}
 								aria-label={`Go to testimonial ${index + 1}`}
-								className={`h-2 w-2 rounded-full transition-colors duration-150 ${
+								className={`h-2 w-2 cursor-pointer rounded-full transition-colors duration-150 ${
 									index === activeIndex ? 'bg-[#9AA1B9]' : 'bg-[#D6D9E4]'
 								}`}
 							/>
@@ -111,11 +108,11 @@ const CustomerReview = () => {
 					</div>
 
 					<div className="flex flex-row items-center gap-8 lg:hidden">
-						<button type="button" onClick={() => goTo(-1)} aria-label="Previous testimonial">
+						<button type="button" onClick={() => goTo(-1)} aria-label="Previous testimonial" className="cursor-pointer">
 							<Image src="/images/icon/arrow-left-auto-orange.svg" alt="" width={56} height={56} />
 						</button>
 
-						<button type="button" onClick={() => goTo(1)} aria-label="Next testimonial">
+						<button type="button" onClick={() => goTo(1)} aria-label="Next testimonial" className="cursor-pointer">
 							<Image src="/images/icon/arrow-right-auto-orange.svg" alt="" width={56} height={56} />
 						</button>
 					</div>
