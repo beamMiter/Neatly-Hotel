@@ -6,7 +6,7 @@ async function main() {
   const roomCount = await prisma.room.count();
   console.log(`Rooms already in database: ${roomCount} (left unchanged)`);
 
-  await prisma.hotelInformation.upsert({
+  const hotel = await prisma.hotelInformation.upsert({
     where: { id: "default" },
     create: {
       id: "default",
@@ -17,6 +17,15 @@ async function main() {
     },
     update: {},
   });
+
+  if (hotel.logoUrl === "/images/logo-neatly.png") {
+    await prisma.hotelInformation.update({
+      where: { id: "default" },
+      data: { logoUrl: "/images/logo-neatly.svg" },
+    });
+    console.log("Updated hotel logo path from png to svg");
+  }
+
   console.log("Seeded hotel information");
 }
 

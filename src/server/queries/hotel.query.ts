@@ -26,6 +26,14 @@ export async function getHotelInformation(): Promise<HotelInformation> {
   });
 
   if (existing) {
+    if (existing.logoUrl === "/images/logo-neatly.png") {
+      const updated = await prisma.hotelInformation.update({
+        where: { id: DEFAULT_HOTEL_ID },
+        data: { logoUrl: DEFAULT_HOTEL_INFORMATION.logoUrl },
+      });
+      return mapHotel(updated);
+    }
+
     return mapHotel(existing);
   }
 
