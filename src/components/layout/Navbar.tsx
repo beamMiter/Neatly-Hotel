@@ -37,11 +37,6 @@ const NAV_LINKS: NavLink[] = [
 // ── Types ──────────────────────────────────────────────────────
 type NavbarProps = {
 	hideLogin?: boolean;
-};
-
-// ── Component ──────────────────────────────────────────────────
-const Navbar = ({ hideLogin = false }: NavbarProps) => {
-type NavbarProps = {
 	logoUrl?: string | null;
 	hotelName?: string;
 };
@@ -49,7 +44,7 @@ type NavbarProps = {
 const DEFAULT_LOGO = '/images/icon/logo-gereen.svg';
 
 // ── Component ──────────────────────────────────────────────────
-const Navbar = ({ logoUrl, hotelName = 'Neatly Hotel' }: NavbarProps) => {
+const Navbar = ({ hideLogin = false, logoUrl, hotelName = 'Neatly Hotel' }: NavbarProps) => {
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
 
 	return (
