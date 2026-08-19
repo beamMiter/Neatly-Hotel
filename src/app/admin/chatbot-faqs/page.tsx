@@ -1,4 +1,4 @@
-import { createClient } from "@/app/lib/supabase/server";
+import { createClient } from "@/server/db/supabase-server";
 import FaqManager from "./faq-manager";
 
 export default async function ChatbotFaqAdminPage() {

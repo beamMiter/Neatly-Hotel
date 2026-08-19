@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createClient } from "@/app/lib/supabase/client";
+import { createClient } from "@/server/db/supabase-browser";
 import { PlusIcon } from "@/components/icons/PlusIcon";
 import { RoomDeleteDialog } from "@/features/room-management/components/room-delete-dialog";
 import { RoomStatusSelect } from "@/features/room-management/components/room-status-select";

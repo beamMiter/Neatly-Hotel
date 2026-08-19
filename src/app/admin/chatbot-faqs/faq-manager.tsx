@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/app/lib/supabase/client";
+import { createClient } from "@/server/db/supabase-browser";
 import type { ChatbotSettings } from "@/app/lib/chatbot-faq";
 
 type PresetTopic = {

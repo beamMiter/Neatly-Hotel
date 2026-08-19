@@ -4,7 +4,7 @@
 
 import { Suspense } from 'react';
 import ChatWidget from '@/app/components/chat-widget';
-import { createClient } from '@/app/lib/supabase/server';
+import { createClient } from '@/server/db/supabase-server';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import { loadHotelInformation } from '@/server/queries/hotel.query';
