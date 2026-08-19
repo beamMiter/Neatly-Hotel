@@ -9,7 +9,8 @@ import { useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { Room } from '../../types/room';
-import { smoothScrollTo } from '../../utils/smoothScroll';
+import { smoothScrollTo } from '../../animations/smoothScroll';
+import { useInterval } from '../../animations/useInterval';
 
 // ── Types ──────────────────────────────────────────────────────
 type RoomDetailProps = {
@@ -74,25 +75,21 @@ const RoomDetail = ({ room, otherRooms }: RoomDetailProps) => {
 		smoothScrollTo(container, target);
 	};
 
-	useEffect(() => {
-		const interval = setInterval(() => {
-			const container = otherRoomsSliderRef.current;
-			const card = container?.querySelector<HTMLElement>('[data-card]');
-			if (!container || !card) return;
+	useInterval(() => {
+		const container = otherRoomsSliderRef.current;
+		const card = container?.querySelector<HTMLElement>('[data-card]');
+		if (!container || !card) return;
 
-			const step = card.offsetWidth + 24;
-			const maxScrollLeft = container.scrollWidth - container.clientWidth;
+		const step = card.offsetWidth + 24;
+		const maxScrollLeft = container.scrollWidth - container.clientWidth;
 
-			if (container.scrollLeft >= maxScrollLeft - 1) {
-				smoothScrollTo(container, 0, 1200);
-				return;
-			}
+		if (container.scrollLeft >= maxScrollLeft - 1) {
+			smoothScrollTo(container, 0, 1200);
+			return;
+		}
 
-			smoothScrollTo(container, container.scrollLeft + step, 1200);
-		}, 8000);
-
-		return () => clearInterval(interval);
-	}, []);
+		smoothScrollTo(container, container.scrollLeft + step, 1200);
+	}, 8000);
 
 	const amenitiesMidpoint = Math.ceil(room.amenities.length / 2);
 	const amenitiesColumns = [room.amenities.slice(0, amenitiesMidpoint), room.amenities.slice(amenitiesMidpoint)];
@@ -104,8 +101,12 @@ const RoomDetail = ({ room, otherRooms }: RoomDetailProps) => {
 		return () => window.removeEventListener('resize', prepareGallery);
 	}, [room.gallery]);
 
+	useEffect(() => {
+		window.scrollTo(0, 0);
+	}, [room.slug]);
+
 	return (
-		<div className="w-full bg-[#F7F7FB]">
+		<div className="w-full animate-[fade-slide_400ms_ease-out] bg-[#F7F7FB]">
 			{/* ── Image slider ── */}
 			<div className="relative w-full pt-10 lg:pt-16">
 				<div ref={gallerySliderRef} className="scrollbar-hide overflow-x-auto">
@@ -198,7 +199,7 @@ const RoomDetail = ({ room, otherRooms }: RoomDetailProps) => {
 
 							<button
 								type="button"
-								className="flex h-12 w-36 items-center justify-center gap-2.5 rounded bg-[#C14817] px-8 py-4 [font-family:var(--font-open-sans)] text-base font-semibold text-white"
+								className="flex h-12 w-36 cursor-pointer items-center justify-center gap-2.5 rounded bg-[#C14817] px-8 py-4 [font-family:var(--font-open-sans)] text-base font-semibold text-white transition-transform duration-150 hover:bg-[#A93F13] active:scale-90"
 							>
 								Book Now
 							</button>
@@ -239,10 +240,11 @@ const RoomDetail = ({ room, otherRooms }: RoomDetailProps) => {
 						<div ref={otherRoomsSliderRef} className="scrollbar-hide overflow-x-scroll">
 							<div className="flex w-fit flex-row gap-6">
 								{otherRooms.map((otherRoom) => (
-									<div
+									<Link
 										key={otherRoom.slug}
+										href={`/rooms/${otherRoom.slug}`}
 										data-card
-										className="group relative h-85 w-85.5 flex-none overflow-hidden rounded lg:w-137"
+										className="group relative block h-85 w-85.5 flex-none cursor-pointer overflow-hidden rounded lg:w-137"
 									>
 										<Image
 											src={otherRoom.gallery[0]}
@@ -258,15 +260,12 @@ const RoomDetail = ({ room, otherRooms }: RoomDetailProps) => {
 												{otherRoom.name}
 											</h3>
 
-											<Link
-												href={`/rooms/${otherRoom.slug}`}
-												className="flex items-center gap-2 px-2 py-1 [font-family:var(--font-open-sans)] text-sm leading-4 font-normal text-white"
-											>
+											<span className="flex items-center gap-2 px-2 py-1 [font-family:var(--font-open-sans)] text-sm leading-4 font-normal text-white">
 												Explore Room
 												<Image src="/images/icon/explore.svg" alt="" width={16} height={16} />
-											</Link>
+											</span>
 										</div>
-									</div>
+									</Link>
 								))}
 							</div>
 						</div>
