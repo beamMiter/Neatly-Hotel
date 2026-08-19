@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/app/lib/supabase/client";
+import { PlusIcon } from "@/components/icons/PlusIcon";
 import { RoomDeleteDialog } from "@/features/room-management/components/room-delete-dialog";
 import { RoomStatusSelect } from "@/features/room-management/components/room-status-select";
 import type { Room, RoomStatus } from "@/types/rooms";
@@ -78,6 +80,7 @@ export function RoomManagementView({
   const currentPage = Math.min(page, totalPages);
   const startIndex = (currentPage - 1) * PAGE_SIZE;
   const pageRooms = filteredRooms.slice(startIndex, startIndex + PAGE_SIZE);
+  const fillCard = pageRooms.length === PAGE_SIZE;
 
   function handleSearchChange(value: string) {
     setQuery(value);
@@ -178,16 +181,17 @@ export function RoomManagementView({
             />
           </label>
 
-          <button
-            type="button"
-            className="flex h-10 items-center rounded-[4px] bg-[#C34A2C] px-4 text-[14px] font-medium text-white"
+          <Link
+            href="/room-management/create"
+            className="flex h-10 items-center gap-2 rounded-[4px] bg-[#C34A2C] px-4 text-[14px] font-medium text-white"
           >
-            + Create Room
-          </button>
+            <PlusIcon className="h-4 w-4" />
+            Create Room
+          </Link>
         </div>
       </header>
 
-      {/* Content pane — tall card, rows stretch to fill */}
+      {/* Content pane — table card */}
       <div className="flex min-h-0 w-full flex-1 flex-col px-10 pt-6 pb-8">
         <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[4px] bg-white">
           <div className="flex h-12 shrink-0 items-center bg-[#E9ECF1] text-[13px] font-medium text-[#667085]">
@@ -198,7 +202,7 @@ export function RoomManagementView({
             <div className="w-[10%] px-4 text-center">Action</div>
           </div>
 
-          <div className="flex min-h-0 flex-1 flex-col">
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
             {pageRooms.length === 0 ? (
               <div className="flex flex-1 items-center justify-center text-[14px] text-[#9CA3AF]">
                 No rooms found.
@@ -207,7 +211,9 @@ export function RoomManagementView({
               pageRooms.map((room) => (
                 <div
                   key={room.id}
-                  className="flex min-h-0 flex-1 items-center border-b border-[#F0F1F5] last:border-b-0"
+                  className={`flex items-center border-b border-[#F0F1F5] last:border-b-0 ${
+                    fillCard ? "min-h-0 flex-1" : "h-14 shrink-0"
+                  }`}
                 >
                   <div className="w-[14%] px-6 text-[14px] text-[#344054]">
                     {room.roomNo}
