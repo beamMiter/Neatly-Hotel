@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { hasDatabaseUrl } from "@/server/db";
 import {
@@ -106,6 +107,8 @@ export async function PUT(request: Request) {
       description,
       logoUrl,
     });
+
+    revalidatePath("/");
 
     return NextResponse.json({ source: "database", data: hotel });
   } catch (error) {

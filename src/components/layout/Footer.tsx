@@ -38,8 +38,15 @@ const SOCIAL_LINKS: SocialLink[] = [
 	{ id: 3, icon: 'twitter', label: 'Twitter', href: 'https://x.com/' },
 ];
 
+type FooterProps = {
+	logoUrl?: string | null;
+	hotelName?: string;
+};
+
+const DEFAULT_LOGO = '/images/icon/logo-white.svg';
+
 // ── Component ──────────────────────────────────────────────────
-const Footer = () => {
+const Footer = ({ logoUrl, hotelName = 'Neatly Hotel' }: FooterProps) => {
 	const [copiedId, setCopiedId] = useState<number | null>(null);
 
 	const handleCopy = (id: number, value: string) => {
@@ -53,11 +60,17 @@ const Footer = () => {
 			<div className="mx-auto flex max-w-300 flex-col gap-6 px-4 pt-10 pb-10 sm:px-10 lg:gap-12 lg:px-0 lg:pt-16.5 lg:pb-0">
 				<div className="flex flex-col items-start gap-6 lg:flex-row lg:justify-between lg:gap-12">
 					<div className="flex flex-col items-start gap-10">
-						<Image src="/images/icon/logo-white.svg" alt="Neatly Hotel" width={180} height={49} />
+						<Image
+							src={logoUrl || DEFAULT_LOGO}
+							alt={hotelName}
+							width={180}
+							height={49}
+							unoptimized={Boolean(logoUrl?.startsWith('/uploads/'))}
+						/>
 
 						<div className="flex flex-col items-start gap-2">
 							<span className="[font-family:var(--font-inter)] text-xl leading-[150%] font-semibold tracking-[-0.02em] text-white">
-								Neatly Hotel
+								{hotelName}
 							</span>
 							<span className="[font-family:var(--font-inter)] text-base leading-[150%] tracking-[-0.02em] text-white">
 								The best hotel for rising your experience
@@ -116,7 +129,7 @@ const Footer = () => {
 					</div>
 
 					<span className="[font-family:var(--font-inter)] text-sm leading-[150%] tracking-[-0.01em] text-[#D5DFDA]">
-						Copyright ©2022 Neatly Hotel
+						Copyright ©2022 {hotelName}
 					</span>
 				</div>
 			</div>

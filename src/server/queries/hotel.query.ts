@@ -1,4 +1,5 @@
-import { prisma } from "@/server/db";
+import { cache } from "react";
+import { hasDatabaseUrl, prisma } from "@/server/db";
 import {
   DEFAULT_HOTEL_ID,
   DEFAULT_HOTEL_INFORMATION,
@@ -25,6 +26,14 @@ export async function getHotelInformation(): Promise<HotelInformation> {
   });
 
   if (existing) {
+    if (existing.logoUrl === "/images/logo-neatly.png") {
+      const updated = await prisma.hotelInformation.update({
+        where: { id: DEFAULT_HOTEL_ID },
+        data: { logoUrl: DEFAULT_HOTEL_INFORMATION.logoUrl },
+      });
+      return mapHotel(updated);
+    }
+
     return mapHotel(existing);
   }
 
@@ -57,3 +66,16 @@ export async function updateHotelInformation(input: {
 
   return mapHotel(row);
 }
+
+export const loadHotelInformation = cache(async (): Promise<HotelInformation> => {
+  if (!hasDatabaseUrl()) {
+    return DEFAULT_HOTEL_INFORMATION;
+  }
+
+  try {
+    return await getHotelInformation();
+  } catch (error) {
+    console.error("[hotel] Failed to load hotel information:", error);
+    return DEFAULT_HOTEL_INFORMATION;
+  }
+});

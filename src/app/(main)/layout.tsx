@@ -7,6 +7,7 @@ import ChatWidget from '@/app/components/chat-widget';
 import { createClient } from '@/app/lib/supabase/server';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
+import { loadHotelInformation } from '@/server/queries/hotel.query';
 
 const ChatWidgetWithSettings = async () => {
 	const supabase = await createClient();
@@ -19,12 +20,14 @@ const ChatWidgetWithSettings = async () => {
 	return <ChatWidget greetingMessage={chatbotSettings?.greeting_message} />;
 };
 
-const MainLayout = ({ children }: { children: React.ReactNode }) => {
+const MainLayout = async ({ children }: { children: React.ReactNode }) => {
+	const hotel = await loadHotelInformation();
+
 	return (
 		<>
-			<Navbar />
+			<Navbar logoUrl={hotel.logoUrl} hotelName={hotel.name} />
 			{children}
-			<Footer />
+			<Footer logoUrl={hotel.logoUrl} hotelName={hotel.name} />
 			<Suspense fallback={null}>
 				<ChatWidgetWithSettings />
 			</Suspense>

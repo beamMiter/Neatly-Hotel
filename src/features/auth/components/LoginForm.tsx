@@ -18,7 +18,7 @@ export function LoginForm() {
           id="email"
           name="email"
           type="text"
-          autoComplete="email"
+          autoComplete="username"
           required
           placeholder="Enter your username or email"
           className={`${inter.className} h-12 rounded border border-[#D6D9E4] bg-white px-4 py-3 text-base text-[#2A2E3F] placeholder:text-[#9AA1B9] focus:border-[#C14817] focus:outline-none focus:ring-1 focus:ring-[#C14817]`}
