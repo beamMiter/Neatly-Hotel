@@ -215,7 +215,7 @@ export function EditRoomForm({ room }: { room: RoomDetail }) {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="rounded-md bg-brand-primary px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-primary-hover disabled:cursor-not-allowed disabled:opacity-70"
+            className="cursor-pointer rounded-md bg-brand-primary px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-primary-hover disabled:cursor-not-allowed disabled:opacity-70"
           >
             {isSubmitting ? "Updating..." : "Update"}
           </button>
@@ -393,7 +393,7 @@ export function EditRoomForm({ room }: { room: RoomDetail }) {
               <button
                 type="button"
                 onClick={() => setIsDeleteModalOpen(true)}
-                className="text-sm text-brand-muted transition-colors hover:text-red-600"
+                className="cursor-pointer text-sm text-brand-muted transition-colors hover:text-red-600"
               >
                 Delete Room
               </button>

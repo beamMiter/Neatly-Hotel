@@ -43,7 +43,7 @@ export function RoomDeleteDialog({
             type="button"
             disabled={loading}
             onClick={onCancel}
-            className="flex h-10 items-center rounded-[4px] border border-[#D0D5DD] px-4 text-[14px] font-medium text-[#344054] disabled:opacity-60"
+            className="flex h-10 cursor-pointer items-center rounded-[4px] border border-[#D0D5DD] px-4 text-[14px] font-medium text-[#344054] disabled:cursor-default disabled:opacity-60"
           >
             Cancel
           </button>
@@ -51,7 +51,7 @@ export function RoomDeleteDialog({
             type="button"
             disabled={loading}
             onClick={onConfirm}
-            className="flex h-10 items-center rounded-[4px] bg-[#C34A2C] px-4 text-[14px] font-medium text-white disabled:opacity-60"
+            className="flex h-10 cursor-pointer items-center rounded-[4px] bg-[#C34A2C] px-4 text-[14px] font-medium text-white disabled:cursor-default disabled:opacity-60"
           >
             {loading ? "Deleting..." : "Delete"}
           </button>

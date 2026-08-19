@@ -23,7 +23,7 @@ export default function AdminLoginPage() {
         <label>อีเมล<input name="email" type="email" autoComplete="email" required /></label>
         <label>รหัสผ่าน<input name="password" type="password" autoComplete="current-password" required /></label>
         <p className="text-[11px] text-[#849088]">Mock login — กรอกอีเมลและรหัสผ่านใดก็ได้</p>
-        <button type="submit" disabled={isLoading}>{isLoading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}</button>
+        <button type="submit" disabled={isLoading} className="cursor-pointer disabled:cursor-default">{isLoading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}</button>
         <Link href="/">กลับหน้าเว็บไซต์</Link>
       </form>
     </main>

@@ -53,7 +53,7 @@ export function LoginForm() {
         <button
           type="submit"
           disabled={pending}
-          className={`${openSans.className} flex h-12 items-center justify-center rounded bg-[#C14817] text-base font-semibold text-white disabled:opacity-60`}
+          className={`${openSans.className} flex h-12 cursor-pointer items-center justify-center rounded bg-[#C14817] text-base font-semibold text-white transition-transform duration-150 hover:bg-[#A93F13] active:scale-90 disabled:cursor-default disabled:opacity-60`}
         >
           {pending ? "Logging in..." : "Log In"}
         </button>

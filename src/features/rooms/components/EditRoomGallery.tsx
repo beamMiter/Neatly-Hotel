@@ -116,7 +116,7 @@ function SortableThumb({ item, onRemove }: { item: EditGalleryItem; onRemove: ()
         type="button"
         onClick={onRemove}
         aria-label="Remove image"
-        className="absolute -right-2 -top-2 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-brand-ink text-white shadow"
+        className="absolute -right-2 -top-2 z-10 flex h-6 w-6 cursor-pointer items-center justify-center rounded-full bg-brand-ink text-white shadow"
       >
         <CloseIcon className="h-3.5 w-3.5" />
       </button>

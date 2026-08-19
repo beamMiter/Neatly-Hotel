@@ -15,7 +15,7 @@ export function AuthPageShell({ title, description, children }: AuthPageShellPro
 
   return (
     <div className="flex h-screen flex-col">
-      <Navbar />
+      <Navbar hideLogin />
       <main className="flex min-h-0 flex-1">
         <div className="relative hidden flex-1 bg-[#D6D9E4] lg:block">
           <img src={heroImageUrl} alt="" className="h-full w-full object-cover" />

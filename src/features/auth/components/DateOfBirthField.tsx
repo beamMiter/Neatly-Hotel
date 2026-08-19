@@ -54,7 +54,7 @@ export function DateOfBirthField({ id, name, label, value, onChange, error }: Da
           aria-haspopup="dialog"
           aria-expanded={isOpen}
           aria-describedby={error ? `${id}-error` : undefined}
-          className={`h-11 w-full rounded-md border bg-white px-3.5 pr-10 text-left text-sm focus:outline-none focus:ring-1 ${
+          className={`h-11 w-full cursor-pointer rounded-md border bg-white px-3.5 pr-10 text-left text-sm focus:outline-none focus:ring-1 ${
             error
               ? "border-red-500 focus:border-red-500 focus:ring-red-500"
               : "border-brand-border focus:border-brand-primary focus:ring-brand-primary"

@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default function RegisterPage() {
   return (
     <div className="flex min-h-screen flex-col">
-      <Navbar />
+      <Navbar hideLogin />
 
       <main className="relative flex-1">
         <Image

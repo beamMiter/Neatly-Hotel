@@ -39,7 +39,7 @@ export function TextField({ label, id, error, className, type, ...inputProps }: 
             type="button"
             onClick={() => setIsPasswordVisible((visible) => !visible)}
             aria-label={isPasswordVisible ? "Hide password" : "Show password"}
-            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-brand-muted hover:text-brand-body"
+            className="absolute right-3.5 top-1/2 -translate-y-1/2 cursor-pointer text-brand-muted hover:text-brand-body"
           >
             {isPasswordVisible ? <EyeOffIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
           </button>

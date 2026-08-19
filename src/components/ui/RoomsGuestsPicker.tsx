@@ -50,7 +50,7 @@ const CounterRow = ({ label, count, onDecrease, onIncrease, increaseDisabled = f
 				type="button"
 				onClick={onDecrease}
 				disabled={count <= MIN_COUNT}
-				className="flex h-6 w-6 items-center justify-center rounded-full transition-transform duration-150 hover:bg-gray-100 active:scale-90 disabled:opacity-40 disabled:hover:bg-transparent"
+				className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-full transition-transform duration-150 hover:bg-gray-100 active:scale-90 disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent"
 			>
 				<MinusIcon />
 			</button>
@@ -59,7 +59,7 @@ const CounterRow = ({ label, count, onDecrease, onIncrease, increaseDisabled = f
 				type="button"
 				onClick={onIncrease}
 				disabled={increaseDisabled}
-				className="flex h-6 w-6 items-center justify-center rounded-full transition-transform duration-150 hover:bg-gray-100 active:scale-90 disabled:opacity-40 disabled:hover:bg-transparent"
+				className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-full transition-transform duration-150 hover:bg-gray-100 active:scale-90 disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent"
 			>
 				<PlusIcon />
 			</button>
@@ -113,7 +113,7 @@ const RoomsGuestsPicker = ({
 			<button
 				type="button"
 				onClick={() => setIsOpen((prev) => !prev)}
-				className="flex h-12 w-full items-center gap-2 rounded border border-[#D6D9E4] bg-white py-3 pr-4 pl-3 lg:w-60"
+				className="flex h-12 w-full cursor-pointer items-center gap-2 rounded border border-[#D6D9E4] bg-white py-3 pr-4 pl-3 lg:w-60"
 			>
 				<span className="flex-1 text-left [font-family:var(--font-inter)] text-base text-[#9AA1B9]">{summary}</span>
 				<DropdownIcon />

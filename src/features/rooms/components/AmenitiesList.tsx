@@ -44,7 +44,7 @@ export function AmenitiesList({ amenities, onChange }: AmenitiesListProps) {
           <button
             type="button"
             onClick={() => handleRemove(index)}
-            className="mb-2.5 text-sm text-brand-muted transition-colors hover:text-red-600"
+            className="mb-2.5 cursor-pointer text-sm text-brand-muted transition-colors hover:text-red-600"
           >
             Delete
           </button>
@@ -54,7 +54,7 @@ export function AmenitiesList({ amenities, onChange }: AmenitiesListProps) {
       <button
         type="button"
         onClick={handleAdd}
-        className="flex w-fit items-center gap-2 rounded-md border border-brand-primary px-4 py-2 text-sm font-semibold text-brand-primary transition-colors hover:bg-brand-primary hover:text-white"
+        className="flex w-fit cursor-pointer items-center gap-2 rounded-md border border-brand-primary px-4 py-2 text-sm font-semibold text-brand-primary transition-colors hover:bg-brand-primary hover:text-white"
       >
         <PlusIcon className="h-4 w-4" />
         Add Amenity

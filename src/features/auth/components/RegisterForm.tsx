@@ -241,7 +241,7 @@ export function RegisterForm() {
       <button
         type="submit"
         disabled={isSubmitting || isRedirecting}
-        className="h-12 w-full rounded-md bg-brand-primary text-sm font-semibold text-white transition-colors hover:bg-brand-primary-hover disabled:cursor-not-allowed disabled:opacity-70"
+        className="h-12 w-full cursor-pointer rounded-md bg-brand-primary text-sm font-semibold text-white transition-colors hover:bg-brand-primary-hover disabled:cursor-not-allowed disabled:opacity-70"
       >
         {isRedirecting ? "Redirecting..." : isSubmitting ? "Registering..." : "Register"}
       </button>

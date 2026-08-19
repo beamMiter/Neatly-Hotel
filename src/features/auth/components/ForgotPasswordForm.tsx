@@ -41,7 +41,7 @@ export function ForgotPasswordForm({ linkExpired = false }: { linkExpired?: bool
         <button
           type="submit"
           disabled={pending}
-          className={`${openSans.className} flex h-12 items-center justify-center rounded bg-[#C14817] text-base font-semibold text-white disabled:opacity-60`}
+          className={`${openSans.className} flex h-12 cursor-pointer items-center justify-center rounded bg-[#C14817] text-base font-semibold text-white disabled:cursor-default disabled:opacity-60`}
         >
           {pending ? "Sending..." : "Send Reset Link"}
         </button>

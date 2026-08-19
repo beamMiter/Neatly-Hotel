@@ -6,7 +6,8 @@
 
 import { useRef, useState } from 'react';
 import Image from 'next/image';
-import { smoothScrollTo } from '../../utils/smoothScroll';
+import { smoothScrollTo } from '../../animations/smoothScroll';
+import { useInterval } from '../../animations/useInterval';
 
 const IMAGES = [
 	{ id: 1, src: '/images/room-bg-preview/room-preview-auto1.jpg', alt: 'Neatly Hotel room' },
@@ -16,6 +17,12 @@ const IMAGES = [
 	{ id: 5, src: '/images/room-bg-preview/room-preview-auto5.jpg', alt: 'Neatly Hotel balcony' },
 ];
 
+
+// การันตี loop ไม่กระตุก — เพิ่ม clone ของรูปแรกต่อท้าย พอเลื่อนไปถึง clone แล้ว
+// สลับกลับ index 0 แบบ instant (ไม่มี animation) รูปเหมือนกันเป๊ะเลยมองไม่เห็นรอยต่อ
+const SLIDER_IMAGES = [...IMAGES, { ...IMAGES[0], id: IMAGES.length + 1 }];
+const SCROLL_DURATION = 800;
+        
 type AboutProps = {
 	name: string;
 	description: string;
@@ -30,31 +37,58 @@ function splitDescription(description: string) {
 	return paragraphs.length > 0 ? paragraphs : [description];
 }
 
+
 // ── Component ──────────────────────────────────────────────────
 const About = ({ name, description }: AboutProps) => {
 	const paragraphs = splitDescription(description);
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const [activeIndex, setActiveIndex] = useState(0);
 
-	const scrollToIndex = (index: number) => {
+	const scrollToIndex = (index: number, instant = false) => {
 		const container = scrollRef.current;
 		const card = container?.querySelector<HTMLElement>('[data-card]');
 		if (!container || !card) return;
 
 		const step = card.offsetWidth + 16;
-		smoothScrollTo(container, index * step);
+		if (instant) {
+			container.scrollLeft = index * step;
+			return;
+		}
+		smoothScrollTo(container, index * step, SCROLL_DURATION);
+	};
+
+	const goToNext = () => {
+		setActiveIndex((prev) => {
+			const next = prev + 1;
+			scrollToIndex(next);
+
+			if (next === IMAGES.length) {
+				window.setTimeout(() => {
+					scrollToIndex(0, true);
+					setActiveIndex(0);
+				}, SCROLL_DURATION);
+			}
+
+			return next;
+		});
 	};
 
 	const goToSlide = (direction: 1 | -1) => {
+		if (direction === 1) {
+			goToNext();
+			return;
+		}
 		setActiveIndex((prev) => {
-			const next = Math.min(Math.max(prev + direction, 0), IMAGES.length - 1);
+			const next = Math.max(prev - 1, 0);
 			scrollToIndex(next);
 			return next;
 		});
 	};
 
+	useInterval(goToNext, 8000);
+
 	return (
-		<section className="w-full bg-[#F7F7FB] py-20 lg:py-28">
+		<section id="about" className="w-full bg-[#F7F7FB] py-20 lg:py-28">
 			<div className="px-6 sm:px-10 lg:px-40 flex flex-col lg:flex-row lg:items-start gap-8 lg:gap-0">
 				<h2 className="flex-none whitespace-nowrap [font-family:var(--font-noto-serif)] font-medium font-stretch-[87.5%] text-[44px] lg:text-[68px] leading-[125%] tracking-[-0.02em] text-[#2F3E35]">
 					{name}
@@ -75,7 +109,7 @@ const About = ({ name, description }: AboutProps) => {
 			<div className="relative mt-20 lg:mt-52 w-full">
 				<div ref={scrollRef} className="scrollbar-hide overflow-x-scroll">
 					<div className="flex w-fit flex-row gap-4 px-6 sm:px-10 lg:mx-auto lg:px-0">
-						{IMAGES.map((image) => (
+						{SLIDER_IMAGES.map((image) => (
 							<div
 								key={image.id}
 								data-card
@@ -96,7 +130,7 @@ const About = ({ name, description }: AboutProps) => {
 				<button
 					type="button"
 					onClick={() => goToSlide(-1)}
-					className="hidden lg:flex absolute left-40 top-1/2 -translate-y-1/2 h-28 w-28 items-center justify-center"
+					className="hidden lg:flex absolute left-40 top-1/2 -translate-y-1/2 h-28 w-28 cursor-pointer items-center justify-center"
 					aria-label="Previous image"
 				>
 					<Image src="/images/icon/arrow-left-auto.svg" alt="" width={56} height={56} />
@@ -105,7 +139,7 @@ const About = ({ name, description }: AboutProps) => {
 				<button
 					type="button"
 					onClick={() => goToSlide(1)}
-					className="hidden lg:flex absolute right-40 top-1/2 -translate-y-1/2 h-28 w-28 items-center justify-center"
+					className="hidden lg:flex absolute right-40 top-1/2 -translate-y-1/2 h-28 w-28 cursor-pointer items-center justify-center"
 					aria-label="Next image"
 				>
 					<Image src="/images/icon/arrow-right-auto.svg" alt="" width={56} height={56} />

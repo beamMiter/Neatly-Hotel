@@ -149,7 +149,7 @@ const DatePicker = ({ checkIn: checkInProp, checkOut: checkOutProp, onChange }: 
 						key={index}
 						disabled={!inCurrentMonth}
 						onClick={() => handleSelectDay(date)}
-						className={`flex h-8 w-8 items-center justify-center rounded-full text-sm [font-family:var(--font-inter)] transition-colors duration-150 ${
+						className={`flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-sm [font-family:var(--font-inter)] transition-colors duration-150 disabled:cursor-default ${
 							!inCurrentMonth ? 'text-[#D6D9E4]' : 'text-[#2A2E3F]'
 						} ${
 							isSelected
@@ -173,7 +173,7 @@ const DatePicker = ({ checkIn: checkInProp, checkOut: checkOutProp, onChange }: 
 			<button
 				type="button"
 				onClick={() => setIsOpen((prev) => !prev)}
-				className="flex w-full flex-col items-start gap-1 lg:w-60"
+				className="flex w-full cursor-pointer flex-col items-start gap-1 lg:w-60"
 			>
 				<span className="[font-family:var(--font-inter)] text-base text-[#2A2E3F]">Check In</span>
 				<span className="flex h-12 w-full items-center gap-2 rounded border border-[#D6D9E4] bg-white py-3 pr-4 pl-3 lg:w-60">
@@ -193,7 +193,7 @@ const DatePicker = ({ checkIn: checkInProp, checkOut: checkOutProp, onChange }: 
 			<button
 				type="button"
 				onClick={() => setIsOpen((prev) => !prev)}
-				className="flex w-full flex-col items-start gap-1 lg:w-60"
+				className="flex w-full cursor-pointer flex-col items-start gap-1 lg:w-60"
 			>
 				<span className="[font-family:var(--font-inter)] text-base text-[#2A2E3F]">Check Out</span>
 				<span className="flex h-12 w-full items-center gap-2 rounded border border-[#D6D9E4] bg-white py-3 pr-4 pl-3 lg:w-60">
@@ -217,7 +217,7 @@ const DatePicker = ({ checkIn: checkInProp, checkOut: checkOutProp, onChange }: 
 							<button
 								type="button"
 								onClick={handlePrevMonth}
-								className="flex h-8 w-8 items-center justify-center text-[#9AA1B9]"
+								className="flex h-8 w-8 cursor-pointer items-center justify-center text-[#9AA1B9]"
 							>
 								‹
 							</button>
@@ -234,7 +234,7 @@ const DatePicker = ({ checkIn: checkInProp, checkOut: checkOutProp, onChange }: 
 							<button
 								type="button"
 								onClick={handleNextMonth}
-								className="flex h-8 w-8 items-center justify-center text-[#9AA1B9]"
+								className="flex h-8 w-8 cursor-pointer items-center justify-center text-[#9AA1B9]"
 							>
 								›
 							</button>

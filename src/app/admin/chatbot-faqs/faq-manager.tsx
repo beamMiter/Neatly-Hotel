@@ -194,7 +194,7 @@ export default function FaqManager({ initialSettings, adminEmail }: { initialSet
           <button className="flex min-h-[56px] items-center gap-3 px-7 text-left text-[11px] text-[#e3eae6] hover:bg-white/5 max-lg:hidden" type="button"><span className="w-4 text-center text-[#92aea0]">◷</span>Analytics Dashboard</button>
           <button className="flex min-h-[56px] items-center gap-3 bg-[#6d9180] px-7 text-left text-[11px] text-white max-lg:justify-center max-lg:px-2 max-lg:text-0" type="button"><span className="w-4 text-center">▱</span><span className="max-lg:hidden">Chatbot Setup</span></button>
         </nav>
-        <button className="mt-auto flex min-h-[64px] items-center gap-3 border-t border-white/10 px-7 text-left text-[11px] text-[#e3eae6] max-lg:justify-center max-lg:px-2" type="button" onClick={signOut}><span className="text-[#92aea0]">↪</span><span className="max-lg:hidden">Log Out</span></button>
+        <button className="mt-auto flex min-h-[64px] cursor-pointer items-center gap-3 border-t border-white/10 px-7 text-left text-[11px] text-[#e3eae6] max-lg:justify-center max-lg:px-2" type="button" onClick={signOut}><span className="text-[#92aea0]">↪</span><span className="max-lg:hidden">Log Out</span></button>
       </aside>
 
       <section className="ml-[240px] h-screen pt-[80px] max-lg:ml-[76px] max-sm:ml-0">
