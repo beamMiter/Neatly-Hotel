@@ -161,12 +161,13 @@ export function SearchFilterDropdown({ query }: SearchFilterDropdownProps) {
           <div
             role="dialog"
             aria-label="Filters"
-            className="absolute top-full right-0 z-20 mt-2 flex w-80 max-w-[calc(100vw-2rem)] origin-top flex-col gap-6 rounded border border-[#D6D9E4] bg-white p-4 shadow-[4px_4px_16px_rgba(0,0,0,0.08)] animate-[dropdown-in_150ms_ease-out]"
+            className="absolute top-full right-0 z-20 mt-2 flex w-[min(20rem,calc(100vw-2rem))] max-h-[min(24rem,calc(100dvh-8rem))] origin-top flex-col overflow-hidden rounded border border-[#D6D9E4] bg-white shadow-[4px_4px_16px_rgba(0,0,0,0.08)] animate-[dropdown-in_150ms_ease-out] lg:w-80"
           >
-            <section className="flex flex-col gap-3">
+            <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto p-4">
+              <section className="flex flex-col gap-3">
               <h3 className="[font-family:var(--font-inter)] text-sm text-[#9AA1B9]">Price Range</h3>
 
-              <div className="flex gap-3">
+              <div className="flex flex-col gap-3 sm:flex-row">
                 <label className="flex min-w-0 flex-1 flex-col gap-1">
                   <span className="[font-family:var(--font-inter)] text-xs text-[#9AA1B9]">Min</span>
                   <input
@@ -175,7 +176,7 @@ export function SearchFilterDropdown({ query }: SearchFilterDropdownProps) {
                     aria-label="Minimum price"
                     value={formatFilterPrice(minPrice)}
                     onChange={(event) => handleMinChange(parsePriceInput(event.target.value))}
-                    className="h-10 w-full rounded border border-[#D6D9E4] bg-white px-3 [font-family:var(--font-inter)] text-sm text-[#646D89] outline-none focus:border-[#C14817] focus:ring-1 focus:ring-[#C14817]"
+                    className="h-10 w-full rounded border border-[#D6D9E4] bg-white px-3 [font-family:var(--font-inter)] text-base text-[#646D89] outline-none focus:border-[#C14817] focus:ring-1 focus:ring-[#C14817]"
                   />
                 </label>
                 <label className="flex min-w-0 flex-1 flex-col gap-1">
@@ -186,12 +187,12 @@ export function SearchFilterDropdown({ query }: SearchFilterDropdownProps) {
                     aria-label="Maximum price"
                     value={formatFilterPrice(maxPrice)}
                     onChange={(event) => handleMaxChange(parsePriceInput(event.target.value))}
-                    className="h-10 w-full rounded border border-[#D6D9E4] bg-white px-3 [font-family:var(--font-inter)] text-sm text-[#646D89] outline-none focus:border-[#C14817] focus:ring-1 focus:ring-[#C14817]"
+                    className="h-10 w-full rounded border border-[#D6D9E4] bg-white px-3 [font-family:var(--font-inter)] text-base text-[#646D89] outline-none focus:border-[#C14817] focus:ring-1 focus:ring-[#C14817]"
                   />
                 </label>
               </div>
 
-              <div className="relative h-6">
+              <div className="relative h-8 lg:h-6">
                 <div className="absolute top-1/2 h-1 w-full -translate-y-1/2 rounded-full bg-[#E1E3EA]" />
                 <div
                   className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-[#C14817]"
@@ -242,14 +243,16 @@ export function SearchFilterDropdown({ query }: SearchFilterDropdownProps) {
                         className={`flex h-5 w-5 flex-none items-center justify-center rounded-full border transition-colors ${
                           selected
                             ? "border-[#C14817] bg-[#C14817]"
-                            : "border-[#D6D9E4] group-hover:border-[#C14817]"
+                            : "border-[#D6D9E4] group-hover:border-[#C14817] group-active:border-[#C14817]"
                         }`}
                       >
                         {selected ? <RadioCheckIcon /> : null}
                       </span>
                       <span
                         className={`[font-family:var(--font-inter)] text-sm ${
-                          selected ? "text-[#646D89]" : "text-[#9AA1B9] group-hover:text-[#646D89]"
+                          selected
+                            ? "text-[#646D89]"
+                            : "text-[#9AA1B9] group-hover:text-[#646D89] group-active:text-[#646D89]"
                         }`}
                       >
                         {option.label}
@@ -259,8 +262,9 @@ export function SearchFilterDropdown({ query }: SearchFilterDropdownProps) {
                 })}
               </div>
             </section>
+            </div>
 
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center justify-between gap-3 border-t border-[#D6D9E4] p-4">
               <button
                 type="button"
                 disabled={!clearEnabled}

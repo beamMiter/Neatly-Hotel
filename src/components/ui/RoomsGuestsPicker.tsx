@@ -107,15 +107,17 @@ const RoomsGuestsPicker = ({
 	const summary = `${rooms} room${rooms > 1 ? 's' : ''}, ${guests} guest${guests > 1 ? 's' : ''}`;
 
 	return (
-		<div className="relative flex w-full flex-col items-start gap-1 lg:w-60">
+		<div className="relative flex w-full min-w-0 flex-col items-start gap-1 lg:w-60 lg:flex-none">
 			<span className="[font-family:var(--font-inter)] text-base text-[#2A2E3F]">Rooms & Guests</span>
 
 			<button
 				type="button"
 				onClick={() => setIsOpen((prev) => !prev)}
-				className="flex h-12 w-full cursor-pointer items-center gap-2 rounded border border-[#D6D9E4] bg-white py-3 pr-4 pl-3 lg:w-60"
+				className="flex h-12 w-full min-w-0 cursor-pointer items-center gap-2 rounded border border-[#D6D9E4] bg-white py-3 pr-3 pl-3 lg:w-60 lg:pr-4"
 			>
-				<span className="flex-1 text-left [font-family:var(--font-inter)] text-base text-[#9AA1B9]">{summary}</span>
+				<span className="min-w-0 flex-1 truncate text-left [font-family:var(--font-inter)] text-base text-[#9AA1B9]">
+					{summary}
+				</span>
 				<DropdownIcon />
 			</button>
 
@@ -123,7 +125,7 @@ const RoomsGuestsPicker = ({
 				<>
 					<div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
 
-					<div className="absolute top-full left-0 z-20 mt-2 flex w-60 flex-col gap-1.5 rounded bg-white py-2 shadow-[4px_4px_16px_rgba(0,0,0,0.08)] animate-[dropdown-in_150ms_ease-out]">
+					<div className="absolute top-full left-0 z-20 mt-2 flex w-full min-w-60 max-w-[calc(100vw-2rem)] flex-col gap-1.5 rounded bg-white py-2 shadow-[4px_4px_16px_rgba(0,0,0,0.08)] animate-[dropdown-in_150ms_ease-out] lg:w-60">
 						<CounterRow
 							label="Room"
 							count={rooms}

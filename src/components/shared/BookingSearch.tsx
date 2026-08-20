@@ -96,18 +96,15 @@ const BookingSearch = ({ initialQuery, compact = false, extraControl }: BookingS
 
 	return (
 		<div
-			className={`relative z-10 mx-auto flex max-w-full flex-col rounded bg-white ${
+			className={`relative z-10 mx-auto max-w-full rounded bg-white ${
 				compact
-					? 'w-full items-stretch gap-4 p-3 lg:flex-row lg:flex-wrap lg:items-end lg:gap-4 lg:p-4'
-					: 'w-280 items-end gap-10 p-4 shadow-[4px_4px_16px_rgba(0,0,0,0.08)] lg:flex-row lg:p-15'
+					? 'grid w-full grid-cols-2 items-end gap-3 p-3 lg:flex lg:flex-row lg:flex-wrap lg:gap-4 lg:p-4'
+					: 'flex w-280 flex-col items-end gap-10 p-4 shadow-[4px_4px_16px_rgba(0,0,0,0.08)] lg:flex-row lg:p-15'
 			}`}
 		>
-			<div
-				className={`flex w-full flex-col gap-6 lg:w-auto lg:flex-row lg:items-end ${
-					compact ? 'lg:gap-6' : 'lg:gap-10'
-				}`}
-			>
+			<div className={compact ? 'col-span-2 min-w-0 lg:col-auto' : 'flex w-full flex-col gap-6 lg:w-auto lg:flex-row lg:items-end lg:gap-10'}>
 				<DatePicker
+					compact={compact}
 					checkIn={checkIn}
 					checkOut={checkOut}
 					onChange={(nextCheckIn, nextCheckOut) => {
@@ -117,20 +114,33 @@ const BookingSearch = ({ initialQuery, compact = false, extraControl }: BookingS
 					}}
 				/>
 
+				{compact ? null : (
+					<RoomsGuestsPicker
+						rooms={rooms}
+						guests={guests}
+						onRoomsChange={setRooms}
+						onGuestsChange={setGuests}
+					/>
+				)}
+			</div>
+
+			{compact ? (
 				<RoomsGuestsPicker
 					rooms={rooms}
 					guests={guests}
 					onRoomsChange={setRooms}
 					onGuestsChange={setGuests}
 				/>
-			</div>
+			) : null}
 
 			{compact ? extraControl : null}
 
 			<button
 				type="button"
 				onClick={handleSearch}
-				className="flex h-12 w-full flex-none cursor-pointer items-center justify-center gap-2.5 rounded bg-[#C14817] px-8 py-4 [font-family:var(--font-open-sans)] text-base font-semibold text-white transition-transform duration-150 active:scale-90 lg:w-36"
+				className={`flex h-12 flex-none cursor-pointer items-center justify-center gap-2.5 rounded bg-[#C14817] px-8 py-4 [font-family:var(--font-open-sans)] text-base font-semibold text-white transition-transform duration-150 active:scale-90 ${
+					compact ? 'col-span-2 w-full lg:w-36' : 'w-full lg:w-36'
+				}`}
 			>
 				Search
 			</button>
