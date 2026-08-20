@@ -1,5 +1,20 @@
 import { z } from "zod";
 import { differenceInYears } from "date-fns";
+import { COUNTRIES } from "@/lib/countries";
+
+// \p{L} (Unicode "letter") covers Thai as well as Latin names. \p{M}
+// (combining mark) is required too — Thai vowel/tone signs like the ี in
+// "ใจดี" attach to the previous consonant as marks, not letters, so names
+// using them would otherwise be wrongly rejected. Spaces, hyphens and
+// apostrophes allow compound/hyphenated names like "Mary-Jane" or
+// "O'Brien" without opening the field up to digits or symbols.
+const NAME_PATTERN = /^[\p{L}\p{M}][\p{L}\p{M}\s'-]*$/u;
+
+// Mirrors DateOfBirthField's calendar startMonth (today - 120y) so a
+// direct API call can't submit a birth date the UI would never let a
+// user pick.
+const MAX_AGE_YEARS = 120;
+const MIN_AGE_YEARS = 18;
 
 export const loginSchema = z.object({
   email: z.string().trim().min(1, "Username or email is required"),
@@ -29,8 +44,18 @@ export type NewPasswordInput = z.infer<typeof newPasswordSchema>;
 export type NewPasswordFieldErrors = Partial<Record<keyof NewPasswordInput, string>>;
 
 export const registerSchema = z.object({
-  firstName: z.string().trim().min(1, "First name is required").max(50, "First name is too long"),
-  lastName: z.string().trim().min(1, "Last name is required").max(50, "Last name is too long"),
+  firstName: z
+    .string()
+    .trim()
+    .min(2, "First name must be at least 2 characters")
+    .max(50, "First name is too long")
+    .regex(NAME_PATTERN, "First name can only contain letters"),
+  lastName: z
+    .string()
+    .trim()
+    .min(2, "Last name must be at least 2 characters")
+    .max(50, "Last name is too long")
+    .regex(NAME_PATTERN, "Last name can only contain letters"),
   username: z
     .string()
     .trim()
@@ -47,14 +72,17 @@ export const registerSchema = z.object({
   phone: z
     .string()
     .trim()
-    .regex(/^[0-9]{9,10}$/, "Enter a valid phone number (9-10 digits)"),
+    .regex(/^0[0-9]{8,9}$/, "Enter a valid phone number (9-10 digits, starting with 0)"),
   dateOfBirth: z
     .date({ message: "Date of birth is required" })
     .max(new Date(), "Date of birth cannot be in the future")
-    .refine((date) => differenceInYears(new Date(), date) >= 18, {
-      message: "You must be at least 18 years old to register",
+    .refine((date) => differenceInYears(new Date(), date) >= MIN_AGE_YEARS, {
+      message: `You must be at least ${MIN_AGE_YEARS} years old to register`,
+    })
+    .refine((date) => differenceInYears(new Date(), date) <= MAX_AGE_YEARS, {
+      message: "Please enter a valid date of birth",
     }),
-  country: z.string().trim().min(1, "Country is required"),
+  country: z.enum(COUNTRIES, { message: "Select a valid country" }),
 });
 
 export type RegisterInput = z.infer<typeof registerSchema>;
