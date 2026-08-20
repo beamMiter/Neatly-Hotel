@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { createClient } from "@/app/lib/supabase/server";
+import { createClient } from "@/server/db/supabase-server";
 import type { ChatbotFaq } from "@/app/lib/chatbot-faq";
 import {
   emptySearchState,

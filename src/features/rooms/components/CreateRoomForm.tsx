@@ -8,7 +8,7 @@ import { SelectField } from "@/components/ui/SelectField";
 import { RoomImageUpload } from "@/features/rooms/components/RoomImageUpload";
 import { RoomGalleryUpload } from "@/features/rooms/components/RoomGalleryUpload";
 import { AmenitiesList } from "@/features/rooms/components/AmenitiesList";
-import { BED_TYPES } from "@/features/rooms/types";
+import { BED_TYPES } from "@/types/room-type";
 import { MIN_GALLERY_IMAGES, parseCreateRoomFormData, type CreateRoomFieldErrors } from "@/features/rooms/validations";
 
 const GUEST_OPTIONS = [1, 2, 3, 4, 5, 6];

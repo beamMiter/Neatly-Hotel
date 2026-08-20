@@ -1,5 +1,5 @@
 // ── RootLayout ────────────────────────────────────────────────────────
-// Wraps every page (bare — fonts only) — Navbar/Footer/ChatbotButton อยู่ที่ src/app/(main)/layout.tsx แทน
+// Wraps every page (bare — fonts only) — Navbar/Footer/chat widget อยู่ที่ src/app/(main)/layout.tsx แทน
 // เพราะ auth pages (login/register/forgot-password) และ admin ไม่ต้องการ chrome ของหน้าหลัก
 // แก้ไขได้: metadata, font import
 

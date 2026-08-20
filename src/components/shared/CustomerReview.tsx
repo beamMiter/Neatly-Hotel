@@ -6,7 +6,7 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
-import { useInterval } from '../../animations/useInterval';
+import { useInterval } from '@/lib/useInterval';
 
 // ── Types ──────────────────────────────────────────────────────
 type Testimonial = {

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getRoomTypeAvailability } from "@/features/booking/availability.query";
+import { getRoomTypeAvailability } from "@/server/queries/room-availability.query";
 import { validateStayDates } from "@/features/booking/date-rules";
 import { hasDatabaseUrl } from "@/server/db";
 

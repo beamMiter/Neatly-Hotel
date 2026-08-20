@@ -1,4 +1,8 @@
-export type RoomType = {
+// Named RoomSearchResult (not RoomType) so this doesn't collide with the
+// admin/sellable-room-type shape in @/types/room-type or the physical-room
+// shape in @/types/rooms — same word, three different domain concepts.
+
+export type RoomSearchResult = {
   id: string;
   name: string;
   guests: number;

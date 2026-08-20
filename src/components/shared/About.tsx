@@ -6,8 +6,8 @@
 
 import { useRef, useState } from 'react';
 import Image from 'next/image';
-import { smoothScrollTo } from '../../animations/smoothScroll';
-import { useInterval } from '../../animations/useInterval';
+import { smoothScrollTo } from '@/lib/smoothScroll';
+import { useInterval } from '@/lib/useInterval';
 
 const IMAGES = [
 	{ id: 1, src: '/images/room-bg-preview/room-preview-auto1.jpg', alt: 'Neatly Hotel room' },

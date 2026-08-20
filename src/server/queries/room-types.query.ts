@@ -1,7 +1,7 @@
 import "server-only";
 import { supabaseAdmin } from "@/server/db/supabase-admin";
-import type { Room, RoomDetail, RoomImage } from "./types";
-import type { CreateRoomInput, GalleryOrderRef } from "./validations";
+import type { RoomTypeSummary, RoomTypeDetail, RoomImage } from "@/types/room-type";
+import type { CreateRoomInput, GalleryOrderRef } from "@/features/rooms/validations";
 
 export const ROOMS_PAGE_SIZE = 6;
 
@@ -13,7 +13,7 @@ type GetRoomsParams = {
 };
 
 type GetRoomsResult = {
-  rooms: Room[];
+  rooms: RoomTypeSummary[];
   totalCount: number;
   totalPages: number;
 };
@@ -65,7 +65,7 @@ export async function getRooms({ query, page = 1 }: GetRoomsParams): Promise<Get
 
   const rows = (data ?? []) as unknown as RoomTypeRow[];
 
-  const rooms: Room[] = rows.map((row) => ({
+  const rooms: RoomTypeSummary[] = rows.map((row) => ({
     id: row.id,
     roomType: row.name,
     price: row.base_price === null ? 0 : Number(row.base_price),
@@ -175,7 +175,7 @@ type RoomTypeDetailRow = {
   room_images: { id: string; storage_path: string; sort_order: number; is_cover: boolean }[] | null;
 };
 
-export async function getRoomById(id: string): Promise<RoomDetail | null> {
+export async function getRoomById(id: string): Promise<RoomTypeDetail | null> {
   const { data, error } = await supabaseAdmin
     .from("room_types")
     .select(

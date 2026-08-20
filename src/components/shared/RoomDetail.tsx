@@ -9,8 +9,8 @@ import { useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { Room } from '../../types/room';
-import { smoothScrollTo } from '../../animations/smoothScroll';
-import { useInterval } from '../../animations/useInterval';
+import { smoothScrollTo } from '@/lib/smoothScroll';
+import { useInterval } from '@/lib/useInterval';
 
 // ── Types ──────────────────────────────────────────────────────
 type RoomDetailProps = {
