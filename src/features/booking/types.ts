@@ -17,3 +17,17 @@ export type SearchQuery = {
   rooms: number;
   guests: number;
 };
+
+export type RoomTypeAvailability = {
+  roomTypeId: string;
+  roomTypeName: string;
+  capacity: number;
+  checkIn: string;
+  checkOut: string;
+  nights: number;
+  guests: number;
+  roomsRequested: number;
+  availableCount: number;
+  canBook: boolean;
+  reasons: string[];
+};
