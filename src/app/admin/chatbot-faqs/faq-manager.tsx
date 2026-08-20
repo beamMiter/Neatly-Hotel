@@ -1,9 +1,8 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/app/lib/supabase/client";
-import type { ChatbotSettings } from "@/app/lib/chatbot-faq";
+import type { ChatbotSettings, ChatbotSuggestion } from "@/app/lib/chatbot-faq";
 
 type PresetTopic = {
   id: string;
@@ -41,11 +40,19 @@ function FieldError({ children = "Please fill in this field" }: { children?: str
   return <span className="text-xs leading-4 text-[#D8294A]">{children}</span>;
 }
 
-export default function FaqManager({ initialSettings, adminEmail }: { initialSettings: ChatbotSettings; adminEmail: string }) {
-  const router = useRouter();
+function fromSuggestion(topic: ChatbotSuggestion): PresetTopic {
+  return { id: topic.id, topic: topic.topic, format: topic.format, reply: topic.reply, buttonName: topic.button_name ?? undefined, rooms: topic.rooms, options: topic.options };
+}
+
+function toSuggestion(topic: PresetTopic, sortOrder: number) {
+  return { id: topic.id, topic: topic.topic, format: topic.format, reply: topic.reply, button_name: topic.buttonName ?? null, rooms: topic.rooms ?? [], options: topic.options ?? [], is_active: true, sort_order: sortOrder };
+}
+
+export default function FaqManager({ initialSettings, initialSuggestions }: { initialSettings: ChatbotSettings; initialSuggestions: ChatbotSuggestion[] }) {
   const [settings, setSettings] = useState(initialSettings);
   const [isSaving, setIsSaving] = useState(false);
-  const [presetTopics, setPresetTopics] = useState(defaultTopics);
+  const [presetTopics, setPresetTopics] = useState(initialSuggestions.length ? initialSuggestions.map(fromSuggestion) : defaultTopics);
+  const [saveError, setSaveError] = useState("");
   const [isAddingTopic, setIsAddingTopic] = useState(false);
   const [newTopic, setNewTopic] = useState("");
   const [newReplyFormat, setNewReplyFormat] = useState<PresetTopic["format"] | "">("");
@@ -78,13 +85,17 @@ export default function FaqManager({ initialSettings, adminEmail }: { initialSet
     setIsAddingTopic(true);
   }
 
-  function savePresetTopic(event: FormEvent<HTMLFormElement>) {
+  async function savePresetTopic(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setShowNewTopicErrors(true);
     const cleanedOptions = newOptions.map((option) => ({ name: option.name.trim(), details: option.details.trim() }));
     const hasInvalidOption = cleanedOptions.some((option) => !option.name || !option.details);
     if (!newTopic.trim() || !newReplyFormat || (newReplyFormat === "Message" && !newReplyMessage.trim()) || (newReplyFormat === "Option with details" && (!newReplyTitle.trim() || hasInvalidOption)) || (newReplyFormat === "Room type" && (!newRoomTitle.trim() || selectedRooms.length === 0 || !newButtonName.trim()))) return;
-    setPresetTopics((current) => [...current, { id: `new-topic-${Date.now()}`, topic: newTopic.trim(), format: newReplyFormat, reply: newReplyFormat === "Option with details" ? newReplyTitle.trim() : newReplyFormat === "Room type" ? newRoomTitle.trim() : newReplyMessage.trim(), options: newReplyFormat === "Option with details" ? cleanedOptions : undefined, rooms: newReplyFormat === "Room type" ? selectedRooms : undefined, buttonName: newReplyFormat === "Room type" ? newButtonName.trim() : undefined }]);
+    const topic = { id: `topic-${crypto.randomUUID()}`, topic: newTopic.trim(), format: newReplyFormat, reply: newReplyFormat === "Option with details" ? newReplyTitle.trim() : newReplyFormat === "Room type" ? newRoomTitle.trim() : newReplyMessage.trim(), options: newReplyFormat === "Option with details" ? cleanedOptions : undefined, rooms: newReplyFormat === "Room type" ? selectedRooms : undefined, buttonName: newReplyFormat === "Room type" ? newButtonName.trim() : undefined } satisfies PresetTopic;
+    const { error } = await createClient().from("chatbot_suggestions").insert(toSuggestion(topic, presetTopics.length));
+    if (error) { setSaveError(error.message); return; }
+    setSaveError("");
+    setPresetTopics((current) => [...current, topic]);
     setIsAddingTopic(false);
     setNewTopic("");
     setNewReplyFormat("");
@@ -127,17 +138,22 @@ export default function FaqManager({ initialSettings, adminEmail }: { initialSet
     });
   }
 
-  function saveEditingTopic(event: FormEvent<HTMLFormElement>) {
+  async function saveEditingTopic(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!editingTopic?.topic.trim() || !editingTopic.reply.trim()) return;
     if (editingTopic.format === "Room type" && (!editingTopic.rooms?.length || !editingTopic.buttonName?.trim())) return;
     if (editingTopic.format === "Option with details" && !editingTopic.options?.every((option) => option.name.trim() && option.details.trim())) return;
-    setPresetTopics((current) => current.map((topic) => topic.id === editingTopic.id ? {
+    const updated = {
       ...editingTopic,
       topic: editingTopic.topic.trim(),
       reply: editingTopic.reply.trim(),
       buttonName: editingTopic.buttonName?.trim(),
-    } : topic));
+    };
+    const sortOrder = presetTopics.findIndex((topic) => topic.id === updated.id);
+    const { error } = await createClient().from("chatbot_suggestions").update(toSuggestion(updated, sortOrder)).eq("id", updated.id);
+    if (error) { setSaveError(error.message); return; }
+    setSaveError("");
+    setPresetTopics((current) => current.map((topic) => topic.id === updated.id ? updated : topic));
     setEditingTopic(null);
   }
 
@@ -151,23 +167,27 @@ export default function FaqManager({ initialSettings, adminEmail }: { initialSet
     } : current);
   }
 
-  function confirmDeleteTopic() {
+  async function confirmDeleteTopic() {
     if (!deletingTopic) return;
+    const { error } = await createClient().from("chatbot_suggestions").delete().eq("id", deletingTopic.id);
+    if (error) { setSaveError(error.message); return; }
+    setSaveError("");
     setPresetTopics((current) => current.filter((topic) => topic.id !== deletingTopic.id));
     setDeletingTopic(null);
   }
 
-  function moveTopic(targetTopicId: string) {
+  async function moveTopic(targetTopicId: string) {
     if (!draggedTopicId || draggedTopicId === targetTopicId) return;
-    setPresetTopics((current) => {
-      const sourceIndex = current.findIndex((topic) => topic.id === draggedTopicId);
-      const targetIndex = current.findIndex((topic) => topic.id === targetTopicId);
-      if (sourceIndex < 0 || targetIndex < 0) return current;
-      const reordered = [...current];
+    const sourceIndex = presetTopics.findIndex((topic) => topic.id === draggedTopicId);
+    const targetIndex = presetTopics.findIndex((topic) => topic.id === targetTopicId);
+    if (sourceIndex < 0 || targetIndex < 0) return;
+    const reordered = [...presetTopics];
       const [movedTopic] = reordered.splice(sourceIndex, 1);
       reordered.splice(targetIndex, 0, movedTopic);
-      return reordered;
-    });
+    setPresetTopics(reordered);
+    const results = await Promise.all(reordered.map((topic, index) => createClient().from("chatbot_suggestions").update({ sort_order: index }).eq("id", topic.id)));
+    const error = results.find((result) => result.error)?.error;
+    if (error) setSaveError(error.message); else setSaveError("");
     setDraggedTopicId(null);
   }
 
@@ -178,29 +198,14 @@ export default function FaqManager({ initialSettings, adminEmail }: { initialSet
     setIsSaving(false);
   }
 
-  function signOut() {
-    router.replace("/admin/login");
-  }
-
   return (
-    <main className="h-screen overflow-hidden bg-[#F6F7FC] text-[#2e3442]">
-      <aside className="fixed top-0 left-0 z-30 flex h-screen w-[240px] flex-col border-r border-[#E4E6ED] bg-[#2F3E35] text-white max-lg:w-[76px] max-sm:hidden">
-        <div className="grid gap-2 px-7 pt-8 pb-10 max-lg:px-3"><strong className="font-serif text-xl tracking-wide"><span className="font-sans text-sm text-[#e5673b]">+</span>NEATLY</strong><small className="text-[10px] text-[#aebdb5] max-lg:hidden">Admin Panel Control</small></div>
-        <nav className="grid" aria-label="Admin navigation">
-          <button className="flex min-h-[56px] items-center gap-3 px-7 text-left text-[11px] text-[#e3eae6] hover:bg-white/5 max-lg:hidden" type="button"><span className="w-4 text-center text-[#92aea0]">▣</span>Customer Booking</button>
-          <button className="flex min-h-[56px] items-center gap-3 px-7 text-left text-[11px] text-[#e3eae6] hover:bg-white/5 max-lg:hidden" type="button"><span className="w-4 text-center text-[#92aea0]">▤</span>Room Management</button>
-          <button className="flex min-h-[56px] items-center gap-3 px-7 text-left text-[11px] text-[#e3eae6] hover:bg-white/5 max-lg:hidden" type="button"><span className="w-4 text-center text-[#92aea0]">▥</span>Hotel Information</button>
-          <button className="flex min-h-[56px] items-center gap-3 px-7 text-left text-[11px] text-[#e3eae6] hover:bg-white/5 max-lg:hidden" type="button"><span className="w-4 text-center text-[#92aea0]">◇</span>Room &amp; Property</button>
-          <button className="flex min-h-[56px] items-center gap-3 px-7 text-left text-[11px] text-[#e3eae6] hover:bg-white/5 max-lg:hidden" type="button"><span className="w-4 text-center text-[#92aea0]">◷</span>Analytics Dashboard</button>
-          <button className="flex min-h-[56px] items-center gap-3 bg-[#6d9180] px-7 text-left text-[11px] text-white max-lg:justify-center max-lg:px-2 max-lg:text-0" type="button"><span className="w-4 text-center">▱</span><span className="max-lg:hidden">Chatbot Setup</span></button>
-        </nav>
-        <button className="mt-auto flex min-h-[64px] cursor-pointer items-center gap-3 border-t border-white/10 px-7 text-left text-[11px] text-[#e3eae6] max-lg:justify-center max-lg:px-2" type="button" onClick={signOut}><span className="text-[#92aea0]">↪</span><span className="max-lg:hidden">Log Out</span></button>
-      </aside>
-
-      <section className="ml-[240px] h-screen pt-[80px] max-lg:ml-[76px] max-sm:ml-0">
-        <header className="fixed top-0 right-0 left-[240px] z-20 flex h-[80px] items-center gap-4 border-b border-[#E4E6ED] bg-white px-[60px] max-lg:left-[76px] max-lg:px-6 max-sm:left-0"><h1 className="m-0 text-xl leading-[30px] font-semibold tracking-[-.02em] text-[#2A2E3F]">Chatbot Setup</h1><span className="sr-only">{adminEmail}</span></header>
-        <div className="h-[calc(100vh-80px)] overflow-y-auto overscroll-contain bg-[#F6F7FC] px-[60px] pt-10 pb-[60px] max-lg:px-6 max-sm:px-3">
-          <section className="flex w-full max-w-[1080px] flex-col items-start gap-10 rounded-sm border border-[#E4E6ED] bg-white px-20 pt-10 pb-[60px] max-xl:px-10 max-md:px-5">
+    <div className="flex h-full min-h-0 flex-1 flex-col bg-[#F7F8FA] text-[#2e3442]">
+      {saveError && <div className="fixed top-4 right-4 z-50 max-w-md rounded bg-[#D8294A] px-4 py-3 text-sm text-white">Save failed: {saveError}</div>}
+      <header className="flex h-[72px] w-full shrink-0 items-center border-b border-[#E4E6ED] bg-white px-10">
+        <h1 className="text-[20px] font-medium text-[#222222]">Chatbot Setup</h1>
+      </header>
+      <div className="min-h-0 flex-1 overflow-y-auto px-8 py-6">
+        <section className="flex w-full max-w-[1080px] flex-col items-start gap-10 rounded-lg border border-[#E4E6ED] bg-white p-8 max-md:p-5">
             <form className="grid w-full gap-10" onSubmit={saveSettings}>
               <h2 className="m-0 text-xl leading-[30px] font-semibold tracking-[-.02em] text-[#9AA1B9]">Default Chatbot Messages</h2>
               <label className="grid w-full gap-1 text-base leading-6 text-[#2A2E3F]">Greeting message *<textarea className="h-24 w-full resize-none rounded-sm border border-[#D6D9E4] bg-white px-3 pt-3 pr-4 text-base leading-6 text-black outline-none focus:border-[#729280] focus:ring-2 focus:ring-[#729280]/10" required value={settings.greeting_message} onChange={(event) => setSettings({ ...settings, greeting_message: event.target.value })} /></label>
@@ -278,9 +283,8 @@ export default function FaqManager({ initialSettings, adminEmail }: { initialSet
             ) : (
               <button className="order-6 flex h-12 w-[246px] shrink-0 grow-0 cursor-pointer items-center justify-center gap-2.5 rounded-sm border border-[#E76B39] bg-white px-8 py-4 font-['Open_Sans',Arial,sans-serif] text-[#E76B39] hover:bg-[#FFF7F3] focus:outline-2 focus:outline-offset-2 focus:outline-[#E76B39] disabled:cursor-not-allowed disabled:border-[#D6D9E4] disabled:text-[#9AA1B9] disabled:hover:bg-white" type="button" disabled={Boolean(editingTopic)} onClick={addPresetTopic}><span className="h-4 w-[182px] whitespace-nowrap text-center text-base leading-4 font-semibold">+ Add Suggestion menu</span></button>
             )}
-          </section>
-        </div>
-      </section>
+        </section>
+      </div>
       {deletingTopic && <div className="fixed inset-0 z-50 grid place-items-center bg-black/45 px-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDeletingTopic(null); }}>
         <section className="flex h-[200px] w-full max-w-[631px] flex-col rounded-sm bg-white shadow-[2px_2px_12px_rgba(64,50,133,0.12)]" role="dialog" aria-modal="true" aria-labelledby="delete-suggestion-title" aria-describedby="delete-suggestion-description">
           <header className="flex h-14 shrink-0 items-center border-b border-[#E4E6ED] px-6">
@@ -296,6 +300,6 @@ export default function FaqManager({ initialSettings, adminEmail }: { initialSet
           </div>
         </section>
       </div>}
-    </main>
+    </div>
   );
 }

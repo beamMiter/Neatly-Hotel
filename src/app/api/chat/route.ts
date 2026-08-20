@@ -1,6 +1,6 @@
-import OpenAI from "openai";
+import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@/app/lib/supabase/server";
-import type { ChatbotFaq } from "@/app/lib/chatbot-faq";
+import type { ChatbotFaq, ChatbotSuggestion } from "@/app/lib/chatbot-faq";
 import {
   emptySearchState,
   getMissingSearchFields,
@@ -149,31 +149,54 @@ function analyzeLocally(message: string, hasSearchState: boolean): Analysis {
   };
 }
 
-async function analyzeWithOpenAI(messages: Message[], state: SearchState): Promise<Analysis> {
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+function isAnalysis(value: unknown): value is Analysis {
+  if (!value || typeof value !== "object") return false;
+  const analysis = value as Partial<Analysis>;
+  return (
+    ["faq", "search_room", "unknown"].includes(analysis.intent ?? "") &&
+    ["check_in", "facilities", "location", "contact", "other"].includes(analysis.faqTopic ?? "") &&
+    (analysis.checkIn === null || typeof analysis.checkIn === "string") &&
+    (analysis.checkOut === null || typeof analysis.checkOut === "string") &&
+    (analysis.guests === null || typeof analysis.guests === "number") &&
+    (analysis.budget === null || typeof analysis.budget === "number")
+  );
+}
+
+async function analyzeWithGemini(messages: Message[], state: SearchState): Promise<Analysis> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("GEMINI_API_KEY is not configured");
+
+  const ai = new GoogleGenAI({ apiKey });
   const today = new Date().toISOString().slice(0, 10);
-  const response = await openai.responses.create({
-    model: process.env.OPENAI_MODEL ?? "gpt-5.6-luna",
-    instructions: `จำแนก intent และดึงข้อมูลค้นหาห้องจากบทสนทนาโรงแรม
+  const conversation = messages
+    .map((message) => `${message.role === "user" ? "ผู้ใช้" : "ผู้ช่วย"}: ${message.content}`)
+    .join("\n");
+  const response = await ai.models.generateContent({
+    model: process.env.GEMINI_MODEL ?? "gemini-3.6-flash",
+    contents: `จำแนก intent และดึงข้อมูลค้นหาห้องจากบทสนทนาโรงแรม
 วันนี้คือ ${today} แปลงวันที่เป็น YYYY-MM-DD
 intent มี faq, search_room, unknown เท่านั้น
 ถ้ากำลังเก็บข้อมูลค้นหาห้องอยู่ ให้คง intent เป็น search_room แม้ข้อความล่าสุดเป็นเพียงวันที่หรือตัวเลข
 faqTopic ใช้ check_in, facilities, location, contact หรือ other
 คืนเฉพาะข้อมูลที่ผู้ใช้ระบุจริง ห้ามเดาห้อง ราคา หรือจำนวนผู้เข้าพัก
-search state ปัจจุบัน: ${JSON.stringify(state)}`,
-    input: messages,
-    text: {
-      format: {
-        type: "json_schema",
-        name: "hotel_intent",
-        strict: true,
-        schema: intentSchema,
-      },
+search state ปัจจุบัน: ${JSON.stringify(state)}
+
+บทสนทนา:
+${conversation}`,
+    config: {
+      responseMimeType: "application/json",
+      responseJsonSchema: intentSchema,
+      temperature: 0,
+      // Gemini 3 Flash uses part of this budget for internal reasoning. A low
+      // limit can truncate the JSON even though the final payload is small.
+      maxOutputTokens: 1024,
     },
-    max_output_tokens: 250,
   });
 
-  return JSON.parse(response.output_text) as Analysis;
+  if (!response.text) throw new Error("Gemini returned an empty response");
+  const parsed: unknown = JSON.parse(response.text);
+  if (!isAnalysis(parsed)) throw new Error("Gemini returned an invalid intent response");
+  return parsed;
 }
 
 async function searchResponse(analysis: Analysis, current: SearchState) {
@@ -217,7 +240,7 @@ async function searchResponse(analysis: Analysis, current: SearchState) {
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as { messages?: Message[]; search?: unknown };
+    const body = (await request.json()) as { messages?: Message[]; search?: unknown; suggestionId?: unknown };
     const messages = Array.isArray(body.messages) ? body.messages.slice(-12) : [];
     const validMessages = messages.filter(
       (message): message is Message =>
@@ -229,6 +252,28 @@ export async function POST(request: Request) {
     const lastMessage = validMessages.at(-1);
     if (!lastMessage || lastMessage.role !== "user") {
       return Response.json({ error: "กรุณาส่งข้อความที่ถูกต้อง" }, { status: 400 });
+    }
+
+    if (typeof body.suggestionId === "string" && body.suggestionId.length <= 100) {
+      const supabase = await createClient();
+      const { data: suggestion, error } = await supabase
+        .from("chatbot_suggestions")
+        .select("*")
+        .eq("id", body.suggestionId)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (error) console.error("Chatbot suggestion lookup failed:", error.message);
+      if (suggestion) {
+        return Response.json({
+          intent: "faq",
+          message: suggestion.reply,
+          suggestion: suggestion as ChatbotSuggestion,
+          search: emptySearchState,
+          rooms: [],
+          mode: "managed_suggestion",
+        });
+      }
     }
 
     const chatbotContent = await getChatbotContent();
@@ -251,12 +296,23 @@ export async function POST(request: Request) {
         message.content.toLowerCase().includes(word),
       ),
     );
-    const analysis = process.env.OPENAI_API_KEY
-      ? await analyzeWithOpenAI(validMessages, currentSearch)
-      : analyzeLocally(lastMessage.content, hasStoredSearchState || hasSearchHistory);
+    let analysis: Analysis;
+    let mode: "gemini" | "gemini_fallback" | "demo" = "demo";
+    if (process.env.GEMINI_API_KEY) {
+      try {
+        analysis = await analyzeWithGemini(validMessages, currentSearch);
+        mode = "gemini";
+      } catch (error) {
+        console.error("Gemini analysis failed; using local fallback:", error);
+        analysis = analyzeLocally(lastMessage.content, hasStoredSearchState || hasSearchHistory);
+        mode = "gemini_fallback";
+      }
+    } else {
+      analysis = analyzeLocally(lastMessage.content, hasStoredSearchState || hasSearchHistory);
+    }
 
     if (analysis.intent === "search_room") {
-      return Response.json({ ...(await searchResponse(analysis, currentSearch)), mode: process.env.OPENAI_API_KEY ? "openai" : "demo" });
+      return Response.json({ ...(await searchResponse(analysis, currentSearch)), mode });
     }
     if (analysis.intent === "faq") {
       return Response.json({
@@ -264,7 +320,7 @@ export async function POST(request: Request) {
         message: faqAnswers[analysis.faqTopic],
         search: emptySearchState,
         rooms: [],
-        mode: process.env.OPENAI_API_KEY ? "openai" : "demo",
+        mode,
       });
     }
 
@@ -273,7 +329,7 @@ export async function POST(request: Request) {
       message: chatbotContent.autoReply ?? "ขออภัยค่ะ ฉันยังไม่เข้าใจคำถาม รบกวนอธิบายเพิ่มเติม หรือเลือกถามเรื่องห้องพัก ราคา เวลาเช็กอิน และสิ่งอำนวยความสะดวกได้ค่ะ",
       search: currentSearch,
       rooms: [],
-      mode: process.env.OPENAI_API_KEY ? "openai" : "demo",
+      mode,
     });
   } catch (error) {
     console.error("Chat API error:", error);
