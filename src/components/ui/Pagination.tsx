@@ -1,23 +1,22 @@
 import Link from "next/link";
 import Image from "next/image";
 
-const BASE_PATH = "/room-property";
-
-function buildHref(query: string | undefined, page: number) {
+function buildHref(basePath: string, query: string | undefined, page: number) {
   const params = new URLSearchParams();
   if (query) params.set("q", query);
   if (page > 1) params.set("page", String(page));
   const qs = params.toString();
-  return qs ? `${BASE_PATH}?${qs}` : BASE_PATH;
+  return qs ? `${basePath}?${qs}` : basePath;
 }
 
 type PaginationProps = {
+  basePath: string;
   currentPage: number;
   totalPages: number;
   query?: string;
 };
 
-export function Pagination({ currentPage, totalPages, query }: PaginationProps) {
+export function Pagination({ basePath, currentPage, totalPages, query }: PaginationProps) {
   const pages = Array.from({ length: totalPages }, (_, index) => index + 1);
   const isFirstPage = currentPage <= 1;
   const isLastPage = currentPage >= totalPages;
@@ -25,7 +24,7 @@ export function Pagination({ currentPage, totalPages, query }: PaginationProps) 
   return (
     <nav className="flex items-center justify-center gap-1 py-6" aria-label="Pagination">
       <Link
-        href={buildHref(query, Math.max(1, currentPage - 1))}
+        href={buildHref(basePath, query, Math.max(1, currentPage - 1))}
         aria-disabled={isFirstPage}
         tabIndex={isFirstPage ? -1 : undefined}
         className={`flex h-8 w-8 items-center justify-center rounded-md ${
@@ -38,7 +37,7 @@ export function Pagination({ currentPage, totalPages, query }: PaginationProps) 
       {pages.map((page) => (
         <Link
           key={page}
-          href={buildHref(query, page)}
+          href={buildHref(basePath, query, page)}
           aria-current={page === currentPage ? "page" : undefined}
           className={`flex h-8 w-8 items-center justify-center rounded-md text-sm ${
             page === currentPage ? "bg-brand-ink text-white" : "text-brand-body hover:bg-brand-surface-alt"
@@ -49,7 +48,7 @@ export function Pagination({ currentPage, totalPages, query }: PaginationProps) 
       ))}
 
       <Link
-        href={buildHref(query, Math.min(totalPages, currentPage + 1))}
+        href={buildHref(basePath, query, Math.min(totalPages, currentPage + 1))}
         aria-disabled={isLastPage}
         tabIndex={isLastPage ? -1 : undefined}
         className={`flex h-8 w-8 items-center justify-center rounded-md ${

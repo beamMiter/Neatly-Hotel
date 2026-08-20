@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getRooms } from "@/server/queries/room-types.query";
 import { RoomsTable } from "@/features/rooms/components/RoomsTable";
-import { RoomSearchForm } from "@/features/rooms/components/RoomSearchForm";
-import { Pagination } from "@/features/rooms/components/Pagination";
+import { SearchForm } from "@/components/ui/SearchForm";
+import { Pagination } from "@/components/ui/Pagination";
 import { PlusIcon } from "@/components/icons/PlusIcon";
 
 export const metadata: Metadata = {
@@ -24,7 +24,7 @@ export default async function RoomPropertyPage(props: PageProps<"/room-property"
         <h1 className="text-2xl font-semibold text-brand-body">Room & Property</h1>
 
         <div className="flex items-center gap-3">
-          <RoomSearchForm defaultValue={query} />
+          <SearchForm defaultValue={query} />
           <Link
             href="/room-property/create"
             className="flex h-10 items-center gap-2 whitespace-nowrap rounded-md bg-brand-primary px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-primary-hover"
@@ -41,7 +41,7 @@ export default async function RoomPropertyPage(props: PageProps<"/room-property"
         </div>
       </div>
 
-      <Pagination currentPage={page} totalPages={totalPages} query={query} />
+      <Pagination basePath="/room-property" currentPage={page} totalPages={totalPages} query={query} />
     </div>
   );
 }
