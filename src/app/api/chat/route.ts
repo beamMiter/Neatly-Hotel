@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { createClient } from "@/app/lib/supabase/server";
+import { createClient } from "@/server/db/supabase-server";
 import type { ChatbotFaq, ChatbotSuggestion } from "@/app/lib/chatbot-faq";
 import {
   emptySearchState,

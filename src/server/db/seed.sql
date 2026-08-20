@@ -1,2 +1,0 @@
--- Reference only — use supabase/seed-rooms-layout.sql for the full 70-room layout.
--- Run seed-rooms-layout.sql in Supabase SQL Editor to replace old room data.

@@ -1,4 +1,4 @@
-import { createClient } from "@/app/lib/supabase/server";
+import { createClient } from "@/server/db/supabase-server";
 import { redirect } from "next/navigation";
 import FaqManager from "@/app/admin/chatbot-faqs/faq-manager";
 

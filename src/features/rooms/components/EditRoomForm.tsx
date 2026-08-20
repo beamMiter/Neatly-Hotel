@@ -10,7 +10,7 @@ import { EditMainImage } from "@/features/rooms/components/EditMainImage";
 import { EditRoomGallery, type EditGalleryItem } from "@/features/rooms/components/EditRoomGallery";
 import { AmenitiesList } from "@/features/rooms/components/AmenitiesList";
 import { DeleteRoomModal } from "@/features/rooms/components/DeleteRoomModal";
-import { BED_TYPES, type RoomDetail } from "@/features/rooms/types";
+import { BED_TYPES, type RoomTypeDetail } from "@/types/room-type";
 import { MIN_GALLERY_IMAGES, createRoomSchema, type CreateRoomFieldErrors } from "@/features/rooms/validations";
 
 const GUEST_OPTIONS = [1, 2, 3, 4, 5, 6];
@@ -30,7 +30,7 @@ type MainImageState =
   | { kind: "new"; file: File; previewUrl: string }
   | null;
 
-function fieldsFromRoom(room: RoomDetail): FormFields {
+function fieldsFromRoom(room: RoomTypeDetail): FormFields {
   return {
     roomType: room.roomType,
     roomSizeSqm: room.roomSizeSqm ? String(room.roomSizeSqm) : "",
@@ -42,7 +42,7 @@ function fieldsFromRoom(room: RoomDetail): FormFields {
   };
 }
 
-export function EditRoomForm({ room }: { room: RoomDetail }) {
+export function EditRoomForm({ room }: { room: RoomTypeDetail }) {
   const router = useRouter();
   const [fields, setFields] = useState<FormFields>(() => fieldsFromRoom(room));
   const [hasPromotion, setHasPromotion] = useState(room.promotionPrice !== null);

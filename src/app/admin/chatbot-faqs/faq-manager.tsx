@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { createClient } from "@/app/lib/supabase/client";
+import { createClient } from "@/server/db/supabase-browser";
 import type { ChatbotSettings, ChatbotSuggestion } from "@/app/lib/chatbot-faq";
 
 type PresetTopic = {

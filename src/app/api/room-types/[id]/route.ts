@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { parseUpdateRoomFormData } from "@/features/rooms/validations";
-import { deleteRoomType, updateRoomType } from "@/features/rooms/queries";
+import { deleteRoomType, updateRoomType } from "@/server/queries/room-types.query";
 
 type RouteContext = {
   params: Promise<{ id: string }>;

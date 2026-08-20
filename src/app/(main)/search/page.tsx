@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { SearchPageView } from "@/features/booking/components/SearchPageView";
-import { searchRoomTypes } from "@/features/booking/queries";
-import type { SearchQuery } from "@/features/booking/types";
+import { searchRoomTypes } from "@/server/queries/booking-search.query";
+import type { SearchQuery } from "@/types/room-search";
 
 export const metadata: Metadata = {
   title: "Search Rooms | Neatly Hotel",

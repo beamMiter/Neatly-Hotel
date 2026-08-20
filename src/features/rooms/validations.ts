@@ -1,22 +1,30 @@
 import { z } from "zod";
-import { BED_TYPES } from "./types";
+import { BED_TYPES } from "@/types/room-type";
 
-export const createRoomSchema = z.object({
-  roomType: z
-    .string({ message: "Room type is required" })
-    .trim()
-    .min(1, "Room type is required")
-    .max(100, "Room type is too long"),
-  roomSizeSqm: z.coerce
-    .number({ message: "Room size is required" })
-    .int("Room size must be a whole number")
-    .positive("Room size must be greater than 0"),
-  bedType: z.enum(BED_TYPES, { message: "Bed type is required" }),
-  guests: z.coerce.number({ message: "Guests is required" }).int().positive("Guests must be at least 1"),
-  price: z.coerce.number({ message: "Price is required" }).positive("Price must be greater than 0"),
-  promotionPrice: z.coerce.number().positive("Promotion price must be greater than 0").nullable().optional(),
-  description: z.string({ message: "Room description is required" }).trim().min(1, "Room description is required"),
-});
+export const createRoomSchema = z
+  .object({
+    roomType: z
+      .string({ message: "Room type is required" })
+      .trim()
+      .min(1, "Room type is required")
+      .max(100, "Room type is too long"),
+    roomSizeSqm: z.coerce
+      .number({ message: "Room size is required" })
+      .int("Room size must be a whole number")
+      .positive("Room size must be greater than 0"),
+    bedType: z.enum(BED_TYPES, { message: "Bed type is required" }),
+    guests: z.coerce.number({ message: "Guests is required" }).int().positive("Guests must be at least 1"),
+    price: z.coerce.number({ message: "Price is required" }).positive("Price must be greater than 0"),
+    promotionPrice: z.coerce.number().positive("Promotion price must be greater than 0").nullable().optional(),
+    description: z.string({ message: "Room description is required" }).trim().min(1, "Room description is required"),
+  })
+  // A promotion price that isn't cheaper than the regular price isn't a
+  // promotion. Kept as an object-level refine (not chained onto the
+  // promotionPrice field) since it needs to read the sibling `price` value.
+  .refine((data) => data.promotionPrice == null || data.promotionPrice < data.price, {
+    message: "Promotion price must be less than the regular price",
+    path: ["promotionPrice"],
+  });
 
 export type CreateRoomInput = z.infer<typeof createRoomSchema>;
 export type CreateRoomFieldErrors = Partial<Record<keyof CreateRoomInput, string>> & {

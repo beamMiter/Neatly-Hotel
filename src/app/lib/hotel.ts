@@ -1,5 +1,5 @@
 import "server-only";
-import { searchRoomTypes } from "@/features/booking/queries";
+import { searchRoomTypes } from "@/server/queries/booking-search.query";
 
 export type SearchState = {
   checkIn: string | null;

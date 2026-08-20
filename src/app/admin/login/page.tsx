@@ -3,7 +3,7 @@
 import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/app/lib/supabase/client";
+import { createClient } from "@/server/db/supabase-browser";
 
 export default function AdminLoginPage() {
   const router = useRouter();

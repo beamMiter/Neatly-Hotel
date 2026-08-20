@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import type { Room } from "@/features/rooms/types";
+import type { RoomTypeSummary } from "@/types/room-type";
 
 function formatCurrency(value: number) {
   return value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -10,7 +10,7 @@ function formatCurrency(value: number) {
 
 const COLUMNS = ["Image", "Room type", "Price", "Promotion Price", "Guest(s)", "Bed Type", "Room Size"];
 
-export function RoomsTable({ rooms }: { rooms: Room[] }) {
+export function RoomsTable({ rooms }: { rooms: RoomTypeSummary[] }) {
   const router = useRouter();
 
   if (rooms.length === 0) {
