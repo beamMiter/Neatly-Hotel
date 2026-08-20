@@ -65,6 +65,11 @@ export async function login(_prevState: LoginState, formData: FormData): Promise
     return result;
   }
 
+  const redirectTo = formData.get("redirectTo");
+  if (typeof redirectTo === "string" && redirectTo.startsWith("/") && !redirectTo.startsWith("//")) {
+    redirect(redirectTo);
+  }
+
   // One login for everyone — where you land depends on whether the account
   // has a staff_members row, not which page you happened to submit from.
   const role = await getStaffRole(result.userId);

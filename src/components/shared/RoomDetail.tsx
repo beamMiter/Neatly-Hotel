@@ -1,7 +1,7 @@
 // ── RoomDetail ────────────────────────────────────────────────────────
 // Room detail page content — image slider, room info/price/amenities, other rooms carousel
 // รับข้อมูลทั้งหมดผ่าน props (room, otherRooms) — เปลี่ยนห้องแค่เปลี่ยน props ไม่ต้องแก้ component นี้
-// แก้ไขได้: ปุ่ม Book Now ยังไม่มี logic จริง (ยังไม่ต่อ booking flow)
+// แก้ไขได้: ปุ่ม Book Now ลิงก์ไป `/booking/[roomTypeId]` (เฉพาะ room type จาก DB)
 
 'use client';
 
@@ -9,6 +9,8 @@ import { useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { Room } from '../../types/room';
+import type { SearchQuery } from '@/types/room-search';
+import { buildBookingHref, isRoomTypeUuid } from '@/features/booking-flow/utils';
 import { smoothScrollTo } from '@/lib/smoothScroll';
 import { useInterval } from '@/lib/useInterval';
 
@@ -16,6 +18,7 @@ import { useInterval } from '@/lib/useInterval';
 type RoomDetailProps = {
 	room: Room;
 	otherRooms: Room[];
+	bookingQuery?: SearchQuery;
 };
 
 // ── Sub components ────────────────────────────────────────────
@@ -25,7 +28,7 @@ const GrayArrowIcon = ({ direction }: { direction: 'left' | 'right' }) => (
 	</svg>
 );
 
-const RoomDetail = ({ room, otherRooms }: RoomDetailProps) => {
+const RoomDetail = ({ room, otherRooms, bookingQuery }: RoomDetailProps) => {
 	const gallerySliderRef = useRef<HTMLDivElement>(null);
 	const galleryTrackRef = useRef<HTMLDivElement>(null);
 	const galleryIndexRef = useRef(0);
@@ -93,6 +96,7 @@ const RoomDetail = ({ room, otherRooms }: RoomDetailProps) => {
 
 	const amenitiesMidpoint = Math.ceil(room.amenities.length / 2);
 	const amenitiesColumns = [room.amenities.slice(0, amenitiesMidpoint), room.amenities.slice(amenitiesMidpoint)];
+	const bookingHref = isRoomTypeUuid(room.slug) ? buildBookingHref(room.slug, bookingQuery) : null;
 
 	useEffect(() => {
 		galleryIndexRef.current = 0;
@@ -197,12 +201,22 @@ const RoomDetail = ({ room, otherRooms }: RoomDetailProps) => {
 								</span>
 							</div>
 
-							<button
-								type="button"
-								className="flex h-12 w-36 cursor-pointer items-center justify-center gap-2.5 rounded bg-[#C14817] px-8 py-4 [font-family:var(--font-open-sans)] text-base font-semibold text-white transition-transform duration-150 hover:bg-[#A93F13] active:scale-90"
-							>
-								Book Now
-							</button>
+							{bookingHref ? (
+								<Link
+									href={bookingHref}
+									className="flex h-12 w-36 cursor-pointer items-center justify-center gap-2.5 rounded bg-[#C14817] px-8 py-4 [font-family:var(--font-open-sans)] text-base font-semibold text-white transition-transform duration-150 hover:bg-[#A93F13] active:scale-90"
+								>
+									Book Now
+								</Link>
+							) : (
+								<button
+									type="button"
+									disabled
+									className="flex h-12 w-36 cursor-not-allowed items-center justify-center gap-2.5 rounded bg-[#C14817]/60 px-8 py-4 [font-family:var(--font-open-sans)] text-base font-semibold text-white"
+								>
+									Book Now
+								</button>
+							)}
 						</div>
 					</div>
 				</div>
