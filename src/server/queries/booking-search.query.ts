@@ -1,6 +1,11 @@
 import "server-only";
 import { supabaseAdmin } from "@/server/db/supabase-admin";
-import type { RoomSearchResult, SearchQuery } from "@/types/room-search";
+import {
+  SEARCH_PRICE_MAX,
+  SEARCH_PRICE_MIN,
+  type RoomSearchResult,
+  type SearchQuery,
+} from "@/types/room-search";
 
 const IMAGE_BUCKET = "room-images";
 
@@ -162,10 +167,28 @@ export async function searchRoomTypes(query: SearchQuery): Promise<RoomSearchRes
     availableByType.set(room.room_type_id, (availableByType.get(room.room_type_id) ?? 0) + 1);
   }
 
-  return ((typeRows ?? []) as unknown as RoomTypeRow[])
+  let results = ((typeRows ?? []) as unknown as RoomTypeRow[])
     .filter((row) => (row.capacity ?? 0) >= query.guests)
     .filter((row) => (availableByType.get(row.id) ?? 0) >= query.rooms)
     .map(mapRoomType);
+
+  if (query.minPrice != null || query.maxPrice != null) {
+    const minPrice = query.minPrice ?? SEARCH_PRICE_MIN;
+    const maxPrice = query.maxPrice ?? SEARCH_PRICE_MAX;
+    results = results.filter(
+      (room) => room.discountedPrice >= minPrice && room.discountedPrice <= maxPrice,
+    );
+  }
+
+  const sort = query.sort ?? "recommended";
+  if (sort === "price-asc") {
+    results.sort((a, b) => a.discountedPrice - b.discountedPrice);
+  } else if (sort === "price-desc") {
+    results.sort((a, b) => b.discountedPrice - a.discountedPrice);
+  }
+  // recommended + popular: keep room_types.created_at ASC (no popularity metric yet)
+
+  return results;
 }
 
 export async function getGuestRoomTypeById(id: string): Promise<RoomSearchResult | null> {

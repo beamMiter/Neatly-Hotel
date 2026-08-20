@@ -1,7 +1,13 @@
 import type { Metadata } from "next";
 import { SearchPageView } from "@/features/booking/components/SearchPageView";
 import { searchRoomTypes } from "@/server/queries/booking-search.query";
-import type { SearchQuery } from "@/types/room-search";
+import {
+  SEARCH_PRICE_MAX,
+  SEARCH_PRICE_MIN,
+  isSearchSort,
+  type SearchQuery,
+  type SearchSort,
+} from "@/types/room-search";
 
 export const metadata: Metadata = {
   title: "Search Rooms | Neatly Hotel",
@@ -33,14 +39,35 @@ function parseCount(value: string, fallback: number, max: number): number {
   return Math.min(parsed, max);
 }
 
+function parsePrice(value: string, fallback: number): number {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(SEARCH_PRICE_MAX, Math.max(SEARCH_PRICE_MIN, parsed));
+}
+
+function parseSort(value: string): SearchSort {
+  return isSearchSort(value) ? value : "recommended";
+}
+
 export default async function SearchPage({ searchParams }: SearchPageProps) {
   const params = await searchParams;
+
+  let minPrice = parsePrice(first(params.minPrice), SEARCH_PRICE_MIN);
+  let maxPrice = parsePrice(first(params.maxPrice), SEARCH_PRICE_MAX);
+  if (minPrice > maxPrice) {
+    const swapped = minPrice;
+    minPrice = maxPrice;
+    maxPrice = swapped;
+  }
 
   const initialQuery: SearchQuery = {
     checkIn: first(params.checkIn) || bangkokIsoDate(0),
     checkOut: first(params.checkOut) || bangkokIsoDate(1),
     rooms: parseCount(first(params.rooms), 1, 3),
     guests: parseCount(first(params.guests), 2, 8),
+    minPrice,
+    maxPrice,
+    sort: parseSort(first(params.sort)),
   };
 
   const rooms = await searchRoomTypes(initialQuery);
