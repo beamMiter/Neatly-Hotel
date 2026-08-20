@@ -1,6 +1,6 @@
 import "server-only";
 import { nightsBetween } from "@/features/booking/date-rules";
-import type { RoomTypeAvailability } from "@/features/booking/types";
+import type { RoomTypeAvailability } from "@/types/room-search";
 import { prisma } from "@/server/db";
 
 const UNAVAILABLE_STATUSES = ["Out of Order", "Out of Service", "Out of Inventory"];
