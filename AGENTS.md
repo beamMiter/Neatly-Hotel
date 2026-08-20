@@ -108,6 +108,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ทำไปแล้ว (อย่าย้ายซ้ำ): Supabase client รวมเหลือ `src/server/db/{supabase-server,supabase-admin,supabase-browser}.ts` แล้ว (`src/app/lib/supabase/*` ถูกลบ) และ `features/rooms/queries.ts`/`features/booking/queries.ts` ย้ายไป `src/server/queries/{room-types,booking-search}.query.ts` แล้ว พร้อม type ที่เกี่ยวข้องย้ายไป `src/types/{room-type,room-search}.ts`
 
+`src/lib/` ตอนนี้มี `useInterval.ts` ด้วย (ย้ายมาจาก `src/animations/` ตอน rebase — อีก branch หนึ่งสร้างโฟลเดอร์นี้คู่ขนานกันตอนย้าย `smoothScroll.ts` เหมือนกัน จึงรวมเข้าที่เดียวแทนที่จะปล่อยให้เป็น helper location ที่ 4) ถ้าเห็นโค้ดอ้างอิง `@/animations/*` ที่ไหนคือของเก่าที่ยังไม่ได้อัปเดต
+
 ## หมายเหตุ: local dev มี 2 ฐานข้อมูลที่ไม่ได้ sync กัน
 
 `NEXT_PUBLIC_SUPABASE_URL` (Supabase client, local `supabase start`) กับ `DATABASE_URL` (Prisma) **ชี้ไปคนละฐานข้อมูลกันตอนรัน local** — local Supabase Postgres มีแค่ `profiles`/`staff_members` เท่านั้น ไม่มี `room_types`/`rooms`/`hotel_information` เพราะตารางกลุ่มนี้ถูก migrate ผ่าน Prisma ไปที่อื่น
