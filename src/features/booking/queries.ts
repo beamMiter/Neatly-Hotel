@@ -148,7 +148,7 @@ export async function searchRoomTypes(query: SearchQuery): Promise<RoomType[]> {
   const availableByType = new Map<string, number>();
   for (const room of (roomRows ?? []) as RoomRow[]) {
     if (!room.room_type_id) continue;
-    if (hasDates && !isAvailableRoom(room, bookedRoomIds)) continue;
+    if (!isAvailableRoom(room, bookedRoomIds)) continue;
     availableByType.set(room.room_type_id, (availableByType.get(room.room_type_id) ?? 0) + 1);
   }
 
