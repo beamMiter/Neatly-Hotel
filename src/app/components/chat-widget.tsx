@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
 import type { Room, SearchState } from "@/app/lib/hotel";
+import type { ChatbotSuggestion } from "@/app/lib/chatbot-faq";
 
 type Intent = "faq" | "search_room" | "unknown";
 
@@ -13,6 +14,7 @@ type ChatMessage = {
   content: string;
   intent?: Intent;
   rooms?: Room[];
+  suggestion?: ChatbotSuggestion;
 };
 
 type ChatResponse = {
@@ -21,6 +23,7 @@ type ChatResponse = {
   intent?: Intent;
   search?: SearchState;
   rooms?: Room[];
+  suggestion?: ChatbotSuggestion;
 };
 
 const initialSearch: SearchState = {
@@ -32,16 +35,7 @@ const initialSearch: SearchState = {
 
 const defaultGreeting = "Welcome to Neatly Hotel! 🌟\nI’m your virtual assistant.\nChoose a topic you’d like to know more about. I’m here to help! 😊";
 
-const topicReplies = [
-  { label: "Room Types", message: "แนะนำประเภทห้องพักให้หน่อย" },
-  { label: "Booking", message: "ฉันต้องการจองห้องพัก" },
-  { label: "Check-in & Check-out Time", message: "เวลาเช็กอินและเช็กเอาต์คือกี่โมง" },
-  { label: "Payment Methods", message: "โรงแรมรองรับช่องทางชำระเงินอะไรบ้าง" },
-  { label: "Cancel Booking", message: "ขอข้อมูลการยกเลิกการจอง" },
-  { label: "Promotion", message: "ตอนนี้โรงแรมมีโปรโมชันอะไรบ้าง" },
-];
-
-export default function ChatWidget({ greetingMessage = defaultGreeting }: { greetingMessage?: string }) {
+export default function ChatWidget({ greetingMessage = defaultGreeting, suggestions = [] }: { greetingMessage?: string; suggestions?: ChatbotSuggestion[] }) {
   const initialMessage: ChatMessage = {
     id: "welcome",
     role: "assistant",
@@ -69,7 +63,7 @@ export default function ChatWidget({ greetingMessage = defaultGreeting }: { gree
     if (isOpen) inputRef.current?.focus();
   }, [isOpen]);
 
-  async function sendMessage(text: string, searchOverride: SearchState = search) {
+  async function sendMessage(text: string, searchOverride: SearchState = search, suggestionId?: string) {
     const content = text.trim();
     if (!content || isLoading) return;
 
@@ -91,6 +85,7 @@ export default function ChatWidget({ greetingMessage = defaultGreeting }: { gree
         body: JSON.stringify({
           messages: nextMessages.map(({ role, content }) => ({ role, content })),
           search: searchOverride,
+          suggestionId,
         }),
       });
       const data = (await response.json()) as ChatResponse;
@@ -105,6 +100,7 @@ export default function ChatWidget({ greetingMessage = defaultGreeting }: { gree
           content: data.message ?? "ขออภัยค่ะ ไม่พบคำตอบ",
           intent: data.intent,
           rooms: data.rooms,
+          suggestion: data.suggestion,
         },
       ]);
     } catch {
@@ -240,18 +236,37 @@ export default function ChatWidget({ greetingMessage = defaultGreeting }: { gree
                     ))}
                   </div>
                 )}
+                {message.suggestion?.format === "Option with details" && message.suggestion.options.length > 0 && (
+                  <div className="mt-3 grid max-w-[300px] gap-2">
+                    {message.suggestion.options.map((option) => (
+                      <details className="rounded-lg border border-[#DDE3E0] bg-white px-4 py-2 text-[#646D89]" key={option.name}>
+                        <summary className="cursor-pointer font-semibold text-[#465C50]">{option.name}</summary>
+                        <p className="mt-2 text-sm leading-5">{option.details}</p>
+                      </details>
+                    ))}
+                  </div>
+                )}
+                {message.suggestion?.format === "Room type" && message.suggestion.rooms.length > 0 && (
+                  <div className="mt-3 flex max-w-[320px] flex-wrap gap-2">
+                    {message.suggestion.rooms.map((room) => (
+                      <button className="rounded-full border border-[#ABC0B4] bg-white px-3 py-2 text-sm text-[#465C50]" key={room} type="button" onClick={() => message.suggestion?.id === "booking" ? setView("filter") : void sendMessage(room)}>
+                        {room}{message.suggestion?.button_name ? ` · ${message.suggestion.button_name}` : ""}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
             {messages.length === 1 && (
               <div className="relative z-[1] w-full">
                 <div className="flex flex-wrap gap-2" aria-label="หัวข้อยอดนิยม">
-                  {topicReplies.map((topic) => (
+                  {suggestions.map((topic) => (
                     <button className="h-10 w-auto cursor-pointer rounded-full border border-[#ABC0B4] bg-[#E6EBE9] px-4 text-left text-base leading-6 tracking-[-.02em] text-[#465C50] hover:border-[#7fa08f] hover:bg-[#dce6e1] focus:outline-2 focus:outline-[#849b8c]"
-                      key={topic.label}
+                      key={topic.id}
                       type="button"
-                      onClick={() => topic.label === "Booking" ? setView("filter") : void sendMessage(topic.message)}
+                      onClick={() => void sendMessage(topic.topic, search, topic.id)}
                     >
-                      {topic.label}
+                      {topic.topic}
                     </button>
                   ))}
                 </div>

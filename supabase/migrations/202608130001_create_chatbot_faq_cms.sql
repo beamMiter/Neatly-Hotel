@@ -31,11 +31,13 @@ language sql
 stable
 security definer
 set search_path = ''
-as $$
+  as $$
   select exists (
     select 1
-    from public.chatbot_admins
+    from public.staff_members
     where user_id = (select auth.uid())
+      and role = 'admin'
+      and is_active = true
   );
 $$;
 

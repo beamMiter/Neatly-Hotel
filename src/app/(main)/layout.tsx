@@ -11,13 +11,12 @@ import { loadHotelInformation } from '@/server/queries/hotel.query';
 
 const ChatWidgetWithSettings = async () => {
 	const supabase = await createClient();
-	const { data: chatbotSettings } = await supabase
-		.from('chatbot_settings')
-		.select('greeting_message')
-		.eq('id', true)
-		.maybeSingle();
+	const [{ data: chatbotSettings }, { data: suggestions }] = await Promise.all([
+		supabase.from('chatbot_settings').select('greeting_message').eq('id', true).maybeSingle(),
+		supabase.from('chatbot_suggestions').select('*').eq('is_active', true).order('sort_order'),
+	]);
 
-	return <ChatWidget greetingMessage={chatbotSettings?.greeting_message} />;
+	return <ChatWidget greetingMessage={chatbotSettings?.greeting_message} suggestions={suggestions ?? []} />;
 };
 
 const MainLayout = async ({ children }: { children: React.ReactNode }) => {
