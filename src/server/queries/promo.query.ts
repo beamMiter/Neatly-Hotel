@@ -117,7 +117,7 @@ export async function validatePromotionCode(
       discountAmount: 0,
       subtotal,
       totalAfterDiscount: subtotal,
-      message: "This promotion code cannot be used with the selected room type",
+      message: "This promo code isn't valid for this room. Try another code or room",
     };
   }
 

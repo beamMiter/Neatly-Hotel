@@ -42,6 +42,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 | ต้องการทำอะไร | ที่อยู่ที่ถูกต้อง |
 |---|---|
 | สร้าง DB client (Prisma / Supabase) | `src/server/db/` **เท่านั้น** ห้ามสร้างที่อื่น |
+| client เชื่อมบริการภายนอกที่ไม่ใช่ DB (เช่น Stripe) | `src/server/payments/` (หรือ `src/server/<service>/` ตามชื่อบริการ) |
 | อ่าน/เขียน DB ฝั่ง server | `src/server/queries/*.query.ts` **เท่านั้น** |
 | helper ทั่วไปที่ไม่ผูก domain | `src/lib/` |
 | UI ที่ใช้ข้าม feature | `src/components/{ui,shared,layout,icons}/` |
@@ -88,8 +89,9 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 `prisma/schema.prisma` คือแหล่งความจริงที่กำลังจะเป็นตัวหลัก แต่**ตอนนี้ยังไม่ครบ** ระวังก่อนแก้อะไร:
 
 - `profiles`, `staff_members`, `chatbot_admins`, `chatbot_faqs`, `chatbot_settings` — **ยังไม่มี model ใน Prisma** อยู่ใน `supabase/migrations/*.sql` เท่านั้น
-- `RoomType` ใน Prisma **ขาดคอลัมน์** `promotion_price` และ `amenities` ที่มีอยู่จริงใน DB
-- `Booking` / `BookingRoom` มีใน `schema.prisma` แต่ไม่มี migration ไหนสร้าง ยังไม่ยืนยันว่าตรงกับ DB จริง
+- `RoomType` ใน Prisma **ขาดคอลัมน์** `amenities` ที่มีอยู่จริงใน DB (`promotion_price` เพิ่ม field ให้ตรงแล้ว)
+- `Booking` / `BookingRoom` มีใน `schema.prisma` แต่ไม่มี migration ไหนสร้าง ยังไม่ยืนยันว่าตรงกับ DB จริง (คอลัมน์ guest_*/payment_*/expires_at ที่เพิ่มใน `supabase/migrations/202608200001_booking_payment.sql` เป็นการเดาต่อจากของเดิม — **ต้อง `npx prisma db pull --print` ยืนยันก่อน apply migration นี้ขึ้น DB จริง**, ดูหมายเหตุในหัวไฟล์ migration)
+- `payments`, `promotions`, `special_requests` — ตารางใหม่จาก migration เดียวกันข้างต้น ยังไม่มี model ใน Prisma ตั้งใจ (query ผ่าน `supabaseAdmin` เหมือน `bookings` เดิม)
 - `src/server/db/{schema,seed}.sql` เป็นไฟล์เก่าที่ไม่ใช่แหล่งความจริง อย่าใช้อ้างอิง
 
 **ห้ามรัน `npm run db:migrate` หรือ `npm run db:push` โดยไม่ถามทีมก่อน** — DB ปัจจุบันอยู่ในสภาพ drift (มีตารางที่ Prisma ไม่รู้จัก) Prisma อาจเสนอให้ reset database ทั้งก้อน ซึ่งถ้ากดยืนยันบน DB ที่ใช้ร่วมกันคือข้อมูลหายทั้งหมด

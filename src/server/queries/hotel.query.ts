@@ -11,12 +11,16 @@ function mapHotel(row: {
   name: string;
   description: string;
   logoUrl: string | null;
+  checkInTime: string;
+  checkOutTime: string;
 }): HotelInformation {
   return {
     id: row.id,
     name: row.name,
     description: row.description,
     logoUrl: row.logoUrl,
+    checkInTime: row.checkInTime,
+    checkOutTime: row.checkOutTime,
   };
 }
 
@@ -48,6 +52,8 @@ export async function updateHotelInformation(input: {
   name: string;
   description: string;
   logoUrl: string | null;
+  checkInTime: string;
+  checkOutTime: string;
 }): Promise<HotelInformation> {
   const row = await prisma.hotelInformation.upsert({
     where: { id: DEFAULT_HOTEL_ID },
@@ -56,11 +62,15 @@ export async function updateHotelInformation(input: {
       name: input.name,
       description: input.description,
       logoUrl: input.logoUrl,
+      checkInTime: input.checkInTime,
+      checkOutTime: input.checkOutTime,
     },
     update: {
       name: input.name,
       description: input.description,
       logoUrl: input.logoUrl,
+      checkInTime: input.checkInTime,
+      checkOutTime: input.checkOutTime,
     },
   });
 

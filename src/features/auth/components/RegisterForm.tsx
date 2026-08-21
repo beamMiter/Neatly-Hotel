@@ -5,7 +5,7 @@ import type { ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { TextField } from "@/components/ui/TextField";
 import { SelectField } from "@/components/ui/SelectField";
-import { DateOfBirthField } from "./DateOfBirthField";
+import { DateOfBirthField } from "@/components/ui/DateOfBirthField";
 import { PhotoUpload } from "./PhotoUpload";
 import { COUNTRIES } from "@/lib/countries";
 import {
