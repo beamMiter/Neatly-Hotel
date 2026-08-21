@@ -1,5 +1,5 @@
 import { format } from "date-fns";
-import type { SearchQuery } from "@/features/booking/types";
+import type { SearchQuery } from "@/types/room-search";
 import { bangkokTodayIso, nightsBetween } from "@/features/booking/date-rules";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

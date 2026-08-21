@@ -1,4 +1,4 @@
-import type { RoomType, SearchQuery } from "@/features/booking/types";
+import type { RoomSearchResult, SearchQuery } from "@/types/room-search";
 
 export type BookingStep = 1 | 2 | 3;
 
@@ -38,7 +38,7 @@ export type BookingDraft = {
 };
 
 export type BookingFlowRoom = Pick<
-  RoomType,
+  RoomSearchResult,
   "id" | "name" | "guests" | "discountedPrice" | "fullPrice"
 >;
 

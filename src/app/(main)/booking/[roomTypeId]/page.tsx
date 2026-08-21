@@ -3,8 +3,8 @@ import { BookingFlowView } from "@/features/booking-flow/components/BookingFlowV
 import { getBookingCustomerProfile } from "@/features/booking-flow/queries";
 import { defaultBookingSearchQuery } from "@/features/booking-flow/utils";
 import { validateStayDates } from "@/features/booking/date-rules";
-import { getGuestRoomTypeById } from "@/features/booking/queries";
-import type { SearchQuery } from "@/features/booking/types";
+import { getGuestRoomTypeById } from "@/server/queries/booking-search.query";
+import type { SearchQuery } from "@/types/room-search";
 import { createClient } from "@/server/db/supabase-server";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

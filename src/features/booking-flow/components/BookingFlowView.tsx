@@ -17,7 +17,7 @@ import type {
   BookingStep,
 } from "@/features/booking-flow/types";
 import { parseBookingBasicInfo, type BookingBasicInfoFieldErrors } from "@/features/booking-flow/validations";
-import type { SearchQuery } from "@/features/booking/types";
+import type { SearchQuery } from "@/types/room-search";
 
 type BookingFlowViewProps = {
   room: BookingFlowRoom;

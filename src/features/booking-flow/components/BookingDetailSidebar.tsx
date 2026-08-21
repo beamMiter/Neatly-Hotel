@@ -2,7 +2,7 @@ import { format } from "date-fns";
 import Image from "next/image";
 import { BOOKING_POLICY_NOTES } from "@/features/booking-flow/constants";
 import { BookingHoldTimer } from "@/features/booking-flow/components/BookingHoldTimer";
-import type { SearchQuery } from "@/features/booking/types";
+import type { SearchQuery } from "@/types/room-search";
 import type { BookingFlowRoom, BookingPriceSummary, BookingStep } from "@/features/booking-flow/types";
 
 type BookingDetailSidebarProps = {
