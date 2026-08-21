@@ -30,7 +30,7 @@ export function SearchPageView({ rooms, initialQuery }: SearchPageViewProps) {
             No rooms match this search. Try different dates, rooms, or guests.
           </p>
         ) : (
-          rooms.map((room) => <RoomCard key={room.id} room={room} />)
+          rooms.map((room) => <RoomCard key={room.id} room={room} searchQuery={initialQuery} />)
         )}
       </div>
     </main>

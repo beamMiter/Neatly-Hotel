@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import RoomDetail from "@/components/shared/RoomDetail";
 import { toLandingRoom } from "@/features/booking/format";
+import { defaultBookingSearchQuery } from "@/features/booking-flow/utils";
 import { getGuestRoomTypeById, searchRoomTypes } from "@/server/queries/booking-search.query";
 import { ROOMS, getRoomBySlug } from "@/data/rooms";
 import { shuffle } from "@/lib/shuffle";
@@ -48,7 +49,7 @@ export default async function RoomDetailPage({ params }: RoomDetailPageProps) {
 
     return (
       <main className="flex-1">
-        <RoomDetail room={toLandingRoom(room)} otherRooms={otherRooms} />
+        <RoomDetail room={toLandingRoom(room)} otherRooms={otherRooms} bookingQuery={defaultBookingSearchQuery()} />
       </main>
     );
   }

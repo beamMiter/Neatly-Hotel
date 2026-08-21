@@ -5,11 +5,16 @@ import { useActionState } from "react";
 import { login } from "@/features/auth/actions";
 import { inter, openSans } from "@/lib/fonts";
 
-export function LoginForm() {
+type LoginFormProps = {
+  redirectTo?: string;
+};
+
+export function LoginForm({ redirectTo }: LoginFormProps) {
   const [state, action, pending] = useActionState(login, undefined);
 
   return (
     <form action={action} className="flex w-full max-w-113 flex-col gap-10">
+      {redirectTo && <input type="hidden" name="redirectTo" value={redirectTo} />}
       <div className="flex flex-col gap-1">
         <label htmlFor="email" className={`${inter.className} text-base text-[#2A2E3F]`}>
           Username or Email
