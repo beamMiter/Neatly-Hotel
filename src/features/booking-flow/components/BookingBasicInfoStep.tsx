@@ -3,7 +3,7 @@
 import type { ChangeEvent } from "react";
 import { TextField } from "@/components/ui/TextField";
 import { SelectField } from "@/components/ui/SelectField";
-import { DateOfBirthField } from "@/features/auth/components/DateOfBirthField";
+import { DateOfBirthField } from "@/components/ui/DateOfBirthField";
 import { COUNTRIES } from "@/lib/countries";
 import type { BookingBasicInfo } from "@/features/booking-flow/types";
 import type { BookingBasicInfoFieldErrors } from "@/features/booking-flow/validations";
