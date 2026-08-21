@@ -96,3 +96,23 @@ model HotelInformation {
 
   @@map("hotel_information")
 }
+
+model PromotionCode {
+  id                     String    @id @default(uuid()) @db.Uuid
+  code                   String    @unique
+  discountType           String    @map("discount_type")
+  discountValue          Decimal   @map("discount_value") @db.Decimal
+  minSubtotal            Decimal?  @map("min_subtotal") @db.Decimal
+  validFrom              DateTime? @map("valid_from") @db.Date
+  validTo                DateTime? @map("valid_to") @db.Date
+  isActive               Boolean   @default(true) @map("is_active")
+  applicableRoomTypeIds  String[]  @default([]) @map("applicable_room_type_ids") @db.Uuid
+  maxUses                Int?      @map("max_uses")
+  usedCount              Int       @default(0) @map("used_count")
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([code])
+  @@index([isActive])
+  @@map("promotion_codes")
+}

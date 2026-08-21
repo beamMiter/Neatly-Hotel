@@ -13,7 +13,9 @@ function createPrismaClient() {
 
 const cached = globalForPrisma.prisma;
 export const prisma =
-  cached && "hotelInformation" in cached ? cached : createPrismaClient();
+  cached && "hotelInformation" in cached && "promotionCode" in cached
+    ? cached
+    : createPrismaClient();
 
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
