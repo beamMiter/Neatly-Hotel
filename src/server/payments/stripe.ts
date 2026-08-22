@@ -21,11 +21,18 @@ function getStripe(): Stripe {
   return cachedStripe;
 }
 
+// Stripe is the only honest source for an intent's state: our payments row
+// says "failed" for a decline that is actually still confirmable, and still
+// says "requires_payment_method" for a success whose webhook hasn't landed.
+export async function retrievePaymentIntent(intentId: string): Promise<Stripe.PaymentIntent> {
+  return getStripe().paymentIntents.retrieve(intentId);
+}
+
 // Best-effort teardown for an intent we created but can no longer honour
 // (e.g. its payments row failed to insert, or it is being superseded by a
 // retry). Cancelling at Stripe is what stops the guest from paying against
 // an intent nothing will reconcile. Already-terminal intents throw here —
-// that is fine, the caller logs and moves on.
+// callers check retrievePaymentIntent first when that matters.
 export async function cancelPaymentIntent(intentId: string): Promise<void> {
   await getStripe().paymentIntents.cancel(intentId);
 }
