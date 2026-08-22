@@ -103,7 +103,11 @@ async function computePricing(input: CreateBookingInput): Promise<PricingContext
 
   const totalAmount = roomSubtotal + addonsTotal - discountAmount;
 
-  if (input.paymentMethod === "credit_card" && totalAmount > 0 && totalAmount < MIN_CHARGE_THB) {
+  // Note the missing `totalAmount > 0` guard here is deliberate: a 100%-off
+  // promo lands on exactly 0, which Stripe rejects the same way it rejects
+  // 5 THB. Both need to fail here with a clear message rather than surfacing
+  // as an opaque Stripe error after the booking row is already committed.
+  if (input.paymentMethod === "credit_card" && totalAmount < MIN_CHARGE_THB) {
     throw new AmountTooLowError(`Total after discount must be at least THB ${MIN_CHARGE_THB}`);
   }
 
@@ -263,6 +267,26 @@ export async function createPendingBooking(
             insert into booking_rooms (booking_id, room_id, price_per_night)
             values (${bookingId}::uuid, ${room.id}::uuid, ${pricePerNight})
           `;
+        }
+
+        // Claim one use of the promo inside the same transaction. Doing it
+        // here (rather than trusting the read-only check in computePricing)
+        // is what actually enforces max_uses — the `used_count < max_uses`
+        // predicate makes the claim atomic, so two guests racing for the last
+        // use can't both win. Zero rows means the code ran out or was
+        // deactivated since we priced it, which rolls the booking back.
+        if (resolvedPromoCode) {
+          const claimed = await tx.$queryRaw<{ id: string }[]>`
+            update promotion_codes
+            set used_count = used_count + 1, updated_at = now()
+            where code = ${resolvedPromoCode}
+              and is_active = true
+              and (max_uses is null or used_count < max_uses)
+            returning id
+          `;
+          if (claimed.length === 0) {
+            throw new InvalidPromoError("This promotion code is no longer available");
+          }
         }
 
         const [inserted] = await tx.$queryRaw<Parameters<typeof toBookingRecord>[0][]>`

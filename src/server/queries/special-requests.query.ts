@@ -18,9 +18,12 @@ export async function getSpecialRequestCatalog(): Promise<SpecialRequestOption[]
     .eq("is_active", true)
     .order("sort_order", { ascending: true });
 
+  // Throw rather than degrade to an empty catalog: computePricing resolves
+  // add-ons against this list, so an empty one silently charges the guest
+  // room-only for a booking that includes paid extras.
   if (error) {
     console.error("[special_requests] failed to fetch catalog:", error);
-    return [];
+    throw new Error("Failed to load the special request catalog");
   }
 
   return ((data ?? []) as SpecialRequestRow[]).map((row) => ({

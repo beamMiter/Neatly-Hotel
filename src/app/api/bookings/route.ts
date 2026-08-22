@@ -11,6 +11,7 @@ import {
   RoomTypeNotFoundError,
   createPendingBooking,
   markBookingCashConfirmed,
+  updateBookingPaymentStatus,
 } from "@/server/queries/bookings.query";
 import { createBookingPaymentIntent } from "@/server/payments/stripe";
 import { supabaseAdmin } from "@/server/db/supabase-admin";
@@ -77,10 +78,26 @@ export async function POST(request: Request) {
       );
     }
 
-    const paymentIntent = await createBookingPaymentIntent({
-      bookingId: booking.id,
-      amountThb: pricing.totalAmount,
-    });
+    // The booking + booking_rooms rows are already committed at this point,
+    // so a Stripe failure here would otherwise leave those rooms held for the
+    // full 30-minute window with no way for the guest to pay — cancel the
+    // booking to release them immediately before surfacing the error.
+    let paymentIntent;
+    try {
+      paymentIntent = await createBookingPaymentIntent({
+        bookingId: booking.id,
+        amountThb: pricing.totalAmount,
+      });
+    } catch (error) {
+      console.error("[api/bookings] PaymentIntent creation failed, releasing hold:", error);
+      await updateBookingPaymentStatus(booking.id, "failed").catch((cleanupError) => {
+        console.error("[api/bookings] failed to release hold after Stripe error:", cleanupError);
+      });
+      return NextResponse.json(
+        { message: "Could not start the payment. Please try booking again." },
+        { status: 502 },
+      );
+    }
 
     const { error: paymentInsertError } = await supabaseAdmin.from("payments").insert({
       booking_id: booking.id,

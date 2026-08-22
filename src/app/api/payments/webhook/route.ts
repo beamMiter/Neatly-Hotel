@@ -4,6 +4,26 @@ import { constructWebhookEvent, retrieveChargeWithCard } from "@/server/payments
 import { supabaseAdmin } from "@/server/db/supabase-admin";
 import { updateBookingPaymentStatus } from "@/server/queries/bookings.query";
 
+// A retry deliberately opens a NEW PaymentIntent for the same booking, so a
+// delayed or redelivered event from a superseded intent can arrive after the
+// booking is already settled. Only the booking's most recent payments row may
+// move the booking's own status — otherwise a late payment_failed from the
+// first attempt would un-confirm a booking the retry already paid for.
+async function isCurrentIntentForBooking(bookingId: string, intentId: string): Promise<boolean> {
+  const { data, error } = await supabaseAdmin
+    .from("payments")
+    .select("stripe_payment_intent_id")
+    .eq("booking_id", bookingId)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (error) {
+    console.error("[api/payments/webhook] could not resolve the current intent:", error);
+    return false;
+  }
+  return data?.[0]?.stripe_payment_intent_id === intentId;
+}
+
 // Signature verification below IS the auth for this route — Stripe calls
 // it directly, there is no session/user to check.
 export async function POST(request: Request) {
@@ -48,7 +68,9 @@ export async function POST(request: Request) {
           })
           .eq("stripe_payment_intent_id", intent.id);
 
-        if (bookingId) await updateBookingPaymentStatus(bookingId, "paid");
+        if (bookingId && (await isCurrentIntentForBooking(bookingId, intent.id))) {
+          await updateBookingPaymentStatus(bookingId, "paid");
+        }
         break;
       }
 
@@ -65,7 +87,9 @@ export async function POST(request: Request) {
           })
           .eq("stripe_payment_intent_id", intent.id);
 
-        if (bookingId) await updateBookingPaymentStatus(bookingId, "failed");
+        if (bookingId && (await isCurrentIntentForBooking(bookingId, intent.id))) {
+          await updateBookingPaymentStatus(bookingId, "failed");
+        }
         break;
       }
 
@@ -81,7 +105,9 @@ export async function POST(request: Request) {
         // bookings.payment_status has no "canceled" value — a canceled
         // intent means the guest never completed payment, same outcome as
         // "failed" from the booking's point of view (room gets released).
-        if (bookingId) await updateBookingPaymentStatus(bookingId, "failed");
+        if (bookingId && (await isCurrentIntentForBooking(bookingId, intent.id))) {
+          await updateBookingPaymentStatus(bookingId, "failed");
+        }
         break;
       }
 
