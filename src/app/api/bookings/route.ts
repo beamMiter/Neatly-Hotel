@@ -13,7 +13,7 @@ import {
   markBookingCashConfirmed,
   updateBookingPaymentStatus,
 } from "@/server/queries/bookings.query";
-import { createBookingPaymentIntent } from "@/server/payments/stripe";
+import { cancelPaymentIntent, createBookingPaymentIntent } from "@/server/payments/stripe";
 import { supabaseAdmin } from "@/server/db/supabase-admin";
 
 export async function POST(request: Request) {
@@ -106,8 +106,22 @@ export async function POST(request: Request) {
       currency: "thb",
       status: "requires_payment_method",
     });
+    // Not survivable: the webhook resolves which intent is current from this
+    // table, so a booking with no payments row would have its settled charge
+    // ignored. Cancel the intent and release the hold rather than hand back a
+    // clientSecret the guest could pay against and never get confirmed.
     if (paymentInsertError) {
       console.error("[api/bookings] failed to insert payments row:", paymentInsertError);
+      await cancelPaymentIntent(paymentIntent.id).catch((cancelError) => {
+        console.error("[api/bookings] failed to cancel orphaned intent:", cancelError);
+      });
+      await updateBookingPaymentStatus(booking.id, "failed").catch((cleanupError) => {
+        console.error("[api/bookings] failed to release hold:", cleanupError);
+      });
+      return NextResponse.json(
+        { message: "Could not start the payment. Please try booking again." },
+        { status: 502 },
+      );
     }
 
     return NextResponse.json(

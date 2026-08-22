@@ -21,6 +21,15 @@ function getStripe(): Stripe {
   return cachedStripe;
 }
 
+// Best-effort teardown for an intent we created but can no longer honour
+// (e.g. its payments row failed to insert, or it is being superseded by a
+// retry). Cancelling at Stripe is what stops the guest from paying against
+// an intent nothing will reconcile. Already-terminal intents throw here —
+// that is fine, the caller logs and moves on.
+export async function cancelPaymentIntent(intentId: string): Promise<void> {
+  await getStripe().paymentIntents.cancel(intentId);
+}
+
 export async function createBookingPaymentIntent(input: {
   bookingId: string;
   amountThb: number;

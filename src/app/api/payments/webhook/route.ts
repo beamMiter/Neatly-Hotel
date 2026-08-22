@@ -9,6 +9,12 @@ import { updateBookingPaymentStatus } from "@/server/queries/bookings.query";
 // booking is already settled. Only the booking's most recent payments row may
 // move the booking's own status — otherwise a late payment_failed from the
 // first attempt would un-confirm a booking the retry already paid for.
+// Deliberately fails OPEN. This gate exists to ignore a *superseded* intent,
+// which we can only know about from a newer payments row. If we can't read
+// the table, or there is no row at all, we have no evidence this intent was
+// superseded — and refusing would drop a real settled charge, leaving the
+// guest paid-but-unconfirmed. Only a row that positively names a different
+// intent as the latest is grounds for ignoring this event.
 async function isCurrentIntentForBooking(bookingId: string, intentId: string): Promise<boolean> {
   const { data, error } = await supabaseAdmin
     .from("payments")
@@ -18,10 +24,13 @@ async function isCurrentIntentForBooking(bookingId: string, intentId: string): P
     .limit(1);
 
   if (error) {
-    console.error("[api/payments/webhook] could not resolve the current intent:", error);
-    return false;
+    console.error("[api/payments/webhook] could not resolve the current intent, proceeding:", error);
+    return true;
   }
-  return data?.[0]?.stripe_payment_intent_id === intentId;
+
+  const latest = data?.[0]?.stripe_payment_intent_id;
+  if (!latest) return true;
+  return latest === intentId;
 }
 
 // Signature verification below IS the auth for this route — Stripe calls

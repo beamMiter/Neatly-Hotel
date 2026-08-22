@@ -20,7 +20,9 @@ export async function getSpecialRequestCatalog(): Promise<SpecialRequestOption[]
 
   // Throw rather than degrade to an empty catalog: computePricing resolves
   // add-ons against this list, so an empty one silently charges the guest
-  // room-only for a booking that includes paid extras.
+  // room-only for a booking that includes paid extras. Render paths that
+  // would rather show a wizard without add-ons than a 500 should use
+  // getSpecialRequestCatalogForDisplay below.
   if (error) {
     console.error("[special_requests] failed to fetch catalog:", error);
     throw new Error("Failed to load the special request catalog");
@@ -33,6 +35,19 @@ export async function getSpecialRequestCatalog(): Promise<SpecialRequestOption[]
     price: Number(row.price),
     billingType: row.billing_type,
   }));
+}
+
+// For rendering the wizard only. A transient catalog failure here should
+// degrade to "no add-ons offered" rather than 500 the whole booking flow —
+// the guest can still book the room, and nothing is priced off this result.
+// Anything that computes money must use getSpecialRequestCatalog() instead.
+export async function getSpecialRequestCatalogForDisplay(): Promise<SpecialRequestOption[]> {
+  try {
+    return await getSpecialRequestCatalog();
+  } catch (error) {
+    console.error("[special_requests] catalog unavailable, rendering without add-ons:", error);
+    return [];
+  }
 }
 
 // Server-side authoritative resolve: never trust prices *or* quantities the

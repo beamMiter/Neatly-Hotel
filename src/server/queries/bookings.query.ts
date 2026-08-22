@@ -269,24 +269,46 @@ export async function createPendingBooking(
           `;
         }
 
-        // Claim one use of the promo inside the same transaction. Doing it
-        // here (rather than trusting the read-only check in computePricing)
-        // is what actually enforces max_uses — the `used_count < max_uses`
-        // predicate makes the claim atomic, so two guests racing for the last
-        // use can't both win. Zero rows means the code ran out or was
-        // deactivated since we priced it, which rolls the booking back.
+        // Enforce max_uses against the bookings that actually still hold the
+        // code, not a standalone counter. A counter would have to be handed
+        // back on every decline, abandoned hold and cleanup path — miss one
+        // and the code leaks a slot permanently, so a 100-use campaign dies
+        // to 100 abandoned checkouts. Counting live bookings self-heals
+        // instead: cancelled and expired ones stop counting on their own.
+        //
+        // Locking the promo row first serializes two guests racing for the
+        // last use, so the count-then-insert below can't both succeed.
+        // used_count is kept in step purely so the live preview in
+        // promo.query.ts stays honest.
         if (resolvedPromoCode) {
-          const claimed = await tx.$queryRaw<{ id: string }[]>`
-            update promotion_codes
-            set used_count = used_count + 1, updated_at = now()
-            where code = ${resolvedPromoCode}
-              and is_active = true
-              and (max_uses is null or used_count < max_uses)
-            returning id
+          const [promo] = await tx.$queryRaw<{ max_uses: number | null }[]>`
+            select max_uses from promotion_codes
+            where code = ${resolvedPromoCode} and is_active = true
+            for update
           `;
-          if (claimed.length === 0) {
+          if (!promo) {
             throw new InvalidPromoError("This promotion code is no longer available");
           }
+
+          // Excludes the row this transaction just inserted — it is the
+          // claim being tested, not a competing one.
+          const [{ live }] = await tx.$queryRaw<{ live: bigint }[]>`
+            select count(*) as live from bookings
+            where promo_code = ${resolvedPromoCode}
+              and id <> ${bookingId}::uuid
+              and status not in ('cancelled', 'canceled')
+              and (expires_at is null or expires_at > now())
+          `;
+          const liveCount = Number(live);
+
+          if (promo.max_uses !== null && liveCount >= promo.max_uses) {
+            throw new InvalidPromoError("This promotion code has reached its usage limit");
+          }
+
+          await tx.$executeRaw`
+            update promotion_codes set used_count = ${liveCount + 1}, updated_at = now()
+            where code = ${resolvedPromoCode}
+          `;
         }
 
         const [inserted] = await tx.$queryRaw<Parameters<typeof toBookingRecord>[0][]>`
@@ -379,12 +401,17 @@ export async function markBookingCashConfirmed(bookingId: string): Promise<void>
 //     Re-run the same overlap check createPendingBooking uses before handing
 //     back a hold, otherwise a retry can re-claim already-sold inventory.
 export async function extendBookingHold(bookingId: string, customerId: string): Promise<boolean> {
-  try {
-    return await prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx) => {
+      // Selected as text so the ::date casts below compare the same literal
+      // form createPendingBooking uses. A Prisma `date` comes back as a
+      // UTC-midnight Date, and timestamptz::date resolves in the session
+      // timezone — on a non-UTC connection that silently shifts the overlap
+      // window by a day.
       const bookings = await tx.$queryRaw<
-        { check_in: Date; check_out: Date }[]
+        { check_in: string; check_out: string }[]
       >`
-        select check_in, check_out
+        select to_char(check_in, 'YYYY-MM-DD') as check_in,
+               to_char(check_out, 'YYYY-MM-DD') as check_out
         from bookings
         where id = ${bookingId}::uuid and customer_id = ${customerId}::uuid
           and payment_status in ('pending', 'failed')
@@ -425,9 +452,9 @@ export async function extendBookingHold(bookingId: string, customerId: string): 
         where id = ${bookingId}::uuid
       `;
       return true;
-    });
-  } catch (error) {
-    console.error("[bookings] extendBookingHold failed:", error);
-    return false;
-  }
+  });
+  // Deliberately no catch: `false` means "this booking is genuinely not
+  // retryable", which the route turns into a 409 telling the guest to start
+  // over. A dropped connection or deadlock is not that — let it surface as a
+  // 500 so the guest can simply try again.
 }

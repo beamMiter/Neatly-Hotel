@@ -83,15 +83,31 @@ export async function validatePromotionCode(
     };
   }
 
-  if (promo.maxUses !== null && promo.usedCount >= promo.maxUses) {
-    return {
-      valid: false,
-      code,
-      discountAmount: 0,
-      subtotal,
-      totalAfterDiscount: subtotal,
-      message: "This promotion code has reached its usage limit",
-    };
+  // Counts the bookings that actually still hold the code rather than the
+  // `used_count` column. A stored counter has to be handed back on every
+  // decline, abandoned hold and cleanup path, and one missed path leaks a
+  // slot forever; counting live bookings self-heals. createPendingBooking
+  // enforces the same way inside its transaction — this is the advisory
+  // preview of that check, so both must agree on what "used" means.
+  if (promo.maxUses !== null) {
+    const liveUses = await prisma.booking.count({
+      where: {
+        promoCode: promo.code,
+        status: { notIn: ["cancelled", "canceled"] },
+        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+      },
+    });
+
+    if (liveUses >= promo.maxUses) {
+      return {
+        valid: false,
+        code,
+        discountAmount: 0,
+        subtotal,
+        totalAfterDiscount: subtotal,
+        message: "This promotion code has reached its usage limit",
+      };
+    }
   }
 
   const minSubtotal = promo.minSubtotal === null ? null : toNumber(promo.minSubtotal);

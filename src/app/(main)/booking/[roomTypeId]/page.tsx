@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/server/db/supabase-server";
 import { getGuestRoomTypeById } from "@/server/queries/booking-search.query";
-import { getSpecialRequestCatalog } from "@/server/queries/special-requests.query";
+import { getSpecialRequestCatalogForDisplay } from "@/server/queries/special-requests.query";
 import { getProfileForBookingPrefill } from "@/server/queries/profiles.query";
 import { loadHotelInformation } from "@/server/queries/hotel.query";
 import { formatCheckTimeLabel } from "@/types/hotel";
@@ -53,7 +53,7 @@ export default async function BookingFlowPage({ params, searchParams }: BookingF
 
   const [room, specialRequestCatalog, prefill, hotel] = await Promise.all([
     getGuestRoomTypeById(roomTypeId),
-    getSpecialRequestCatalog(),
+    getSpecialRequestCatalogForDisplay(),
     getProfileForBookingPrefill(user.id),
     loadHotelInformation(),
   ]);
