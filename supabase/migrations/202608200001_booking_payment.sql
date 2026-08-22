@@ -131,17 +131,8 @@ create index if not exists payments_booking_id_idx on payments(booking_id);
 alter table payments enable row level security;
 grant select, insert, update on public.payments to service_role;
 
--- ─── 3) promotions + special_requests: real DB tables (not hardcoded) so
+-- ─── 3) special_requests: real DB table (not hardcoded) so
 --        codes/prices can change without a code deploy ───
-create table if not exists promotions (
-  id              uuid primary key default gen_random_uuid(),
-  code            text not null unique,
-  discount_amount numeric not null check (discount_amount > 0),
-  is_active       boolean not null default true,
-  expires_at      timestamptz,
-  created_at      timestamptz not null default now()
-);
-
 create table if not exists special_requests (
   id         uuid primary key default gen_random_uuid(),
   code       text not null unique,
@@ -152,10 +143,6 @@ create table if not exists special_requests (
   sort_order int not null default 0,
   created_at timestamptz not null default now()
 );
-
-insert into promotions (code, discount_amount) values
-  ('NEATLYNEW400', 400)
-on conflict (code) do nothing;
 
 insert into special_requests (code, label, category, price, sort_order) values
   ('early_check_in',   'Early Check-in',              'standard', 0,   1),
@@ -178,9 +165,7 @@ on conflict (code) do nothing;
 --        but NOT the base grant. Catalog tables are public-read (every
 --        guest must see them while booking) but writable only by
 --        service_role — there is no end-user-facing write path. ───
-grant select on public.promotions       to anon, authenticated;
 grant select on public.special_requests to anon, authenticated;
-grant select, insert, update, delete on public.promotions       to service_role;
 grant select, insert, update, delete on public.special_requests to service_role;
 
 -- Re-affirm service_role can write bookings/booking_rooms — idempotent
