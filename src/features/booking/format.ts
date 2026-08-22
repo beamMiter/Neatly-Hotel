@@ -1,8 +1,18 @@
+import { format } from "date-fns";
+
 export function formatThb(amount: number): string {
   return `THB ${amount.toLocaleString("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
+}
+
+export function formatDateLabel(iso: string): string {
+  try {
+    return format(new Date(`${iso}T00:00:00`), "EEE, d MMM yyyy");
+  } catch {
+    return iso;
+  }
 }
 
 const FALLBACK_GALLERY = ["/images/room-bg-preview/room-preview-auto1.jpg"];

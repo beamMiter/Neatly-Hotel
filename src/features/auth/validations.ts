@@ -1,14 +1,7 @@
 import { z } from "zod";
 import { differenceInYears } from "date-fns";
 import { COUNTRIES } from "@/lib/countries";
-
-// \p{L} (Unicode "letter") covers Thai as well as Latin names. \p{M}
-// (combining mark) is required too — Thai vowel/tone signs like the ี in
-// "ใจดี" attach to the previous consonant as marks, not letters, so names
-// using them would otherwise be wrongly rejected. Spaces, hyphens and
-// apostrophes allow compound/hyphenated names like "Mary-Jane" or
-// "O'Brien" without opening the field up to digits or symbols.
-const NAME_PATTERN = /^[\p{L}\p{M}][\p{L}\p{M}\s'-]*$/u;
+import { NAME_PATTERN, PHONE_PATTERN } from "@/lib/validation-patterns";
 
 // Mirrors DateOfBirthField's calendar startMonth (today - 120y) so a
 // direct API call can't submit a birth date the UI would never let a
@@ -72,7 +65,7 @@ export const registerSchema = z.object({
   phone: z
     .string()
     .trim()
-    .regex(/^0[0-9]{8,9}$/, "Enter a valid phone number (9-10 digits, starting with 0)"),
+    .regex(PHONE_PATTERN, "Enter a valid phone number (9-10 digits, starting with 0)"),
   dateOfBirth: z
     .date({ message: "Date of birth is required" })
     .max(new Date(), "Date of birth cannot be in the future")
