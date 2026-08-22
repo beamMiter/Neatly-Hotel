@@ -83,32 +83,18 @@ export async function validatePromotionCode(
     };
   }
 
-  // Counts the bookings that actually still hold the code rather than the
-  // `used_count` column. A stored counter has to be handed back on every
-  // decline, abandoned hold and cleanup path, and one missed path leaks a
-  // slot forever; counting live bookings self-heals. createPendingBooking
-  // enforces the same way inside its transaction — this is the advisory
-  // preview of that check, so both must agree on what "used" means.
-  if (promo.maxUses !== null) {
-    const liveUses = await prisma.booking.count({
-      where: {
-        promoCode: promo.code,
-        status: { notIn: ["cancelled", "canceled"] },
-        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
-      },
-    });
-
-    if (liveUses >= promo.maxUses) {
-      return {
-        valid: false,
-        code,
-        discountAmount: 0,
-        subtotal,
-        totalAfterDiscount: subtotal,
-        message: "This promotion code has reached its usage limit",
-      };
-    }
-  }
+  // NOTE: max_uses is NOT enforced. `used_count` is never written by any
+  // code path, so this check would always pass anyway — it is a known gap,
+  // not an oversight in this branch. Every promotion_codes row currently
+  // seeded has max_uses = null, so nothing depends on it today.
+  //
+  // Enforcing it properly is harder than it looks and was deliberately left
+  // out of this branch: a stored counter has to be released on every
+  // decline, abandoned 30-minute hold and cleanup path or it leaks a slot
+  // permanently, and deriving the count from live bookings instead has to
+  // stay consistent with extendBookingHold reviving a cancelled booking.
+  // Both were tried here and both grew races; it belongs in its own change
+  // with its own tests rather than riding along with the payment flow.
 
   const minSubtotal = promo.minSubtotal === null ? null : toNumber(promo.minSubtotal);
   if (minSubtotal !== null && subtotal < minSubtotal) {

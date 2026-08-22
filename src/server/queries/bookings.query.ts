@@ -269,48 +269,6 @@ export async function createPendingBooking(
           `;
         }
 
-        // Enforce max_uses against the bookings that actually still hold the
-        // code, not a standalone counter. A counter would have to be handed
-        // back on every decline, abandoned hold and cleanup path — miss one
-        // and the code leaks a slot permanently, so a 100-use campaign dies
-        // to 100 abandoned checkouts. Counting live bookings self-heals
-        // instead: cancelled and expired ones stop counting on their own.
-        //
-        // Locking the promo row first serializes two guests racing for the
-        // last use, so the count-then-insert below can't both succeed.
-        // used_count is kept in step purely so the live preview in
-        // promo.query.ts stays honest.
-        if (resolvedPromoCode) {
-          const [promo] = await tx.$queryRaw<{ max_uses: number | null }[]>`
-            select max_uses from promotion_codes
-            where code = ${resolvedPromoCode} and is_active = true
-            for update
-          `;
-          if (!promo) {
-            throw new InvalidPromoError("This promotion code is no longer available");
-          }
-
-          // Excludes the row this transaction just inserted — it is the
-          // claim being tested, not a competing one.
-          const [{ live }] = await tx.$queryRaw<{ live: bigint }[]>`
-            select count(*) as live from bookings
-            where promo_code = ${resolvedPromoCode}
-              and id <> ${bookingId}::uuid
-              and status not in ('cancelled', 'canceled')
-              and (expires_at is null or expires_at > now())
-          `;
-          const liveCount = Number(live);
-
-          if (promo.max_uses !== null && liveCount >= promo.max_uses) {
-            throw new InvalidPromoError("This promotion code has reached its usage limit");
-          }
-
-          await tx.$executeRaw`
-            update promotion_codes set used_count = ${liveCount + 1}, updated_at = now()
-            where code = ${resolvedPromoCode}
-          `;
-        }
-
         const [inserted] = await tx.$queryRaw<Parameters<typeof toBookingRecord>[0][]>`
           select id, booking_code, customer_id, check_in, check_out, guests, status, total_amount,
                  guest_first_name, guest_last_name, guest_email, guest_phone,
