@@ -41,7 +41,7 @@ export default async function BookingFlowPage({ params, searchParams }: BookingF
   } = await supabase.auth.getUser();
   if (!user) {
     const qs = new URLSearchParams(query as Record<string, string>).toString();
-    redirect(`/login?next=${encodeURIComponent(`/booking/${roomTypeId}?${qs}`)}`);
+    redirect(`/login?redirectTo=${encodeURIComponent(`/booking/${roomTypeId}?${qs}`)}`);
   }
 
   const checkIn = query.checkIn ?? "";

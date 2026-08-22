@@ -342,15 +342,68 @@ export async function markBookingCashConfirmed(bookingId: string): Promise<void>
   `;
 }
 
-// Extends a pending booking's payment hold for a retry attempt — used by
+// Revives a booking for a retry attempt — used by
 // POST /api/bookings/[id]/payment-intent. Returns false if the booking is
-// no longer retryable (already resolved, or too far past its original hold).
+// no longer retryable (already paid, or its rooms were taken in the meantime).
+//
+// Two things make this more than a simple `expires_at` bump:
+//  1. A declined card fires payment_failed, which cancels the booking to
+//     release its rooms immediately, so the retryable state is
+//     cancelled/failed — not pending_payment. Matching only the latter made
+//     "Try Again" always 409.
+//  2. Releasing those rooms means someone else may have booked them by now.
+//     Re-run the same overlap check createPendingBooking uses before handing
+//     back a hold, otherwise a retry can re-claim already-sold inventory.
 export async function extendBookingHold(bookingId: string, customerId: string): Promise<boolean> {
-  const rows = await prisma.$queryRaw<{ id: string }[]>`
-    update bookings set expires_at = ${new Date(Date.now() + HOLD_MINUTES * 60 * 1000)}
-    where id = ${bookingId}::uuid and customer_id = ${customerId}::uuid
-      and status = 'pending_payment' and payment_status in ('pending', 'failed')
-    returning id
-  `;
-  return rows.length > 0;
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const bookings = await tx.$queryRaw<
+        { check_in: Date; check_out: Date }[]
+      >`
+        select check_in, check_out
+        from bookings
+        where id = ${bookingId}::uuid and customer_id = ${customerId}::uuid
+          and payment_status in ('pending', 'failed')
+          and status in ('pending_payment', 'cancelled', 'canceled')
+        for update
+      `;
+      if (bookings.length === 0) return false;
+
+      // Lock this booking's own rooms so a concurrent createPendingBooking
+      // can't claim them between the check below and the update.
+      const rooms = await tx.$queryRaw<{ room_id: string }[]>`
+        select br.room_id
+        from booking_rooms br
+        join rooms r on r.id = br.room_id
+        where br.booking_id = ${bookingId}::uuid
+        for update of r
+      `;
+      if (rooms.length === 0) return false;
+
+      const conflicts = await tx.$queryRaw<{ count: bigint }[]>`
+        select count(*) as count
+        from booking_rooms br
+        join bookings b on b.id = br.booking_id
+        where br.room_id = any(array[${Prisma.join(rooms.map((room) => room.room_id))}]::uuid[])
+          and b.id <> ${bookingId}::uuid
+          and b.status not in (${Prisma.join(NON_BLOCKING_BOOKING_STATUSES)})
+          and (b.expires_at is null or b.expires_at > now())
+          and b.check_in < ${bookings[0].check_out}::date
+          and b.check_out > ${bookings[0].check_in}::date
+      `;
+      if (Number(conflicts[0]?.count ?? 0) > 0) return false;
+
+      await tx.$executeRaw`
+        update bookings
+        set expires_at = ${new Date(Date.now() + HOLD_MINUTES * 60 * 1000)},
+            status = 'pending_payment',
+            payment_status = 'pending'
+        where id = ${bookingId}::uuid
+      `;
+      return true;
+    });
+  } catch (error) {
+    console.error("[bookings] extendBookingHold failed:", error);
+    return false;
+  }
 }

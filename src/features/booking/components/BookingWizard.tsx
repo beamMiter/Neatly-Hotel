@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { format } from "date-fns";
 import { nightsBetween } from "@/features/booking/date-rules";
 import { formatThb } from "@/features/booking/format";
 import { resolveAddOnQuantity, MAX_ADD_ON_COUNT } from "@/lib/addon-pricing";
@@ -69,8 +70,10 @@ export function BookingWizard({
           lastName: prefill.lastName,
           email: prefill.email,
           phone: prefill.phone,
+          // "YYYY-MM-DD" alone parses as UTC midnight, which renders as the
+          // previous day for UTC− viewers — pin it to local midnight instead.
           dateOfBirth: prefill.dateOfBirth
-            ? new Date(prefill.dateOfBirth)
+            ? new Date(`${prefill.dateOfBirth}T00:00:00`)
             : undefined,
           country: prefill.country,
         }
@@ -224,7 +227,11 @@ export function BookingWizard({
       lastName: basicInfo.lastName,
       email: basicInfo.email,
       phone: basicInfo.phone,
-      dateOfBirth: basicInfo.dateOfBirth.toISOString(),
+      // The picker builds a local-midnight Date, so toISOString() would shift
+      // the calendar day backwards for every UTC+ guest (Bangkok included).
+      // Send the local Y/M/D instead — the API re-parses it as UTC midnight,
+      // which round-trips to the same date the guest actually picked.
+      dateOfBirth: format(basicInfo.dateOfBirth, "yyyy-MM-dd"),
       country: basicInfo.country,
       standardRequests,
       // Send the raw selection (code + the 1-2 count for per_leg/per_day_guest
