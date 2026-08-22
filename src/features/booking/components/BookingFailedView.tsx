@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { CardNumberElement, Elements, useElements, useStripe } from "@stripe/react-stripe-js";
-import { ErrorIcon } from "@/components/icons/ErrorIcon";
 import { stripePromise } from "@/features/booking/stripe-client";
 import { StripeCardFields } from "@/features/booking/components/StripeCardFields";
 import type { BookingRecord } from "@/types/booking";
@@ -43,7 +43,7 @@ export function BookingFailedView({ bookingId, booking }: BookingFailedViewProps
   return (
     <div className="mx-auto flex max-w-[738px] flex-col gap-10 px-4 py-20">
       <div className="flex w-full flex-col items-center gap-6 rounded bg-[#FAEDE8] px-6 pt-16 pb-[88px]">
-        <ErrorIcon className="h-16 w-16 text-[#C14817]" strokeWidth={1.2} />
+        <Image src="/icons/icon/icon-error.svg" alt="" width={64} height={64} />
 
         <div className="flex flex-col items-center gap-3">
           <h1 className="[font-family:var(--font-noto-serif)] text-center text-[44px] leading-[125%] font-medium tracking-[-0.02em] text-[#C14817]">
