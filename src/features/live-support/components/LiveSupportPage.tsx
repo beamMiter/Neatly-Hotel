@@ -1,0 +1,1128 @@
+"use client";
+
+import Image from "next/image";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import type { SupportAgent, SupportBooking, SupportConversation, SupportConversationStatus, SupportCustomer, SupportMessage } from "@/types/live-support";
+
+type SupportTab = "open" | "mine" | "resolved";
+type SupportFilter = "all" | "booking" | "room" | "payment" | "other";
+
+type Conversation = {
+  id: string;
+  tab: SupportTab;
+  name: string;
+  preview: string;
+  time: string;
+  tags: string[];
+  unread?: number;
+  active?: boolean;
+  initials: string;
+  accent: string;
+};
+
+type Message =
+  | {
+      id: string;
+      author: "customer" | "agent";
+      text: string;
+      time: string;
+    }
+  | {
+      id: string;
+      author: "room";
+      time: string;
+    };
+
+const TABS: Array<{ key: SupportTab; label: string; count: number }> = [
+  { key: "open", label: "Open", count: 6 },
+  { key: "mine", label: "My Chats", count: 2 },
+  { key: "resolved", label: "Resolved", count: 18 },
+];
+
+const FILTERS: Array<{ key: SupportFilter; label: string }> = [
+  { key: "all", label: "All" },
+  { key: "booking", label: "Booking" },
+  { key: "room", label: "Room" },
+  { key: "payment", label: "Payment" },
+  { key: "other", label: "Other" },
+];
+
+const CONVERSATIONS: Conversation[] = [
+  {
+    id: "supatcha",
+    tab: "open",
+    name: "Supatcha K.",
+    preview: "ขอบคุณมากค่ะ 🙏",
+    time: "10:24",
+    tags: ["booking", "vip"],
+    unread: 2,
+    active: true,
+    initials: "SK",
+    accent: "from-[#dbe7ff] to-[#eef4ff]",
+  },
+  {
+    id: "tanawat",
+    tab: "open",
+    name: "Tanawat S.",
+    preview: "สอบถามเรื่องที่จอดรถครับ",
+    time: "10:18",
+    tags: ["other"],
+    initials: "TS",
+    accent: "from-[#e4ede8] to-[#f4f7f5]",
+  },
+  {
+    id: "natcha",
+    tab: "mine",
+    name: "Natcha P.",
+    preview: "สามารถเช็คอินก่อนเวลาได้ไหมคะ",
+    time: "09:56",
+    tags: ["booking"],
+    initials: "NP",
+    accent: "from-[#ece7ff] to-[#f6f3ff]",
+  },
+  {
+    id: "phakphum",
+    tab: "resolved",
+    name: "Phakphum R.",
+    preview: "ยกเลิกการจองได้หรือเปล่า",
+    time: "09:32",
+    tags: ["booking"],
+    initials: "PR",
+    accent: "from-[#f0e9de] to-[#faf7f0]",
+  },
+  {
+    id: "jirapa",
+    tab: "open",
+    name: "Jirapa M.",
+    preview: "มีห้องวิวทะเลว่างเดือนหน้าไหมคะ",
+    time: "09:15",
+    tags: ["room"],
+    initials: "JM",
+    accent: "from-[#e7e9ff] to-[#f5f6ff]",
+  },
+  {
+    id: "chanon",
+    tab: "mine",
+    name: "Chanon L.",
+    preview: "รับการส่งใบเสร็จรับเงินใหม่หน่อยครับ",
+    time: "08:47",
+    tags: ["payment"],
+    initials: "CL",
+    accent: "from-[#e0f0ee] to-[#f5fbfa]",
+  },
+  {
+    id: "wara",
+    tab: "resolved",
+    name: "Wara T.",
+    preview: "ขอบคุณสำหรับการช่วยเหลือค่ะ",
+    time: "เมื่อวาน",
+    tags: ["other"],
+    initials: "WT",
+    accent: "from-[#ede4ff] to-[#f7f1ff]",
+  },
+];
+
+const MESSAGES: Message[] = [
+  {
+    id: "m1",
+    author: "customer",
+    text: "สวัสดีค่ะ สอบถามเรื่องการจองห้องพักค่ะ",
+    time: "10:18",
+  },
+  {
+    id: "m2",
+    author: "agent",
+    text: "สวัสดีค่ะ ยินดีให้บริการนะคะ\nรบกวนแจ้งรายละเอียดที่ต้องการสอบถามได้เลยค่ะ 😊",
+    time: "10:19",
+  },
+  {
+    id: "m3",
+    author: "customer",
+    text: "อยากทราบว่าห้อง Deluxe Sea View สำหรับวันที่ 25-27 ก.ย. ยังมีห้องว่างอยู่ไหมคะ แล้วราคาเท่าไหร่คะ",
+    time: "10:20",
+  },
+  {
+    id: "m4",
+    author: "room",
+    time: "10:21",
+  },
+  {
+    id: "m5",
+    author: "agent",
+    text: "สำหรับวันที่ 25-27 ก.ย. ยังมีห้อง Deluxe Sea View ว่างอยู่ค่ะ\nราคา 3,500 บาท/คืน รวมอาหารเช้าแล้วค่ะ\nหากลูกค้าสนใจ สามารถจองผ่านหน้าแชทได้เลยนะคะ หรือให้แอดมินช่วยดำเนินการจองให้ก็ได้ค่ะ 🙏",
+    time: "10:22",
+  },
+  {
+    id: "m6",
+    author: "customer",
+    text: "ขอให้แอดมินช่วยจองให้หน่อยได้ไหมคะ",
+    time: "10:23",
+  },
+  {
+    id: "m7",
+    author: "agent",
+    text: "ได้เลยค่ะ รบกวนแจ้งชื่อ-นามสกุล และเบอร์โทรศัพท์สำหรับการจองค่ะ\nเดี๋ยวแอดมินดูแลเรื่องการจองให้ทั้งหมดนะคะ ✨",
+    time: "10:23",
+  },
+  {
+    id: "m8",
+    author: "customer",
+    text: "ขอบคุณมากค่ะ 🙏",
+    time: "10:24",
+  },
+];
+
+const BOOKING_HISTORY = [
+  {
+    label: "Upcoming",
+    room: "Deluxe Room",
+    date: "15 - 17 Aug 2025",
+    ref: "Booking #BK24081522",
+    price: "฿7,000",
+    tone: "bg-[#ecf8ef] text-[#2e8a52]",
+  },
+  {
+    label: "Past Stay",
+    room: "Superior Room",
+    date: "12 - 14 Mar 2025",
+    ref: "",
+    price: "฿4,800",
+    tone: "bg-[#eef1fb] text-[#4d61a6]",
+  },
+  {
+    label: "Past Stay",
+    room: "Deluxe Sea View",
+    date: "10 - 12 Nov 2024",
+    ref: "",
+    price: "฿6,500",
+    tone: "bg-[#f0f3f1] text-[#647a6f]",
+  },
+] as const;
+
+const QUICK_ACTIONS = [
+  "Create Booking",
+  "Send Promotion",
+  "Send Receipt",
+  "Add Note",
+] as const;
+
+export function LiveSupportPage() {
+  const [activeTab, setActiveTab] = useState<SupportTab>("open");
+  const [activeFilter, setActiveFilter] = useState<SupportFilter>("all");
+  const [search, setSearch] = useState("");
+  const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
+  const [conversations, setConversations] = useState<SupportConversation[]>([]);
+  const [supportMessages, setSupportMessages] = useState<SupportMessage[]>([]);
+  const [agents, setAgents] = useState<SupportAgent[]>([]);
+  const [currentAdminId, setCurrentAdminId] = useState<string | null>(null);
+  const [customer, setCustomer] = useState<SupportCustomer | null>(null);
+  const [bookings, setBookings] = useState<SupportBooking[]>([]);
+  const [reply, setReply] = useState("");
+  const [isSending, setIsSending] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadSupport = async () => {
+      try {
+        const query = selectedThreadId ? `?conversationId=${selectedThreadId}` : "";
+        const response = await fetch(`/api/live-support/admin${query}`, { cache: "no-store" });
+        if (!response.ok) return;
+        const data = (await response.json()) as {
+          conversations: SupportConversation[];
+          agents: SupportAgent[];
+          currentAdminId: string;
+          selectedConversationId: string | null;
+          messages: SupportMessage[];
+          customer: SupportCustomer | null;
+          bookings: SupportBooking[];
+        };
+        if (cancelled) return;
+        setConversations(data.conversations);
+        setAgents(data.agents);
+        setCurrentAdminId(data.currentAdminId);
+        setSupportMessages(data.messages);
+        setCustomer(data.customer);
+        setBookings(data.bookings);
+        setSelectedThreadId((current) => current ?? data.selectedConversationId);
+      } catch {
+        // Polling retries transient failures on the next interval.
+      }
+    };
+
+    void loadSupport();
+    const intervalId = window.setInterval(() => void loadSupport(), 5000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [selectedThreadId]);
+
+  const threads = useMemo<Conversation[]>(() => conversations.map((conversation) => ({
+    id: conversation.id,
+    tab: conversation.status === "resolved"
+      ? "resolved"
+      : conversation.assigned_agent_id === currentAdminId
+        ? "mine"
+        : "open",
+    name: conversation.customer_name ?? `Guest ${conversation.id.slice(0, 6)}`,
+    preview: "Live support request",
+    time: new Intl.DateTimeFormat("th-TH", { hour: "2-digit", minute: "2-digit" }).format(new Date(conversation.last_message_at)),
+    tags: [conversation.topic],
+    initials: (conversation.customer_name ?? "Guest").slice(0, 2).toUpperCase(),
+    accent: "from-[#dbe7ff] to-[#eef4ff]",
+  })), [conversations, currentAdminId]);
+
+  const visibleThreads = useMemo(() => {
+    const normalized = search.trim().toLowerCase();
+
+    return threads.filter((thread) => {
+      if (thread.tab !== activeTab) return false;
+      if (activeFilter !== "all" && !thread.tags.includes(activeFilter)) {
+        return false;
+      }
+
+      if (!normalized) return true;
+
+      return [thread.name, thread.preview, thread.time, ...thread.tags]
+        .join(" ")
+        .toLowerCase()
+        .includes(normalized);
+    });
+  }, [activeFilter, activeTab, search, threads]);
+
+  const currentThread =
+    visibleThreads.find((thread) => thread.id === selectedThreadId) ??
+    visibleThreads.find((thread) => thread.active) ??
+    visibleThreads[0] ??
+    null;
+  const currentConversation = conversations.find((conversation) => conversation.id === currentThread?.id) ?? null;
+
+  async function sendReply(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const content = reply.trim();
+    if (!content || !selectedThreadId || isSending) return;
+
+    setIsSending(true);
+    try {
+      const response = await fetch("/api/live-support/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversationId: selectedThreadId, content }),
+      });
+      if (!response.ok) throw new Error("Unable to send reply");
+      const data = (await response.json()) as { message: SupportMessage };
+      setSupportMessages((current) => [...current, data.message]);
+      setReply("");
+    } finally {
+      setIsSending(false);
+    }
+  }
+
+  async function updateConversation(update: {
+    assignedAgentId?: string | null;
+    status?: SupportConversationStatus;
+  }) {
+    if (!currentConversation) return;
+
+    const response = await fetch("/api/live-support/admin", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ conversationId: currentConversation.id, ...update }),
+    });
+    if (!response.ok) return;
+
+    const data = (await response.json()) as { conversation: SupportConversation };
+    setConversations((current) => current.map((conversation) =>
+      conversation.id === data.conversation.id ? data.conversation : conversation,
+    ));
+    setActiveTab(
+      data.conversation.status === "resolved"
+        ? "resolved"
+        : data.conversation.assigned_agent_id === currentAdminId
+          ? "mine"
+          : "open",
+    );
+  }
+
+  return (
+    <div className="relative flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-[#F7F8FA] text-[#1f2937]">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -top-24 right-10 h-72 w-72 rounded-full bg-[#dbeafe]/40 blur-3xl" />
+        <div className="absolute right-1/3 bottom-[-6rem] h-72 w-72 rounded-full bg-[#f4f1ff]/60 blur-3xl" />
+      </div>
+
+      <header className="relative z-10 flex h-[72px] shrink-0 items-center justify-between border-b border-[#e7eaf0] bg-white px-6 shadow-[0_1px_0_rgba(17,24,39,0.02)] xl:px-8">
+        <div className="flex items-center gap-4">
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-[24px] font-semibold tracking-[-0.03em] text-[#111827]">
+                Live Support
+              </h1>
+              <span className="inline-flex items-center gap-2 rounded-full border border-[#cfead8] bg-[#eefaf1] px-3 py-1 text-[13px] font-medium text-[#299b50]">
+                <span className="h-2.5 w-2.5 rounded-full bg-[#24b05a]" />
+                Live
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-5 text-[14px] text-[#3f4a5a]">
+          <span className="inline-flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full bg-[#20b15d]" />
+            Online
+          </span>
+          <span className="h-6 w-px bg-[#e3e8ef]" aria-hidden />
+          <button
+            type="button"
+            className="relative grid h-11 w-11 place-items-center rounded-full border border-[#e2e7ef] bg-white text-[#5f6b7a] transition-colors hover:bg-[#f7f9fc]"
+            aria-label="Notifications"
+          >
+            <BellIcon className="h-5 w-5" />
+            <span className="absolute -right-0.5 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-[#e11d48] px-1 text-[11px] font-semibold text-white">
+              3
+            </span>
+          </button>
+        </div>
+      </header>
+
+      <div className="relative z-10 grid min-h-0 flex-1 gap-4 p-4 xl:grid-cols-[minmax(320px,392px)_minmax(0,1fr)_minmax(300px,354px)] xl:p-6">
+        <section className="flex min-h-0 flex-col overflow-hidden rounded-[22px] border border-[#e7ebf2] bg-white shadow-[0_14px_40px_rgba(15,23,42,0.04)]">
+          <div className="border-b border-[#edf0f5] px-5 pt-5">
+            <div className="flex items-center gap-8 text-[15px] font-medium text-[#667085]">
+              {TABS.map((tab) => {
+                const active = activeTab === tab.key;
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setActiveTab(tab.key)}
+                    className={`relative pb-4 transition-colors ${
+                      active ? "text-[#21366d]" : "hover:text-[#344054]"
+                    }`}
+                  >
+                    <span>{tab.label} ({threads.filter((thread) => thread.tab === tab.key).length})</span>
+                    <span
+                      className={`absolute inset-x-0 bottom-0 h-0.5 rounded-full transition-colors ${
+                        active ? "bg-[#2f6bff]" : "bg-transparent"
+                      }`}
+                    />
+                  </button>
+                );
+              })}
+            </div>
+
+            <label className="relative mt-4 block">
+              <span className="sr-only">Search customer, booking, or message</span>
+              <span className="pointer-events-none absolute left-3 top-3 text-[#98A2B3]">
+                <SearchIcon className="h-4 w-4" />
+              </span>
+              <input
+                type="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search customer, booking, or message..."
+                className="h-11 w-full rounded-[12px] border border-[#d9deea] bg-[#fbfcfe] pr-4 pl-10 text-[14px] text-[#344054] outline-none placeholder:text-[#98A2B3] focus:border-[#91a6ff] focus:bg-white focus:shadow-[0_0_0_3px_rgba(47,107,255,0.08)]"
+              />
+            </label>
+
+            <div className="scrollbar-hide mt-4 flex gap-2 overflow-x-auto pb-4">
+              {FILTERS.map((filter) => {
+                const active = activeFilter === filter.key;
+                return (
+                  <button
+                    key={filter.key}
+                    type="button"
+                    onClick={() => setActiveFilter(filter.key)}
+                    className={`h-9 shrink-0 rounded-full border px-4 text-[14px] transition-colors ${
+                      active
+                        ? "border-[#2f6bff] bg-[#eef3ff] text-[#2f6bff]"
+                        : "border-[#d7ddea] bg-white text-[#556070] hover:border-[#c4cbe0]"
+                    }`}
+                  >
+                    {filter.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 scrollbar-hide">
+            <div className="grid gap-2">
+              {visibleThreads.length === 0 ? (
+                <div className="rounded-[18px] border border-dashed border-[#d7deea] bg-[#fbfcfe] p-8 text-center text-[14px] text-[#98A2B3]">
+                  No conversations match this filter.
+                </div>
+              ) : (
+                visibleThreads.map((thread) => {
+                  const isActive = thread.id === currentThread?.id;
+                  return (
+                    <button
+                    key={thread.id}
+                    type="button"
+                    onClick={() => setSelectedThreadId(thread.id)}
+                    className={`flex w-full items-center gap-3 rounded-[18px] border px-4 py-4 text-left transition-all ${
+                      isActive
+                          ? "border-[#d8e4ff] bg-[#eff5ff] shadow-[0_8px_24px_rgba(47,107,255,0.08)]"
+                          : "border-transparent hover:border-[#e6ebf4] hover:bg-[#fcfdff]"
+                      }`}
+                    >
+                      <Avatar initials={thread.initials} accent={thread.accent} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="truncate text-[16px] font-semibold text-[#111827]">
+                            {thread.name}
+                          </p>
+                          <span className="shrink-0 text-[13px] text-[#475467]">
+                            {thread.time}
+                          </span>
+                        </div>
+
+                        <p className="mt-1 truncate text-[13px] text-[#667085]">
+                          {thread.preview}
+                        </p>
+
+                        <div className="mt-3 flex items-center gap-2">
+                          {thread.tags.map((tag) => (
+                            <TagPill key={tag} tag={tag} />
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col items-end gap-2">
+                        {thread.unread ? (
+                          <span className="grid h-6 min-w-6 place-items-center rounded-full bg-[#2f6bff] px-2 text-[12px] font-semibold text-white">
+                            {thread.unread}
+                          </span>
+                        ) : null}
+                        <span className="h-2 w-2 rounded-full bg-[#f04438]" />
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </section>
+
+        <section className="flex min-h-0 flex-col overflow-hidden rounded-[22px] border border-[#e7ebf2] bg-white shadow-[0_14px_40px_rgba(15,23,42,0.04)]">
+          <div className="flex shrink-0 items-center justify-between gap-4 border-b border-[#edf0f5] px-5 py-4">
+            <div className="flex items-center gap-3">
+              <Avatar initials={currentThread?.initials ?? "SK"} accent={currentThread?.accent ?? "from-[#dbe7ff] to-[#eef4ff]"} />
+              <div>
+                <h2 className="text-[18px] font-semibold text-[#111827]">
+                  {currentThread?.name ?? "Supatcha K."}
+                </h2>
+                <p className="flex items-center gap-2 text-[13px] text-[#667085]">
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#24b05a]" />
+                  Online • Active now
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <select
+                value={currentConversation?.assigned_agent_id ?? ""}
+                onChange={(event) => void updateConversation({ assignedAgentId: event.target.value || null })}
+                disabled={!currentConversation}
+                className="h-10 max-w-40 rounded-xl border border-[#d9deea] bg-white px-3 text-[13px] font-medium text-[#344054] outline-none focus:border-[#91a6ff] disabled:opacity-50"
+                aria-label="Assign admin"
+              >
+                <option value="">Unassigned</option>
+                {agents.map((agent) => (
+                  <option key={agent.id} value={agent.id}>{agent.label}</option>
+                ))}
+              </select>
+              <select
+                value={currentConversation?.status ?? "waiting"}
+                onChange={(event) => void updateConversation({ status: event.target.value as SupportConversationStatus })}
+                disabled={!currentConversation}
+                className="h-10 rounded-xl border border-[#d9deea] bg-white px-3 text-[13px] font-medium capitalize text-[#344054] outline-none focus:border-[#91a6ff] disabled:opacity-50"
+                aria-label="Conversation status"
+              >
+                <option value="waiting">Waiting</option>
+                <option value="active">Active</option>
+                <option value="resolved">Resolved</option>
+              </select>
+              <IconButton ariaLabel="More options">
+                <DotsIcon className="h-5 w-5" />
+              </IconButton>
+            </div>
+          </div>
+
+          <div className="scrollbar-hide min-h-0 flex-1 overflow-y-auto bg-[linear-gradient(180deg,#ffffff_0%,#ffffff_18%,#f8fbff_100%)] px-5 py-5">
+            <div className="flex justify-center">
+              <span className="rounded-full bg-[#f2f4f8] px-3 py-1 text-[12px] font-medium text-[#667085]">
+                Today
+              </span>
+            </div>
+
+            <div className="mt-5 grid gap-5">
+              {supportMessages.map((message) => {
+                const isAgent = message.sender === "agent";
+
+                return (
+                  <div
+                    key={message.id}
+                    className={`flex items-end gap-3 ${
+                      isAgent ? "justify-end" : "justify-start"
+                    }`}
+                  >
+                    {!isAgent ? (
+                      <Avatar initials="SK" accent="from-[#dbe7ff] to-[#eef4ff]" />
+                    ) : null}
+
+                    <div className={`max-w-[min(80%,34rem)] ${isAgent ? "text-right" : "text-left"}`}>
+                      <div
+                        className={`inline-block rounded-[18px] px-4 py-3 text-[15px] leading-7 shadow-sm ${
+                          isAgent
+                            ? "rounded-br-[8px] bg-[#2f6bff] text-white"
+                            : "rounded-bl-[8px] bg-[#eef2f7] text-[#111827]"
+                        }`}
+                      >
+                        {message.content}
+                      </div>
+                      <div
+                        className={`mt-1 text-[12px] text-[#667085] ${
+                          isAgent ? "pr-1" : "pl-1"
+                        }`}
+                      >
+                        {new Intl.DateTimeFormat("th-TH", { hour: "2-digit", minute: "2-digit" }).format(new Date(message.created_at))}
+                        {isAgent ? " ✓✓" : null}
+                      </div>
+                    </div>
+
+                    {isAgent ? null : (
+                      <Avatar initials="SK" accent="from-[#dbe7ff] to-[#eef4ff]" />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <form className="shrink-0 border-t border-[#edf0f5] bg-white px-4 py-4" onSubmit={sendReply}>
+            <div className="flex items-center gap-3 rounded-[18px] border border-[#d9deea] bg-[#fbfcfe] px-4 py-3 shadow-[0_10px_24px_rgba(15,23,42,0.03)]">
+              <input
+                type="text"
+                placeholder="Type a message..."
+                className="min-w-0 flex-1 bg-transparent text-[15px] text-[#344054] outline-none placeholder:text-[#98A2B3]"
+                value={reply}
+                onChange={(event) => setReply(event.target.value)}
+                disabled={!selectedThreadId || isSending}
+              />
+
+              <div className="flex items-center gap-2 text-[#667085]">
+                <IconButton ariaLabel="Attach file">
+                  <PaperclipIcon className="h-5 w-5" />
+                </IconButton>
+                <IconButton ariaLabel="Insert image">
+                  <ImageIcon className="h-5 w-5" />
+                </IconButton>
+                <IconButton ariaLabel="Emoji">
+                  <SmileIcon className="h-5 w-5" />
+                </IconButton>
+              </div>
+              <button
+                type="submit"
+                disabled={!reply.trim() || !selectedThreadId || isSending}
+                className="rounded-xl bg-[#2f6bff] px-4 py-2 text-[14px] font-semibold text-white transition-colors hover:bg-[#2458d8] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Send
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <aside className="flex min-h-0 flex-col gap-4 overflow-y-auto scrollbar-hide">
+          <PanelCard
+            title="Customer Info"
+            action={<PanelEditButton>Edit</PanelEditButton>}
+          >
+            <div className="flex items-center gap-3">
+              <Avatar initials="SK" accent="from-[#dbe7ff] to-[#eef4ff]" size="lg" />
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-[18px] font-semibold text-[#111827]">
+                    {customer?.name ?? currentThread?.name ?? "Guest"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-3 text-[14px] text-[#475467]">
+              <InfoRow icon={<MailIcon className="h-4 w-4" />} text={customer?.email ?? "No email available"} />
+              <InfoRow
+                icon={<PhoneIcon className="h-4 w-4" />}
+                text={customer?.phone ?? currentConversation?.customer_phone ?? "No contact number provided"}
+              />
+              <InfoRow icon={<PinIcon className="h-4 w-4" />} text={customer?.country ?? "No location available"} />
+            </div>
+
+            <p className="mt-4 text-[14px] text-[#667085]">{customer ? "Registered customer" : "Guest conversation"}</p>
+          </PanelCard>
+
+          <PanelCard
+            title="Booking History"
+            action={<PanelEditButton>View all</PanelEditButton>}
+          >
+            <div className="grid gap-3">
+              {bookings.length === 0 ? (
+                <p className="rounded-[16px] border border-dashed border-[#d9deea] p-4 text-center text-[14px] text-[#667085]">
+                  No bookings linked to this conversation.
+                </p>
+              ) : bookings.map((booking) => (
+                <div
+                  key={booking.id}
+                  className="rounded-[16px] border border-[#e2e8f0] bg-white p-3 shadow-[0_8px_18px_rgba(15,23,42,0.03)]"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="rounded-full bg-[#eef1fb] px-2.5 py-1 text-[12px] font-semibold capitalize text-[#4d61a6]">
+                      {booking.status}
+                    </span>
+                    <span className="text-[14px] font-semibold text-[#111827]">
+                      THB {booking.totalAmount.toLocaleString("en-US")}
+                    </span>
+                  </div>
+                  <div className="mt-2 flex items-end justify-between gap-3">
+                    <div>
+                      <p className="text-[15px] font-semibold text-[#111827]">
+                        {booking.roomType}
+                      </p>
+                      <p className="text-[13px] text-[#667085]">{booking.checkIn} - {booking.checkOut}</p>
+                      <p className="text-[13px] text-[#667085]">Booking #{booking.bookingCode}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </PanelCard>
+
+          <PanelCard title="Quick Actions">
+            <div className="grid grid-cols-2 gap-3">
+              {QUICK_ACTIONS.map((action) => (
+                <button
+                  key={action}
+                  type="button"
+                  className="flex h-14 items-center gap-2 rounded-[14px] border border-[#d9deea] bg-white px-4 text-left text-[14px] font-medium text-[#344054] transition-colors hover:border-[#b8c3dc] hover:bg-[#fbfcfe]"
+                >
+                  <QuickActionIcon label={action} />
+                  <span className="leading-tight">{action}</span>
+                </button>
+              ))}
+            </div>
+          </PanelCard>
+
+          <PanelCard title="AI Conversation Summary">
+            <div className="rounded-[16px] bg-[#eef4ff] p-4 text-[14px] leading-6 whitespace-pre-line text-[#334a78]">
+              {currentConversation?.summary ?? "Summary will be generated when this conversation is resolved."}
+            </div>
+            {currentConversation?.summary_generated_at ? (
+              <p className="mt-3 text-[13px] text-[#667085]">
+                Generated {new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(new Date(currentConversation.summary_generated_at))}
+              </p>
+            ) : null}
+          </PanelCard>
+        </aside>
+      </div>
+    </div>
+  );
+}
+
+function PanelCard({
+  title,
+  action,
+  children,
+}: {
+  title: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-[22px] border border-[#e7ebf2] bg-white p-5 shadow-[0_14px_40px_rgba(15,23,42,0.04)]">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-[18px] font-semibold text-[#111827]">{title}</h2>
+        {action}
+      </div>
+      <div className="mt-4">{children}</div>
+    </section>
+  );
+}
+
+function PanelEditButton({ children }: { children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      className="text-[14px] font-medium text-[#2f6bff] transition-colors hover:text-[#1f54e8]"
+    >
+      {children}
+    </button>
+  );
+}
+
+function ActionButton({ children }: { children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      className="h-11 rounded-[12px] border border-[#d9deea] bg-white px-4 text-[14px] font-medium text-[#344054] transition-colors hover:border-[#b8c3dc] hover:bg-[#fbfcfe]"
+    >
+      {children}
+    </button>
+  );
+}
+
+function IconButton({
+  children,
+  ariaLabel,
+}: {
+  children: React.ReactNode;
+  ariaLabel: string;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={ariaLabel}
+      className="grid h-10 w-10 place-items-center rounded-full border border-[#dde3ee] bg-white text-[#667085] transition-colors hover:bg-[#f7f9fc]"
+    >
+      {children}
+    </button>
+  );
+}
+
+function Avatar({
+  initials,
+  accent,
+  size = "md",
+}: {
+  initials: string;
+  accent: string;
+  size?: "md" | "lg";
+}) {
+  const sizeClasses = size === "lg" ? "h-16 w-16 text-[20px]" : "h-10 w-10 text-[14px]";
+
+  return (
+    <div
+      className={`grid shrink-0 place-items-center rounded-full bg-gradient-to-br ${accent} font-semibold text-[#1f3c88] ${sizeClasses}`}
+      aria-hidden
+    >
+      {initials}
+    </div>
+  );
+}
+
+function TagPill({ tag }: { tag: string }) {
+  const map: Record<string, string> = {
+    booking: "bg-[#dbeafe] text-[#1947a3]",
+    room: "bg-[#eaeef6] text-[#4a5d7a]",
+    payment: "bg-[#ddf7ea] text-[#1a7f4e]",
+    other: "bg-[#eef2f7] text-[#475467]",
+    vip: "bg-[#ffe9c2] text-[#9a6617]",
+  };
+
+  return (
+    <span className={`rounded-full px-3 py-1 text-[12px] font-medium ${map[tag] ?? map.other}`}>
+      {tag === "vip"
+        ? "VIP"
+        : tag === "booking"
+          ? "Booking"
+          : tag === "room"
+            ? "Room"
+            : tag === "payment"
+              ? "Payment"
+              : "Other"}
+    </span>
+  );
+}
+
+function InfoRow({
+  icon,
+  text,
+}: {
+  icon: React.ReactNode;
+  text: string;
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="grid h-8 w-8 place-items-center rounded-full bg-[#f2f4f7] text-[#667085]">
+        {icon}
+      </span>
+      <span>{text}</span>
+    </div>
+  );
+}
+
+function RoomCard() {
+  return (
+    <div className="w-full max-w-[520px] overflow-hidden rounded-[20px] border border-[#dfe6f1] bg-white shadow-[0_12px_30px_rgba(15,23,42,0.06)]">
+      <div className="grid gap-4 p-4 md:grid-cols-[156px_minmax(0,1fr)]">
+        <div className="overflow-hidden rounded-[16px]">
+          <Image
+            src="/images/room-bg-preview/Deluxe.jpg"
+            alt="Deluxe Sea View room"
+            width={312}
+            height={208}
+            className="h-full w-full object-cover"
+          />
+        </div>
+
+        <div className="min-w-0">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-[17px] font-semibold text-[#111827]">
+                Deluxe Sea View
+              </h3>
+              <p className="mt-1 text-[14px] font-semibold text-[#111827]">
+                ฿3,500 / คืน
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2 text-[13px] text-[#667085]">
+            <RoomSpec icon={<SpaIcon className="h-4 w-4" />} label="วิวทะเล" />
+            <RoomSpec icon={<SquareIcon className="h-4 w-4" />} label="35 ตร.ม." />
+            <RoomSpec icon={<BedIcon className="h-4 w-4" />} label="เตียงคิงไซส์" />
+          </div>
+
+          <div className="mt-5 flex justify-end">
+            <button
+              type="button"
+              className="rounded-[12px] border border-[#cdd8f7] bg-white px-4 py-2 text-[14px] font-medium text-[#1e4fd7] transition-colors hover:bg-[#f5f8ff]"
+            >
+              ดูรายละเอียด
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RoomSpec({
+  icon,
+  label,
+}: {
+  icon: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <span className="inline-flex items-center gap-2 rounded-full bg-[#f6f8fc] px-3 py-1.5">
+      {icon}
+      {label}
+    </span>
+  );
+}
+
+function QuickActionIcon({ label }: { label: string }) {
+  const iconClass = "h-4 w-4 text-[#2f6bff]";
+  if (label === "Create Booking") return <CalendarIcon className={iconClass} />;
+  if (label === "Send Promotion") return <SparkleIcon className={iconClass} />;
+  if (label === "Send Receipt") return <MailIcon className={iconClass} />;
+  return <NoteIcon className={iconClass} />;
+}
+
+function SearchIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="11" cy="11" r="6.25" stroke="currentColor" strokeWidth="1.5" />
+      <path
+        d="m16.2 16.2 3.3 3.3"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function BellIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M14.5 17.5a2.5 2.5 0 0 1-5 0"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+      <path
+        d="M18 17H6.5a1 1 0 0 1-.9-1.45l1.1-2.2V10a5.3 5.3 0 0 1 10.6 0v3.35l1.1 2.2A1 1 0 0 1 18 17Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function DotsIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="6" cy="12" r="1.5" fill="currentColor" />
+      <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+      <circle cx="18" cy="12" r="1.5" fill="currentColor" />
+    </svg>
+  );
+}
+
+function PaperclipIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="m8.5 12.5 5.8-5.8a2.5 2.5 0 0 1 3.5 3.5l-7.1 7.1a4 4 0 0 1-5.7-5.7l6.7-6.7"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ImageIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect
+        x="4"
+        y="5"
+        width="16"
+        height="14"
+        rx="2"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
+      <path
+        d="m7 15 3.2-3.2a1.5 1.5 0 0 1 2.1 0L18 17"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="10" cy="9" r="1.3" fill="currentColor" />
+    </svg>
+  );
+}
+
+function SmileIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.5" />
+      <path
+        d="M9 14.3c.7 1 1.8 1.7 3 1.7s2.3-.7 3-1.7"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+      <path d="M9.2 10h.01M14.8 10h.01" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function CalendarIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="4" y="5.5" width="16" height="14" rx="2" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M8 4v3M16 4v3M4 9.5h16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SparkleIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="m12 3 1.4 4.6L18 9l-4.6 1.4L12 15l-1.4-4.6L6 9l4.6-1.4L12 3Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      <path d="M5 16l.8 2.5L8.4 19l-2.6.8L5 22l-.8-2.2L1.6 19l2.6-.5L5 16Z" fill="currentColor" opacity=".65" />
+    </svg>
+  );
+}
+
+function MailIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="4" y="6" width="16" height="12" rx="2" stroke="currentColor" strokeWidth="1.5" />
+      <path d="m5 8 7 5 7-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function NoteIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M6 4h8l4 4v12H6V4Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      <path d="M14 4v4h4" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+      <path d="M8 12h8M8 15h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SpaIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M12 20s-5-3.2-5-8a5 5 0 0 1 10 0c0 4.8-5 8-5 8Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      <path d="M9.2 11.4h5.6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SquareIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="5" y="5" width="14" height="14" rx="2" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M8 12h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function BedIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M5 11a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v6H5v-6Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      <path d="M5 17v2M19 17v2M7 9V6M17 9V6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M5 14h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function PinIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M12 20s5-4.2 5-9a5 5 0 1 0-10 0c0 4.8 5 9 5 9Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      <circle cx="12" cy="11" r="1.6" fill="currentColor" />
+    </svg>
+  );
+}
+
+function PhoneIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M7.5 4.8 9.8 7a1.2 1.2 0 0 1 0 1.7l-1.6 1.6a12 12 0 0 0 5.5 5.5l1.6-1.6a1.2 1.2 0 0 1 1.7 0l2.2 2.2a1.2 1.2 0 0 1 0 1.7l-1.4 1.4a2 2 0 0 1-2.1.5A18 18 0 0 1 5.6 8.3a2 2 0 0 1 .5-2.1l1.4-1.4Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}

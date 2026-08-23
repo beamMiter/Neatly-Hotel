@@ -63,7 +63,6 @@ export type ChatbotRoomResult = {
   amenities: string[];
   detailHref: string;
 };
-
 export type ChatbotEventType = "response" | "handoff";
 
 export type ChatbotEventInput = {
@@ -74,3 +73,4 @@ export type ChatbotEventInput = {
   fallbackReason: string | null;
   handoffReason: string | null;
 };
+=======

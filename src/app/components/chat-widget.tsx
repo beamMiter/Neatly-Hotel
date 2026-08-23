@@ -3,8 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
-import type { Room, SearchState } from "@/app/lib/hotel";
-import type { ChatbotSuggestion } from "@/app/lib/chatbot-faq";
+import type { ChatbotRoomResult, ChatbotSearchState, ChatbotSuggestion } from "@/types/chatbot";
 
 type Intent = "faq" | "search_room" | "unknown";
 
@@ -13,7 +12,7 @@ type ChatMessage = {
   role: "user" | "assistant";
   content: string;
   intent?: Intent;
-  rooms?: Room[];
+  rooms?: ChatbotRoomResult[];
   suggestion?: ChatbotSuggestion;
 };
 
@@ -21,12 +20,19 @@ type ChatResponse = {
   message?: string;
   error?: string;
   intent?: Intent;
-  search?: SearchState;
-  rooms?: Room[];
+  search?: ChatbotSearchState;
+  rooms?: ChatbotRoomResult[];
   suggestion?: ChatbotSuggestion;
 };
 
-const initialSearch: SearchState = {
+type SupportMessageResponse = {
+  id: string;
+  sender: "visitor" | "agent" | "system";
+  content: string;
+  created_at: string;
+};
+
+const initialSearch: ChatbotSearchState = {
   checkIn: null,
   checkOut: null,
   guests: null,
@@ -43,11 +49,15 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, suggesti
   };
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([initialMessage]);
-  const [search, setSearch] = useState<SearchState>(initialSearch);
-  const [filterSearch, setFilterSearch] = useState<SearchState>(initialSearch);
+  const [search, setSearch] = useState<ChatbotSearchState>(initialSearch);
+  const [filterSearch, setFilterSearch] = useState<ChatbotSearchState>(initialSearch);
   const [view, setView] = useState<"chat" | "filter">("chat");
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [hasRequestedLiveSupport, setHasRequestedLiveSupport] = useState(false);
+  const [visitorToken, setVisitorToken] = useState<string | null>(null);
+  const [isCollectingPhone, setIsCollectingPhone] = useState(false);
+  const [contactPhone, setContactPhone] = useState("");
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -63,9 +73,53 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, suggesti
     if (isOpen) inputRef.current?.focus();
   }, [isOpen]);
 
-  async function sendMessage(text: string, searchOverride: SearchState = search, suggestionId?: string) {
+  useEffect(() => {
+    if (!hasRequestedLiveSupport || !visitorToken) return;
+
+    let cancelled = false;
+    const loadAgentReplies = async () => {
+      try {
+        const response = await fetch(`/api/live-support/visitor?visitorToken=${visitorToken}`, {
+          cache: "no-store",
+        });
+        if (!response.ok) return;
+        const data = (await response.json()) as { messages?: SupportMessageResponse[] };
+        const agentMessages = (data.messages ?? []).filter((message) => message.sender !== "visitor");
+
+        if (!cancelled && agentMessages.length > 0) {
+          setMessages((current) => {
+            const knownIds = new Set(current.map((message) => message.id));
+            const replies = agentMessages
+              .filter((message) => !knownIds.has(message.id))
+              .map((message) => ({
+                id: message.id,
+                role: "assistant" as const,
+                content: message.content,
+              }));
+            return replies.length > 0 ? [...current, ...replies] : current;
+          });
+        }
+      } catch {
+        // A later polling interval retries transient network failures.
+      }
+    };
+
+    void loadAgentReplies();
+    const intervalId = window.setInterval(() => void loadAgentReplies(), 5000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [hasRequestedLiveSupport, visitorToken]);
+
+  async function sendMessage(text: string, searchOverride: ChatbotSearchState = search, suggestionId?: string) {
     const content = text.trim();
     if (!content || isLoading) return;
+
+    if (hasRequestedLiveSupport && visitorToken) {
+      await sendLiveSupportMessage(content);
+      return;
+    }
 
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
@@ -117,7 +171,7 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, suggesti
     }
   }
 
-  function startBooking(room: Room) {
+  function startBooking(room: ChatbotRoomResult) {
     setMessages((current) => [
       ...current,
       { id: crypto.randomUUID(), role: "user", content: `ต้องการจอง ${room.name}` },
@@ -127,6 +181,105 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, suggesti
         content: `รับทราบค่ะ คุณเลือก ${room.name}\nนี่เป็นระบบทดลอง จึงยังไม่ยืนยันการจองหรือรับชำระเงิน กรุณาฝากชื่อและช่องทางติดต่อเพื่อให้เจ้าหน้าที่ดำเนินการต่อค่ะ`,
       },
     ]);
+  }
+
+  function requestLiveSupport() {
+    if (isLoading || hasRequestedLiveSupport || isCollectingPhone) return;
+
+    setIsCollectingPhone(true);
+    setMessages((current) => [
+      ...current,
+      {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: "เพื่อให้เจ้าหน้าที่ติดต่อกลับได้ กรุณากรอกเบอร์โทรศัพท์ของคุณก่อนค่ะ",
+      },
+    ]);
+  }
+
+  function startLiveSupport(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const phone = contactPhone.trim();
+    const digits = phone.replace(/\D/g, "");
+    if (phone && (digits.length < 7 || digits.length > 15)) return;
+
+    const savedToken = window.localStorage.getItem("neatly-live-support-token");
+    const token = savedToken ?? crypto.randomUUID();
+    if (!savedToken) window.localStorage.setItem("neatly-live-support-token", token);
+
+    setIsLoading(true);
+    void fetch("/api/live-support/visitor", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        visitorToken: token,
+        contactPhone: phone || null,
+        content: "ต้องการพูดคุยกับเจ้าหน้าที่ Live Support",
+      }),
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Unable to start live support");
+        const data = (await response.json()) as { message: SupportMessageResponse };
+        setVisitorToken(token);
+        setHasRequestedLiveSupport(true);
+        setIsCollectingPhone(false);
+        setMessages((current) => [
+          ...current,
+          {
+            id: data.message.id,
+            role: "user",
+            content: "ต้องการพูดคุยกับเจ้าหน้าที่ Live Support",
+          },
+          {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: "เชื่อมต่อกับเจ้าหน้าที่แล้วค่ะ พิมพ์รายละเอียดที่ต้องการความช่วยเหลือได้เลย",
+          },
+        ]);
+      })
+      .catch(() => {
+        setMessages((current) => [
+          ...current,
+          {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: "ไม่สามารถเชื่อมต่อเจ้าหน้าที่ได้ในขณะนี้ กรุณาลองใหม่อีกครั้งค่ะ",
+          },
+        ]);
+      })
+      .finally(() => setIsLoading(false));
+  }
+
+  async function sendLiveSupportMessage(content: string) {
+    if (!visitorToken) return;
+
+    const messageId = crypto.randomUUID();
+    setMessages((current) => [
+      ...current,
+      { id: messageId, role: "user", content },
+    ]);
+    setInput("");
+    setIsLoading(true);
+
+    try {
+      const response = await fetch("/api/live-support/visitor", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ visitorToken, content }),
+      });
+      if (!response.ok) throw new Error("Unable to send support message");
+    } catch {
+      setMessages((current) => [
+        ...current,
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: "ส่งข้อความไม่สำเร็จ กรุณาลองใหม่อีกครั้งค่ะ",
+        },
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -161,6 +314,9 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, suggesti
     setSearch(initialSearch);
     setFilterSearch(initialSearch);
     setInput("");
+    setHasRequestedLiveSupport(false);
+    setIsCollectingPhone(false);
+    setContactPhone("");
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
@@ -171,6 +327,12 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, suggesti
   }
 
   const hasSearchProgress = Object.values(search).some(Boolean);
+  const completedUserTurns = messages.filter((message) => message.role === "user").length;
+  const hasUnresolvedQuestion = messages.some(
+    (message) => message.role === "assistant" && message.intent === "unknown",
+  );
+  const shouldOfferLiveSupport =
+    !hasRequestedLiveSupport && !isCollectingPhone && (completedUserTurns >= 3 || hasUnresolvedQuestion);
 
   return (
     <aside className="fixed right-2 bottom-2 z-50 sm:right-[18px] sm:bottom-[18px]" aria-label="ผู้ช่วย Neatly Hotel">
@@ -272,6 +434,48 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, suggesti
                 </div>
               </div>
             )}
+            {shouldOfferLiveSupport && (
+              <div className="relative z-[1] w-full rounded-xl border border-[#F3C7B8] bg-[#FFF8F5] p-3">
+                <p className="m-0 text-sm font-medium text-[#7B472F]">
+                  ยังต้องการความช่วยเหลือเพิ่มเติมไหม?
+                </p>
+                <button
+                  className="mt-2 flex h-10 cursor-pointer items-center gap-2 rounded-full border border-[#C14817] bg-white px-4 text-left text-sm font-medium text-[#B84214] hover:bg-[#FCE5DA] focus:outline-2 focus:outline-[#C14817]"
+                  type="button"
+                  onClick={requestLiveSupport}
+                >
+                  <svg className="h-4 w-4 shrink-0 fill-none stroke-current stroke-[1.8]" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M5 18.5 3.5 21l3.6-1.1A8.5 8.5 0 1 0 3.5 13" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M8 11.5h.01M12 11.5h.01M16 11.5h.01" strokeLinecap="round" strokeWidth="2.5" />
+                  </svg>
+                  คุยกับเจ้าหน้าที่
+                </button>
+              </div>
+            )}
+            {isCollectingPhone && (
+              <form className="relative z-[1] w-full rounded-xl border border-[#F3C7B8] bg-[#FFF8F5] p-3" onSubmit={startLiveSupport}>
+                <label className="grid gap-2 text-sm font-medium text-[#7B472F]">
+                  เบอร์โทรศัพท์สำหรับติดต่อกลับ (ไม่บังคับ)
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    value={contactPhone}
+                    onChange={(event) => setContactPhone(event.target.value)}
+                    placeholder="เช่น 081 234 5678"
+                    className="h-10 rounded-lg border border-[#E8B8A5] bg-white px-3 text-base text-[#3F3F46] outline-none placeholder:text-[#A1A1AA] focus:border-[#C14817] focus:ring-2 focus:ring-[#C14817]/15"
+                    required
+                  />
+                </label>
+                <button
+                  className="mt-3 h-10 w-full rounded-lg bg-[#C14817] text-sm font-semibold text-white hover:bg-[#A93910] disabled:cursor-default disabled:opacity-60"
+                  type="submit"
+                  disabled={isLoading}
+                >
+                  เริ่มคุยกับเจ้าหน้าที่
+                </button>
+              </form>
+            )}
             {isLoading && (
               <div className="flex w-full justify-start">
                 <div className="flex gap-1 rounded-[9px] bg-white px-[15px] py-[13px]" aria-label="กำลังพิมพ์"><span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#98a59e]" /><span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#98a59e] [animation-delay:.15s]" /><span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#98a59e] [animation-delay:.3s]" /></div>
@@ -323,8 +527,9 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, suggesti
               maxLength={800}
               placeholder="Write your message"
               aria-label="ข้อความ"
+              disabled={isCollectingPhone}
             />
-            <button className="grid h-6 w-6 shrink-0 cursor-pointer place-items-center border-0 bg-transparent disabled:cursor-default disabled:opacity-60" type="submit" disabled={!input.trim() || isLoading} aria-label="ส่งข้อความ">
+            <button className="grid h-6 w-6 shrink-0 cursor-pointer place-items-center border-0 bg-transparent disabled:cursor-default disabled:opacity-60" type="submit" disabled={!input.trim() || isLoading || isCollectingPhone} aria-label="ส่งข้อความ">
               <svg className="h-6 w-6 -rotate-[8deg] fill-[#E76B39]" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 20 18-8L3 4v6l13 2-13 2v6Z" /></svg>
             </button>
           </form>

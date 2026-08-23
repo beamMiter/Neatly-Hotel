@@ -8,6 +8,11 @@ import { logout } from "@/features/auth/actions";
 
 const NAV_ITEMS = [
   {
+    href: "/live-support",
+    label: "Live Support",
+    icon: SupportIcon,
+  },
+  {
     href: "/customer-booking",
     label: "Customer Booking",
     icon: BookingIcon,
@@ -243,6 +248,25 @@ function ChatbotIcon({ className }: { className?: string }) {
         stroke="currentColor"
         strokeWidth="1.5"
         strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function SupportIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M12 4.5a6.5 6.5 0 0 0-6.5 6.5v2.2a1.8 1.8 0 0 0 1.8 1.8h1.2V10.9a.9.9 0 0 0-.9-.9H6.8A5.2 5.2 0 0 1 12 4.8a5.2 5.2 0 0 1 5.2 5.2h-.8a.9.9 0 0 0-.9.9V15h1.2a1.8 1.8 0 0 0 1.8-1.8V11a6.5 6.5 0 0 0-6.5-6.5Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M9.4 16.6c.9.9 1.9 1.4 2.8 1.4s1.9-.5 2.8-1.4"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
       />
     </svg>
   );
