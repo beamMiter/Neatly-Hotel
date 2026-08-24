@@ -22,6 +22,9 @@ export const ROOM_STATUS_STYLES: Record<RoomStatus, { className: string }> = {
   "Vacant Clean Pick Up": {
     className: "bg-[#DDF3D6] text-[#4E9A3A]",
   },
+  "Vacant Dirty": {
+    className: "bg-[#FDE9D9] text-[#C4622D]",
+  },
   "Occupied Clean": {
     className: "bg-[#D4E4F7] text-[#3A6FB5]",
   },
