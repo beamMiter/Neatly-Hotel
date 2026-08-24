@@ -1,8 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { FormEvent, useEffect, useMemo, useState } from "react";
-import type { SupportAgent, SupportBooking, SupportConversation, SupportConversationStatus, SupportCustomer, SupportMessage } from "@/types/live-support";
+import { useMemo, useState } from "react";
+import type { SupportConversationStatus } from "@/types/live-support";
+import { useLiveSupportAdmin } from "@/features/live-support/components/useLiveSupportAdmin";
 
 type SupportTab = "open" | "mine" | "resolved";
 type SupportFilter = "all" | "booking" | "room" | "payment" | "other";
@@ -211,51 +212,18 @@ export function LiveSupportPage() {
   const [activeFilter, setActiveFilter] = useState<SupportFilter>("all");
   const [search, setSearch] = useState("");
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
-  const [conversations, setConversations] = useState<SupportConversation[]>([]);
-  const [supportMessages, setSupportMessages] = useState<SupportMessage[]>([]);
-  const [agents, setAgents] = useState<SupportAgent[]>([]);
-  const [currentAdminId, setCurrentAdminId] = useState<string | null>(null);
-  const [customer, setCustomer] = useState<SupportCustomer | null>(null);
-  const [bookings, setBookings] = useState<SupportBooking[]>([]);
   const [reply, setReply] = useState("");
-  const [isSending, setIsSending] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    const loadSupport = async () => {
-      try {
-        const query = selectedThreadId ? `?conversationId=${selectedThreadId}` : "";
-        const response = await fetch(`/api/live-support/admin${query}`, { cache: "no-store" });
-        if (!response.ok) return;
-        const data = (await response.json()) as {
-          conversations: SupportConversation[];
-          agents: SupportAgent[];
-          currentAdminId: string;
-          selectedConversationId: string | null;
-          messages: SupportMessage[];
-          customer: SupportCustomer | null;
-          bookings: SupportBooking[];
-        };
-        if (cancelled) return;
-        setConversations(data.conversations);
-        setAgents(data.agents);
-        setCurrentAdminId(data.currentAdminId);
-        setSupportMessages(data.messages);
-        setCustomer(data.customer);
-        setBookings(data.bookings);
-        setSelectedThreadId((current) => current ?? data.selectedConversationId);
-      } catch {
-        // Polling retries transient failures on the next interval.
-      }
-    };
-
-    void loadSupport();
-    const intervalId = window.setInterval(() => void loadSupport(), 5000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(intervalId);
-    };
-  }, [selectedThreadId]);
+  const {
+    conversations,
+    supportMessages,
+    agents,
+    currentAdminId,
+    customer,
+    bookings,
+    isSending,
+    sendReply: sendSupportReply,
+    updateConversation: updateSupportConversation,
+  } = useLiveSupportAdmin(selectedThreadId, setSelectedThreadId);
 
   const threads = useMemo<Conversation[]>(() => conversations.map((conversation) => ({
     id: conversation.id,
@@ -297,24 +265,13 @@ export function LiveSupportPage() {
     null;
   const currentConversation = conversations.find((conversation) => conversation.id === currentThread?.id) ?? null;
 
-  async function sendReply(event: FormEvent<HTMLFormElement>) {
+  async function sendReply(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const content = reply.trim();
     if (!content || !selectedThreadId || isSending) return;
 
-    setIsSending(true);
-    try {
-      const response = await fetch("/api/live-support/admin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ conversationId: selectedThreadId, content }),
-      });
-      if (!response.ok) throw new Error("Unable to send reply");
-      const data = (await response.json()) as { message: SupportMessage };
-      setSupportMessages((current) => [...current, data.message]);
+    if (await sendSupportReply(selectedThreadId, content)) {
       setReply("");
-    } finally {
-      setIsSending(false);
     }
   }
 
@@ -324,21 +281,12 @@ export function LiveSupportPage() {
   }) {
     if (!currentConversation) return;
 
-    const response = await fetch("/api/live-support/admin", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ conversationId: currentConversation.id, ...update }),
-    });
-    if (!response.ok) return;
-
-    const data = (await response.json()) as { conversation: SupportConversation };
-    setConversations((current) => current.map((conversation) =>
-      conversation.id === data.conversation.id ? data.conversation : conversation,
-    ));
+    const updatedConversation = await updateSupportConversation(currentConversation, update);
+    if (!updatedConversation) return;
     setActiveTab(
-      data.conversation.status === "resolved"
+      updatedConversation.status === "resolved"
         ? "resolved"
-        : data.conversation.assigned_agent_id === currentAdminId
+        : updatedConversation.assigned_agent_id === currentAdminId
           ? "mine"
           : "open",
     );

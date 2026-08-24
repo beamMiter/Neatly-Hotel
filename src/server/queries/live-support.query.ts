@@ -4,10 +4,16 @@ import type {
   SupportAgent,
   SupportBooking,
   SupportConversation,
-  SupportConversationStatus,
   SupportCustomer,
   SupportMessage,
 } from "@/types/live-support";
+
+export class SupportMessageLimitError extends Error {
+  constructor() {
+    super("This support conversation has reached its message limit");
+    this.name = "SupportMessageLimitError";
+  }
+}
 
 export async function findVisitorConversation(visitorToken: string) {
   const { data, error } = await supabaseAdmin
@@ -78,6 +84,29 @@ export async function addSupportMessage(
     .single();
 
   if (error) throw new Error(error.message);
+  return data as SupportMessage;
+}
+
+export async function addVisitorSupportMessage(
+  conversationId: string,
+  content: string,
+  maxMessages: number,
+) {
+  const { data, error } = await supabaseAdmin
+    .rpc("add_visitor_support_message", {
+      p_conversation_id: conversationId,
+      p_content: content,
+      p_max_messages: maxMessages,
+    })
+    .single();
+
+  if (error) {
+    if (error.code === "P0001" && error.message.includes("support_message_limit_reached")) {
+      throw new SupportMessageLimitError();
+    }
+    throw new Error(error.message);
+  }
+
   return data as SupportMessage;
 }
 

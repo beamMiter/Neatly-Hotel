@@ -1,10 +1,16 @@
+import { redirect } from "next/navigation";
 import { AdminSidebar } from "@/components/layout/admin-sidebar";
+import { getActiveAdminUser } from "@/server/services/admin-auth";
 
-export default function AdminLayout({
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  if (!(await getActiveAdminUser())) {
+    redirect("/login?error=access-denied");
+  }
+
   return (
     <div className="flex h-screen w-full overflow-hidden bg-[#F7F8FA]">
       <aside className="h-screen w-[260px] shrink-0">

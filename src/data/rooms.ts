@@ -2,7 +2,7 @@
 // Mock room data — จะเปลี่ยนเป็น fetch จาก backend จริงทีหลัง
 // แก้ไขได้: เนื้อหาแต่ละห้อง, gallery paths, amenities
 
-import type { Room } from '../types/room';
+import type { LandingRoom } from "@/types/landing-room";
 
 const DEFAULT_AMENITIES = [
 	'Safe in Room',
@@ -20,7 +20,7 @@ const DEFAULT_AMENITIES = [
 	'Bathrobe',
 ];
 
-export const ROOMS: Room[] = [
+export const ROOMS: LandingRoom[] = [
 	{
 		slug: 'superior-garden-view',
 		name: 'Superior Garden View',

@@ -1,4 +1,3 @@
-import { createClient } from "@/server/db/supabase-server";
 import {
   addSupportMessage,
   getSupportCustomer,
@@ -9,28 +8,10 @@ import {
   updateSupportConversation,
 } from "@/server/queries/live-support.query";
 import { generateLiveSupportSummary } from "@/server/queries/live-support-summary.query";
-
-async function requireAdmin() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return null;
-
-  const { data: staffMember } = await supabase
-    .from("staff_members")
-    .select("role, is_active")
-    .eq("user_id", user.id)
-    .eq("role", "admin")
-    .eq("is_active", true)
-    .maybeSingle();
-
-  return staffMember ? user : null;
-}
+import { getActiveAdminUser } from "@/server/services/admin-auth";
 
 export async function GET(request: Request) {
-  const user = await requireAdmin();
+  const user = await getActiveAdminUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
@@ -65,7 +46,7 @@ export async function GET(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const user = await requireAdmin();
+  const user = await getActiveAdminUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = (await request.json().catch(() => null)) as {
@@ -102,7 +83,7 @@ export async function PATCH(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const user = await requireAdmin();
+  const user = await getActiveAdminUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = (await request.json().catch(() => null)) as {
