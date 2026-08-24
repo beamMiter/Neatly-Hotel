@@ -28,11 +28,15 @@ export async function getRoomTypeAvailability(input: {
   const checkIn = toDateOnly(input.checkIn);
   const checkOut = toDateOnly(input.checkOut);
 
+  // A booking blocks a room only while it's neither cancelled/completed nor
+  // an expired, still-unpaid hold — see the 30-minute payment hold in
+  // bookings.query.ts and the plan's status/payment_status lifecycle table.
   const overlapping = await prisma.booking.findMany({
     where: {
       checkIn: { lt: checkOut },
       checkOut: { gt: checkIn },
       NOT: { status: { in: NON_BLOCKING_STATUSES } },
+      OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
     },
     select: { rooms: { select: { roomId: true } } },
   });

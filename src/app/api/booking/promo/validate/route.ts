@@ -3,6 +3,10 @@ import { parseValidatePromoBody } from "@/features/booking-promo/validations";
 import { hasDatabaseUrl } from "@/server/db";
 import { validatePromotionCode } from "@/server/queries/promo.query";
 
+// Live preview only, called while typing a promo code in the wizard's
+// payment step — POST /api/bookings independently re-resolves the code as
+// the authoritative value at submit time, this endpoint's result is never
+// trusted for the actual charge.
 export async function POST(request: Request) {
   if (!hasDatabaseUrl()) {
     return NextResponse.json(

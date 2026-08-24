@@ -37,6 +37,7 @@ type BookingRow = {
   check_in: string;
   check_out: string;
   status: string;
+  expires_at: string | null;
 };
 
 type BookingRoomRow = {
@@ -89,10 +90,19 @@ function datesOverlap(checkIn: string, checkOut: string, bookingIn: string, book
   return bookingIn < checkOut && bookingOut > checkIn;
 }
 
+// A booking blocks a room only while it's neither cancelled/completed nor
+// an expired, still-unpaid hold — see the payment hold lifecycle in
+// bookings.query.ts (30-minute expires_at) and the plan's status table.
+function isBlockingBooking(booking: BookingRow): boolean {
+  if (NON_BLOCKING_BOOKING_STATUSES.has(booking.status.toLowerCase())) return false;
+  if (booking.expires_at && new Date(booking.expires_at) <= new Date()) return false;
+  return true;
+}
+
 async function getBookedRoomIds(checkIn: string, checkOut: string): Promise<Set<string>> {
   const { data: bookings, error: bookingsError } = await supabaseAdmin
     .from("bookings")
-    .select("id, check_in, check_out, status");
+    .select("id, check_in, check_out, status, expires_at");
 
   if (bookingsError) {
     console.error("[bookings] failed to fetch for search:", bookingsError);
@@ -100,7 +110,7 @@ async function getBookedRoomIds(checkIn: string, checkOut: string): Promise<Set<
   }
 
   const overlappingIds = ((bookings ?? []) as BookingRow[])
-    .filter((booking) => !NON_BLOCKING_BOOKING_STATUSES.has(booking.status.toLowerCase()))
+    .filter(isBlockingBooking)
     .filter((booking) => datesOverlap(checkIn, checkOut, booking.check_in, booking.check_out))
     .map((booking) => booking.id);
 

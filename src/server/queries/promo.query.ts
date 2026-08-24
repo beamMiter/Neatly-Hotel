@@ -83,16 +83,18 @@ export async function validatePromotionCode(
     };
   }
 
-  if (promo.maxUses !== null && promo.usedCount >= promo.maxUses) {
-    return {
-      valid: false,
-      code,
-      discountAmount: 0,
-      subtotal,
-      totalAfterDiscount: subtotal,
-      message: "This promotion code has reached its usage limit",
-    };
-  }
+  // NOTE: max_uses is NOT enforced. `used_count` is never written by any
+  // code path, so this check would always pass anyway — it is a known gap,
+  // not an oversight in this branch. Every promotion_codes row currently
+  // seeded has max_uses = null, so nothing depends on it today.
+  //
+  // Enforcing it properly is harder than it looks and was deliberately left
+  // out of this branch: a stored counter has to be released on every
+  // decline, abandoned 30-minute hold and cleanup path or it leaks a slot
+  // permanently, and deriving the count from live bookings instead has to
+  // stay consistent with extendBookingHold reviving a cancelled booking.
+  // Both were tried here and both grew races; it belongs in its own change
+  // with its own tests rather than riding along with the payment flow.
 
   const minSubtotal = promo.minSubtotal === null ? null : toNumber(promo.minSubtotal);
   if (minSubtotal !== null && subtotal < minSubtotal) {
@@ -117,7 +119,7 @@ export async function validatePromotionCode(
       discountAmount: 0,
       subtotal,
       totalAfterDiscount: subtotal,
-      message: "This promotion code cannot be used with the selected room type",
+      message: "This promo code isn't valid for this room. Try another code or room",
     };
   }
 

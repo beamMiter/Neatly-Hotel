@@ -13,7 +13,6 @@ type SearchPageViewProps = {
 export function SearchPageView({ rooms, initialQuery }: SearchPageViewProps) {
   useEffect(() => {
     window.scrollTo(0, 0);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialQuery.checkIn, initialQuery.checkOut, initialQuery.rooms, initialQuery.guests]);
 
   return (

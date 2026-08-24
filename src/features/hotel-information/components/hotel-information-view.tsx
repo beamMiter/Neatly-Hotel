@@ -15,6 +15,8 @@ export function HotelInformationView({ hotel }: HotelInformationViewProps) {
   const [name, setName] = useState(hotel.name);
   const [description, setDescription] = useState(hotel.description);
   const [logoUrl, setLogoUrl] = useState(hotel.logoUrl);
+  const [checkInTime, setCheckInTime] = useState(hotel.checkInTime);
+  const [checkOutTime, setCheckOutTime] = useState(hotel.checkOutTime);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [removeLogo, setRemoveLogo] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -62,6 +64,8 @@ export function HotelInformationView({ hotel }: HotelInformationViewProps) {
     form.set("name", name.trim());
     form.set("description", description.trim());
     form.set("removeLogo", String(removeLogo && !logoFile));
+    form.set("checkInTime", checkInTime);
+    form.set("checkOutTime", checkOutTime);
     if (logoFile) {
       form.set("logo", logoFile);
     }
@@ -83,6 +87,8 @@ export function HotelInformationView({ hotel }: HotelInformationViewProps) {
         setName(payload.data.name);
         setDescription(payload.data.description);
         setLogoUrl(payload.data.logoUrl);
+        setCheckInTime(payload.data.checkInTime);
+        setCheckOutTime(payload.data.checkOutTime);
         setLogoFile(null);
         setRemoveLogo(false);
       }
@@ -135,6 +141,27 @@ export function HotelInformationView({ hotel }: HotelInformationViewProps) {
                 className="w-full resize-y rounded-[4px] border border-[#D0D5DD] bg-white px-3.5 py-3 text-[14px] leading-6 text-[#344054] outline-none focus:border-[#C34A2C]"
               />
             </Field>
+
+            <div className="flex gap-6">
+              <Field id="hotel-checkin" label="Check-in time" required>
+                <input
+                  id="hotel-checkin"
+                  type="time"
+                  value={checkInTime}
+                  onChange={(event) => setCheckInTime(event.target.value)}
+                  className="h-11 w-full rounded-[4px] border border-[#D0D5DD] bg-white px-3.5 text-[14px] text-[#344054] outline-none focus:border-[#C34A2C]"
+                />
+              </Field>
+              <Field id="hotel-checkout" label="Check-out time" required>
+                <input
+                  id="hotel-checkout"
+                  type="time"
+                  value={checkOutTime}
+                  onChange={(event) => setCheckOutTime(event.target.value)}
+                  className="h-11 w-full rounded-[4px] border border-[#D0D5DD] bg-white px-3.5 text-[14px] text-[#344054] outline-none focus:border-[#C34A2C]"
+                />
+              </Field>
+            </div>
 
             <Field id="hotel-logo" label="Hotel logo" required>
               {previewUrl ? (

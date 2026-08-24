@@ -1,102 +1,80 @@
 import { notFound, redirect } from "next/navigation";
-import { BookingFlowView } from "@/features/booking-flow/components/BookingFlowView";
-import { getBookingCustomerProfile } from "@/features/booking-flow/queries";
-import { defaultBookingSearchQuery } from "@/features/booking-flow/utils";
-import { validateStayDates } from "@/features/booking/date-rules";
-import { getGuestRoomTypeById } from "@/server/queries/booking-search.query";
-import type { SearchQuery } from "@/types/room-search";
 import { createClient } from "@/server/db/supabase-server";
+import { getGuestRoomTypeById } from "@/server/queries/booking-search.query";
+import { getSpecialRequestCatalogForDisplay } from "@/server/queries/special-requests.query";
+import { getProfileForBookingPrefill } from "@/server/queries/profiles.query";
+import { loadHotelInformation } from "@/server/queries/hotel.query";
+import { formatCheckTimeLabel } from "@/types/hotel";
+import { validateStayDates } from "@/features/booking/date-rules";
+import { BookingWizard } from "@/features/booking/components/BookingWizard";
+import { UUID_PATTERN } from "@/lib/validation-patterns";
 
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-type BookingPageProps = {
+// This is now the one canonical booking entry point (the old /booking-room
+// was retired once this landed — same wizard, just moved to this URL shape,
+// which is what the team's booking-flow branch already links to from
+// RoomDetail/RoomCard: `buildBookingHref` in
+// src/features/booking-flow/utils.ts on dev,
+// `/booking/[roomTypeId]?checkIn=&checkOut=&guests=&rooms=`). Their payment
+// step was still a placeholder with no real Stripe wired in, so this exists
+// to make that entry point actually work rather than rebuilding their whole
+// step-by-step UI in parallel. See the Booking Flow Reconciliation doc for
+// the fuller comparison.
+type BookingFlowPageProps = {
   params: Promise<{ roomTypeId: string }>;
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
+  searchParams: Promise<{
+    checkIn?: string;
+    checkOut?: string;
+    guests?: string;
+    rooms?: string;
+  }>;
 };
 
-function first(value: string | string[] | undefined): string {
-  if (Array.isArray(value)) return value[0] ?? "";
-  return value ?? "";
-}
-
-function parseCount(value: string, fallback: number, max: number): number {
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isFinite(parsed) || parsed < 1) return fallback;
-  return Math.min(parsed, max);
-}
-
-function resolveSearchQuery(raw: Record<string, string | string[] | undefined>): SearchQuery {
-  const defaults = defaultBookingSearchQuery();
-  const checkIn = first(raw.checkIn) || defaults.checkIn;
-  const checkOut = first(raw.checkOut) || defaults.checkOut;
-
-  return {
-    checkIn,
-    checkOut,
-    rooms: parseCount(first(raw.rooms), defaults.rooms, 3),
-    guests: parseCount(first(raw.guests), defaults.guests, 8),
-  };
-}
-
-function buildRedirectPath(roomTypeId: string, search: SearchQuery) {
-  const params = new URLSearchParams({
-    checkIn: search.checkIn,
-    checkOut: search.checkOut,
-    guests: String(search.guests),
-    rooms: String(search.rooms),
-  });
-  return `/booking/${roomTypeId}?${params.toString()}`;
-}
-
-export default async function BookingPage({ params, searchParams }: BookingPageProps) {
+export default async function BookingFlowPage({ params, searchParams }: BookingFlowPageProps) {
   const { roomTypeId } = await params;
-  const rawSearch = await searchParams;
+  const query = await searchParams;
 
-  if (!UUID_PATTERN.test(roomTypeId)) {
-    notFound();
-  }
-
-  const search = resolveSearchQuery(rawSearch);
-  const dateError = validateStayDates(search.checkIn, search.checkOut);
-  if (dateError) {
-    notFound();
-  }
+  if (!UUID_PATTERN.test(roomTypeId)) notFound();
 
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
   if (!user) {
-    redirect(`/login?redirectTo=${encodeURIComponent(buildRedirectPath(roomTypeId, search))}`);
+    const qs = new URLSearchParams(query as Record<string, string>).toString();
+    redirect(`/login?redirectTo=${encodeURIComponent(`/booking/${roomTypeId}?${qs}`)}`);
   }
 
-  const [room, profile] = await Promise.all([getGuestRoomTypeById(roomTypeId), getBookingCustomerProfile(user.id)]);
+  const checkIn = query.checkIn ?? "";
+  const checkOut = query.checkOut ?? "";
+  if (validateStayDates(checkIn, checkOut)) notFound();
 
-  if (!room) {
-    notFound();
-  }
+  const guests = Math.max(1, Math.min(8, Number(query.guests) || 1));
+  const rooms = Math.max(1, Math.min(3, Number(query.rooms) || 1));
 
-  const initialBasicInfo = profile ?? {
-    firstName: "",
-    lastName: "",
-    email: user.email ?? "",
-    phone: "",
-    dateOfBirth: "",
-    country: "",
-  };
+  const [room, specialRequestCatalog, prefill, hotel] = await Promise.all([
+    getGuestRoomTypeById(roomTypeId),
+    getSpecialRequestCatalogForDisplay(),
+    getProfileForBookingPrefill(user.id),
+    loadHotelInformation(),
+  ]);
+
+  if (!room) notFound();
 
   return (
-    <BookingFlowView
-      room={{
-        id: room.id,
-        name: room.name,
-        guests: room.guests,
-        discountedPrice: room.discountedPrice,
-        fullPrice: room.fullPrice,
-      }}
-      search={search}
-      initialBasicInfo={initialBasicInfo}
-    />
+    <main className="flex-1 bg-[#F7F7FB]">
+      <BookingWizard
+        roomTypeId={room.id}
+        roomName={room.name}
+        pricePerNight={room.discountedPrice}
+        checkIn={checkIn}
+        checkOut={checkOut}
+        guests={guests}
+        rooms={rooms}
+        specialRequestCatalog={specialRequestCatalog}
+        prefill={prefill}
+        checkInTimeLabel={formatCheckTimeLabel(hotel.checkInTime)}
+        checkOutTimeLabel={formatCheckTimeLabel(hotel.checkOutTime)}
+      />
+    </main>
   );
 }
