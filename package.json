@@ -17,6 +17,7 @@
     "db:seed": "dotenv -e .env.local -- prisma db seed",
     "db:seed-rooms": "dotenv -e .env.local -- prisma db execute --file supabase/seed-rooms-layout.sql --schema prisma/schema.prisma",
     "db:apply-promo": "dotenv -e .env.local -- prisma db execute --file supabase/migrations/0006_promotion_codes.sql --schema prisma/schema.prisma",
+    "db:apply-booking-status": "dotenv -e .env.local -- prisma db execute --file supabase/migrations/0007_booking_status_check.sql --schema prisma/schema.prisma",
     "db:execute-hotel": "dotenv -e .env.local -- prisma db execute --file prisma/migrations/20260814090000_init_postgres/migration.sql --schema prisma/schema.prisma",
     "db:setup": "npm run db:execute-hotel && npm run db:generate && npm run db:seed"
   },

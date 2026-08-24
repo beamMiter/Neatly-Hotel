@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { format } from "date-fns";
 import { ArrowLeftIcon } from "@/components/icons/ArrowLeftIcon";
+import { BookingStayActions } from "@/features/customer-booking/components/BookingStayActions";
+import type { BookingStatus } from "@/types/booking";
 import type { CustomerBookingDetail } from "@/types/customer-booking";
 
 function formatDate(value: string) {
@@ -9,6 +11,10 @@ function formatDate(value: string) {
 
 function formatThb(amount: number) {
   return `THB ${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function formatStatus(status: BookingStatus) {
+  return status.replaceAll("_", " ");
 }
 
 function Field({ label, value }: { label: string; value: string }) {
@@ -38,9 +44,16 @@ export function BookingDetailView({ booking }: { booking: CustomerBookingDetail 
 
       <div className="min-h-0 flex-1 overflow-y-auto px-8 py-8">
         <div className="mx-auto flex max-w-3xl flex-col gap-6 rounded-lg border border-brand-border bg-white p-8">
+          <Field label="Booking code" value={booking.bookingCode} />
+          <Field label="Status" value={formatStatus(booking.status)} />
+          <Field label="Payment" value={booking.paymentStatus.replaceAll("_", " ")} />
           <Field label="Customer name" value={booking.customerName} />
           <Field label="Guest(s)" value={String(booking.guests)} />
           <Field label="Room type" value={booking.roomType} />
+          <Field
+            label="Room no."
+            value={booking.roomNos.length > 0 ? booking.roomNos.join(", ") : "-"}
+          />
           <Field label="Amount" value={`${booking.amount} room${booking.amount === 1 ? "" : "s"}`} />
           <Field label="Bed type" value={booking.bedType} />
           <Field label="Check-in" value={formatDate(booking.checkIn)} />
@@ -52,6 +65,8 @@ export function BookingDetailView({ booking }: { booking: CustomerBookingDetail 
             <span>Total</span>
             <span>{formatThb(booking.totalAmount)}</span>
           </div>
+
+          <BookingStayActions booking={booking} />
         </div>
       </div>
     </div>

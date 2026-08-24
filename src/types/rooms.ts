@@ -6,6 +6,7 @@ export const ROOM_STATUSES = [
   "Vacant Clean",
   "Vacant Clean Inspected",
   "Vacant Clean Pick Up",
+  "Vacant Dirty",
   "Occupied Clean",
   "Occupied Clean Inspected",
   "Occupied Dirty",
