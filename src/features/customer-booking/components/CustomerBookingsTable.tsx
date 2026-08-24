@@ -2,13 +2,27 @@
 
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
+import type { BookingStatus } from "@/types/booking";
 import type { CustomerBookingSummary } from "@/types/customer-booking";
 
 function formatDate(value: string) {
   return format(new Date(value), "EEE, d MMM yyyy");
 }
 
-const COLUMNS = ["Customer name", "Guest(s)", "Room type", "Amount", "Bed Type", "Check-in", "Check-out"];
+function formatStatus(status: BookingStatus) {
+  return status.replaceAll("_", " ");
+}
+
+const COLUMNS = [
+  "Customer name",
+  "Guest(s)",
+  "Room type",
+  "Amount",
+  "Bed Type",
+  "Check-in",
+  "Check-out",
+  "Status",
+];
 
 export function CustomerBookingsTable({ bookings }: { bookings: CustomerBookingSummary[] }) {
   const router = useRouter();
@@ -19,7 +33,7 @@ export function CustomerBookingsTable({ bookings }: { bookings: CustomerBookingS
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[860px] text-left text-sm">
+      <table className="w-full min-w-[960px] text-left text-sm">
         <thead>
           <tr className="bg-brand-surface-alt text-brand-muted">
             {COLUMNS.map((column) => (
@@ -43,6 +57,7 @@ export function CustomerBookingsTable({ bookings }: { bookings: CustomerBookingS
               <td className="px-6 py-4 text-brand-body">{booking.bedType}</td>
               <td className="px-6 py-4 text-brand-body">{formatDate(booking.checkIn)}</td>
               <td className="px-6 py-4 text-brand-body">{formatDate(booking.checkOut)}</td>
+              <td className="px-6 py-4 capitalize text-brand-body">{formatStatus(booking.status)}</td>
             </tr>
           ))}
         </tbody>

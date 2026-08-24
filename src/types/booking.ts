@@ -67,7 +67,12 @@ export type BookingPricing = {
   totalAmount: number;
 };
 
-export type BookingStatus = "pending_payment" | "confirmed" | "cancelled";
+export type BookingStatus =
+  | "pending_payment"
+  | "confirmed"
+  | "checked_in"
+  | "completed"
+  | "cancelled";
 export type BookingPaymentStatus = "pending" | "paid" | "failed" | "pay_at_hotel";
 
 export type BookingRecord = {

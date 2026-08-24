@@ -1,12 +1,17 @@
 import "server-only";
 import { differenceInCalendarDays } from "date-fns";
+import { prisma } from "@/server/db";
 import { supabaseAdmin } from "@/server/db/supabase-admin";
+import type { BookingPaymentStatus, BookingStatus } from "@/types/booking";
 import type { CustomerBookingSummary, CustomerBookingDetail } from "@/types/customer-booking";
 
 export const CUSTOMER_BOOKINGS_PAGE_SIZE = 10;
 
 const BOOKING_SELECT =
-  "id, booking_code, customer_id, check_in, check_out, guests, status, total_amount, created_at, booking_rooms(price_per_night, rooms(room_no, room_type, bed_type))";
+  "id, booking_code, customer_id, check_in, check_out, guests, status, payment_status, total_amount, created_at, booking_rooms(price_per_night, rooms(room_no, room_type, bed_type))";
+
+const CHECK_IN_ROOM_STATUS = "Occupied";
+const CHECK_OUT_ROOM_STATUS = "Vacant Dirty";
 
 type BookingRoomRow = {
   price_per_night: number | string;
@@ -21,15 +26,44 @@ type BookingRow = {
   check_out: string;
   guests: number;
   status: string;
+  payment_status: string;
   total_amount: number | string;
   created_at: string;
   booking_rooms: BookingRoomRow[] | null;
 };
 
-// A booking can include several rooms (booking_rooms is a separate table).
-// Rather than one list row per room, distinct room/bed types across a
-// booking's rooms are collapsed into "first value +N more" so the table
-// stays one row per booking, matching how the admin list is meant to read.
+export class BookingNotFoundError extends Error {
+  constructor() {
+    super("Booking not found");
+  }
+}
+
+export class InvalidBookingTransitionError extends Error {
+  constructor(message: string) {
+    super(message);
+  }
+}
+
+function asBookingStatus(value: string): BookingStatus {
+  if (
+    value === "pending_payment" ||
+    value === "confirmed" ||
+    value === "checked_in" ||
+    value === "completed" ||
+    value === "cancelled"
+  ) {
+    return value;
+  }
+  return "confirmed";
+}
+
+function asPaymentStatus(value: string): BookingPaymentStatus {
+  if (value === "pending" || value === "paid" || value === "failed" || value === "pay_at_hotel") {
+    return value;
+  }
+  return "pending";
+}
+
 function summarizeDistinct(values: (string | null | undefined)[]): string {
   const distinct = Array.from(new Set(values.filter((value): value is string => Boolean(value))));
   if (distinct.length === 0) return "-";
@@ -37,9 +71,6 @@ function summarizeDistinct(values: (string | null | undefined)[]): string {
   return `${distinct[0]} +${distinct.length - 1} more`;
 }
 
-// bookings.customer_id and profiles.id are sibling foreign keys into
-// auth.users (not a direct FK to each other), so PostgREST can't embed
-// profiles on a bookings select — fetched separately and stitched in here.
 async function customerNamesByProfileId(customerIds: string[]): Promise<Map<string, string>> {
   if (customerIds.length === 0) return new Map();
 
@@ -67,6 +98,28 @@ function toSummary(row: BookingRow, customerName: string): CustomerBookingSummar
     bedType: summarizeDistinct(rooms.map((room) => room.rooms?.bed_type)),
     checkIn: row.check_in,
     checkOut: row.check_out,
+    status: asBookingStatus(row.status),
+  };
+}
+
+function toDetail(row: BookingRow, customerName: string): CustomerBookingDetail {
+  const rooms = row.booking_rooms ?? [];
+  return {
+    id: row.id,
+    bookingCode: row.booking_code,
+    customerName,
+    guests: row.guests,
+    roomType: summarizeDistinct(rooms.map((room) => room.rooms?.room_type)),
+    amount: rooms.length,
+    bedType: summarizeDistinct(rooms.map((room) => room.rooms?.bed_type)),
+    checkIn: row.check_in,
+    checkOut: row.check_out,
+    nights: differenceInCalendarDays(new Date(row.check_out), new Date(row.check_in)),
+    bookingDate: row.created_at,
+    totalAmount: Number(row.total_amount),
+    status: asBookingStatus(row.status),
+    paymentStatus: asPaymentStatus(row.payment_status),
+    roomNos: rooms.map((room) => room.rooms?.room_no).filter((value): value is string => Boolean(value)),
   };
 }
 
@@ -89,11 +142,6 @@ export async function getCustomerBookings({
     .range(from, to);
 
   if (query) {
-    // first_name/last_name are separate columns, so a query like "Test User"
-    // won't substring-match either one on its own — each whitespace-split
-    // word is required to match *some* name column (chained .or() calls are
-    // AND'd together by PostgREST), so "Test" and "User" can each land in
-    // either column.
     let profileQuery = supabase.from("profiles").select("id");
     for (const word of query.split(/\s+/).filter(Boolean)) {
       profileQuery = profileQuery.or(`first_name.ilike.%${word}%,last_name.ilike.%${word}%`);
@@ -133,20 +181,87 @@ export async function getCustomerBookingById(id: string): Promise<CustomerBookin
 
   const row = data as unknown as BookingRow;
   const nameByCustomerId = await customerNamesByProfileId([row.customer_id]);
-  const rooms = row.booking_rooms ?? [];
+  return toDetail(row, nameByCustomerId.get(row.customer_id) ?? "Unknown");
+}
 
-  return {
-    id: row.id,
-    bookingCode: row.booking_code,
-    customerName: nameByCustomerId.get(row.customer_id) ?? "Unknown",
-    guests: row.guests,
-    roomType: summarizeDistinct(rooms.map((room) => room.rooms?.room_type)),
-    amount: rooms.length,
-    bedType: summarizeDistinct(rooms.map((room) => room.rooms?.bed_type)),
-    checkIn: row.check_in,
-    checkOut: row.check_out,
-    nights: differenceInCalendarDays(new Date(row.check_out), new Date(row.check_in)),
-    bookingDate: row.created_at,
-    totalAmount: Number(row.total_amount),
-  };
+export async function checkInBooking(bookingId: string): Promise<CustomerBookingDetail> {
+  await prisma.$transaction(async (tx) => {
+    const booking = await tx.booking.findUnique({
+      where: { id: bookingId },
+      select: { id: true, status: true, paymentStatus: true },
+    });
+
+    if (!booking) throw new BookingNotFoundError();
+
+    if (booking.status !== "confirmed") {
+      throw new InvalidBookingTransitionError("Only confirmed bookings can be checked in");
+    }
+
+    if (booking.paymentStatus !== "paid" && booking.paymentStatus !== "pay_at_hotel") {
+      throw new InvalidBookingTransitionError("Booking payment must be paid or pay-at-hotel before check-in");
+    }
+
+    const assignedRooms = await tx.bookingRoom.findMany({
+      where: { bookingId },
+      select: { roomId: true },
+    });
+    const roomIds = assignedRooms.map((row) => row.roomId);
+
+    if (roomIds.length === 0) {
+      throw new InvalidBookingTransitionError("This booking has no assigned rooms");
+    }
+
+    await tx.booking.update({
+      where: { id: bookingId },
+      data: { status: "checked_in" },
+    });
+
+    await tx.room.updateMany({
+      where: { id: { in: roomIds } },
+      data: { status: CHECK_IN_ROOM_STATUS },
+    });
+  });
+
+  const detail = await getCustomerBookingById(bookingId);
+  if (!detail) throw new BookingNotFoundError();
+  return detail;
+}
+
+export async function checkOutBooking(bookingId: string): Promise<CustomerBookingDetail> {
+  await prisma.$transaction(async (tx) => {
+    const booking = await tx.booking.findUnique({
+      where: { id: bookingId },
+      select: { id: true, status: true },
+    });
+
+    if (!booking) throw new BookingNotFoundError();
+
+    if (booking.status !== "checked_in") {
+      throw new InvalidBookingTransitionError("Only checked-in bookings can be checked out");
+    }
+
+    const assignedRooms = await tx.bookingRoom.findMany({
+      where: { bookingId },
+      select: { roomId: true },
+    });
+    const roomIds = assignedRooms.map((row) => row.roomId);
+
+    if (roomIds.length === 0) {
+      throw new InvalidBookingTransitionError("This booking has no assigned rooms");
+    }
+
+    await tx.booking.update({
+      where: { id: bookingId },
+      data: { status: "completed" },
+    });
+
+    await tx.room.updateMany({
+      where: { id: { in: roomIds } },
+      data: { status: CHECK_OUT_ROOM_STATUS },
+    });
+  });
+
+  const detail = await getCustomerBookingById(bookingId);
+  if (!detail) throw new BookingNotFoundError();
+  return detail;
 }
