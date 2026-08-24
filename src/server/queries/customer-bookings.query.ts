@@ -217,7 +217,7 @@ export async function getCustomerBookings({
   let request = supabase
     .from("bookings")
     .select(BOOKING_SELECT, { count: "exact" })
-    .order("created_at", { ascending: false })
+    .order("check_in", { ascending: true })
     .range(from, to);
 
   if (query) {
