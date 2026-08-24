@@ -1,66 +1,148 @@
+import { z } from "zod";
+import { createClient } from "@/server/db/supabase-server";
 import {
-  addSupportMessage,
+  addVisitorSupportMessage,
   createOrReopenVisitorConversation,
   findVisitorConversation,
   listConversationMessages,
+  SupportMessageLimitError,
 } from "@/server/queries/live-support.query";
-import { createClient } from "@/server/db/supabase-server";
+import {
+  checkRateLimits,
+  hasOversizedBody,
+  InvalidJsonError,
+  logApiFailure,
+  PayloadTooLargeError,
+  rateLimitExceededResponse,
+  RateLimitUnavailableError,
+  rateLimitUnavailableResponse,
+  readJsonBody,
+  requestId,
+} from "@/server/services/api-security";
 
-type VisitorRequest = {
-  visitorToken?: unknown;
-  content?: unknown;
-  contactPhone?: unknown;
-};
+const MAX_REQUEST_BYTES = 8 * 1024;
+const MAX_CONVERSATION_MESSAGES = 500;
 
-function isUuid(value: unknown): value is string {
-  return typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+const visitorTokenSchema = z.uuid();
+const visitorMessageSchema = z
+  .object({
+    visitorToken: visitorTokenSchema,
+    content: z.string().trim().min(1).max(2000),
+    contactPhone: z.string().trim().max(32).nullable().optional(),
+  })
+  .strict();
+
+function normalizePhone(value: string | null | undefined) {
+  if (!value) return null;
+  const digits = value.replace(/\D/g, "");
+  return digits.length >= 7 && digits.length <= 15 && /^[+\d()\s-]+$/.test(value) ? value : null;
 }
 
-function normalizePhone(value: unknown) {
-  if (typeof value !== "string") return null;
-  const phone = value.trim();
-  const digits = phone.replace(/\D/g, "");
-  return digits.length >= 7 && digits.length <= 15 && /^[+\d()\s-]+$/.test(phone) ? phone : null;
+async function applyVisitorRateLimits(request: Request, visitorToken: string, operation: "read" | "write") {
+  return checkRateLimits(request, [
+    {
+      scope: `live-support:${operation}:ip:minute`,
+      limit: operation === "read" ? 120 : 30,
+      windowSeconds: 60,
+    },
+    {
+      scope: `live-support:${operation}:visitor:minute`,
+      subject: visitorToken,
+      limit: operation === "read" ? 30 : 10,
+      windowSeconds: 60,
+    },
+    {
+      scope: `live-support:${operation}:visitor:hour`,
+      subject: visitorToken,
+      limit: operation === "read" ? 600 : 120,
+      windowSeconds: 60 * 60,
+    },
+  ]);
 }
 
 export async function GET(request: Request) {
-  const visitorToken = new URL(request.url).searchParams.get("visitorToken");
-  if (!isUuid(visitorToken)) return Response.json({ error: "Invalid session" }, { status: 400 });
+  const id = requestId(request);
+  const parsedToken = visitorTokenSchema.safeParse(new URL(request.url).searchParams.get("visitorToken"));
+  if (!parsedToken.success) return Response.json({ error: "Invalid session" }, { status: 400 });
 
   try {
-    const conversation = await findVisitorConversation(visitorToken);
-    if (!conversation) return Response.json({ conversation: null, messages: [] });
+    const limit = await applyVisitorRateLimits(request, parsedToken.data, "read");
+    if (!limit.allowed) return rateLimitExceededResponse(limit.retryAfterSeconds);
+
+    const conversation = await findVisitorConversation(parsedToken.data);
+    if (!conversation) {
+      return Response.json(
+        { conversation: null, messages: [] },
+        { headers: { "Cache-Control": "no-store" } },
+      );
+    }
 
     const messages = await listConversationMessages(conversation.id);
-    return Response.json({ conversation, messages });
+    return Response.json(
+      { conversation, messages },
+      { headers: { "Cache-Control": "no-store" } },
+    );
   } catch (error) {
-    console.error("Live support visitor read failed:", error);
+    logApiFailure("live-support:visitor:read", id, error);
+    if (error instanceof RateLimitUnavailableError) return rateLimitUnavailableResponse();
     return Response.json({ error: "Unable to load support messages" }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => null)) as VisitorRequest | null;
-  const content = typeof body?.content === "string" ? body.content.trim() : "";
-  const contactPhone = normalizePhone(body?.contactPhone);
-  if (!isUuid(body?.visitorToken) || !content || content.length > 2000 || (body?.contactPhone && !contactPhone)) {
+  const id = requestId(request);
+  if (hasOversizedBody(request, MAX_REQUEST_BYTES)) {
+    return Response.json({ error: "Request body is too large" }, { status: 413 });
+  }
+
+  let body: unknown;
+  try {
+    body = await readJsonBody(request, MAX_REQUEST_BYTES);
+  } catch (error) {
+    if (error instanceof PayloadTooLargeError) {
+      return Response.json({ error: error.message }, { status: 413 });
+    }
+    if (error instanceof InvalidJsonError) {
+      return Response.json({ error: error.message }, { status: 400 });
+    }
+    logApiFailure("live-support:visitor:parse", id, error);
+    return Response.json({ error: "Invalid support message" }, { status: 400 });
+  }
+  const parsed = visitorMessageSchema.safeParse(body);
+  if (!parsed.success) {
     return Response.json({ error: "Invalid support message" }, { status: 400 });
   }
 
+  const contactPhone = normalizePhone(parsed.data.contactPhone);
+  if (parsed.data.contactPhone && !contactPhone) {
+    return Response.json({ error: "Invalid contact phone" }, { status: 400 });
+  }
+
   try {
+    const limit = await applyVisitorRateLimits(request, parsed.data.visitorToken, "write");
+    if (!limit.allowed) return rateLimitExceededResponse(limit.retryAfterSeconds);
+
     const supabase = await createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
     const conversation = await createOrReopenVisitorConversation(
-      body.visitorToken,
+      parsed.data.visitorToken,
       contactPhone,
       user?.id ?? null,
     );
-    const message = await addSupportMessage(conversation.id, "visitor", content);
+    const message = await addVisitorSupportMessage(
+      conversation.id,
+      parsed.data.content,
+      MAX_CONVERSATION_MESSAGES,
+    );
     return Response.json({ conversation, message }, { status: 201 });
   } catch (error) {
-    console.error("Live support visitor write failed:", error);
+    logApiFailure("live-support:visitor:write", id, error);
+    if (error instanceof RateLimitUnavailableError) return rateLimitUnavailableResponse();
+    if (error instanceof SupportMessageLimitError) {
+      return Response.json({ error: error.message }, { status: 409 });
+    }
     return Response.json({ error: "Unable to send support message" }, { status: 500 });
   }
 }

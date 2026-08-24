@@ -8,7 +8,7 @@
 import { useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import type { Room } from '../../types/room';
+import type { LandingRoom } from "@/types/landing-room";
 import type { SearchQuery } from '@/types/room-search';
 import { buildBookingHref, isRoomTypeUuid } from '@/features/booking-flow/utils';
 import { smoothScrollTo } from '@/lib/smoothScroll';
@@ -16,8 +16,8 @@ import { useInterval } from '@/lib/useInterval';
 
 // ── Types ──────────────────────────────────────────────────────
 type RoomDetailProps = {
-	room: Room;
-	otherRooms: Room[];
+	room: LandingRoom;
+	otherRooms: LandingRoom[];
 	bookingQuery?: SearchQuery;
 };
 

@@ -3,7 +3,7 @@
 // แก้ไขได้: อยู่แค่หน้าในกลุ่มนี้ — auth pages (login/register/forgot-password) ไม่ใช้ layout นี้
 
 import { Suspense } from 'react';
-import ChatWidget from '@/app/components/chat-widget';
+import ChatWidget from '@/features/chatbot/components/chat-widget';
 import { createClient } from '@/server/db/supabase-server';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';

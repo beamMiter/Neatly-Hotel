@@ -17,15 +17,16 @@ export default async function RoomManagementPage() {
     );
   }
 
-  try {
-    const rooms = await getRooms();
-    return <RoomManagementView rooms={rooms} />;
-  } catch (error) {
+  const rooms = await getRooms().catch((error) => {
     console.error("[room-management] Failed to load rooms from Supabase:", error);
-    return (
-      <DatabaseRequiredMessage message="Could not load rooms from Supabase. Check DATABASE_URL and try again." />
-    );
+    return null;
+  });
+
+  if (!rooms) {
+    return <DatabaseRequiredMessage message="Could not load rooms from Supabase. Check DATABASE_URL and try again." />;
   }
+
+  return <RoomManagementView rooms={rooms} />;
 }
 
 function DatabaseRequiredMessage({ message }: { message: string }) {

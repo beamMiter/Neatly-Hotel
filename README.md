@@ -1,36 +1,80 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Neatly Hotel
 
-## Getting Started
+Hotel booking and hotel-operations application built with Next.js App Router,
+TypeScript, Tailwind CSS, Prisma, and Supabase.
 
-First, run the development server:
+## Product areas
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- Guest: landing page, room search, room detail, registration/login, and the booking flow.
+- Admin: room/property management, customer bookings, hotel information, and chatbot setup.
+- Support: chatbot with Gemini-assisted intent detection; Live Support is currently being developed.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Local setup
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Requirements: Node.js 20+ and access to the team's Supabase project.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Copy `.env.example` to `.env.local` and fill in the values.
+2. Install dependencies with `npm install`.
+3. Generate Prisma Client with `npm run db:generate`.
+4. Start the app with `npm run dev`.
 
-## Learn More
+For a fresh hotel database that has been approved by the team, use `npm run db:setup`.
 
-To learn more about Next.js, take a look at the following resources:
+## Environment variables
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Variable | Purpose |
+| --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL used by browser/server Supabase clients. |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Publishable Supabase key. |
+| `SUPABASE_SECRET_KEY` | Server-only key for trusted admin operations. Never expose it to the browser. |
+| `RATE_LIMIT_SALT` | Optional secret used to hash rate-limit identities; falls back to `SUPABASE_SECRET_KEY`. |
+| `DATABASE_URL` | PostgreSQL connection string used by Prisma. |
+| `GEMINI_API_KEY` | Enables Gemini chatbot intent analysis. |
+| `GEMINI_MODEL` | Gemini model name; defaults to `gemini-3.6-flash`. |
+| `NEXT_PUBLIC_SITE_URL` | Optional canonical site URL for password-reset links. |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Common commands
 
-## Deploy on Vercel
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Run the local development server. |
+| `npm run typecheck` | Type-check without emitting files. |
+| `npm run lint` | Run ESLint. |
+| `npm run build` | Create a production build. |
+| `npm run format:check` | Check repository formatting. |
+| `npm run db:generate` | Regenerate Prisma Client. |
+| `npm run db:deploy` | Apply existing Prisma migrations. |
+| `npm run db:seed` | Seed the approved sample data. |
+| `npm run security:check-rate-limit` | Probe the atomic rate-limit RPC and clean up its counter. |
+| `npm run security:check-live-support` | Verify read access is denied; add `-- --write-probe --ephemeral-auth` for full RLS checks. |
+| `npm run security:check-support-cap` | Probe the atomic Live Support message cap and clean up its conversation. |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Architecture
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+`src/app` contains only routing wrappers, layouts, pages, and route handlers.
+Feature UI belongs in `src/features/<feature>/components`; shared UI is in
+`src/components`. Database clients live in `src/server/db`, while server-side
+data access belongs in `src/server/queries`. Query input/output types shared
+between layers live in `src/types`.
+
+Supabase tables that rely on Row Level Security (`profiles`, `staff_members`,
+and chatbot admin data) must use the RLS-bound Supabase client. Prisma bypasses
+RLS and is reserved for trusted server-side operations.
+
+## Database safety
+
+The Prisma schema is being consolidated and does not yet describe every
+Supabase table. In local development, `DATABASE_URL` and the local Supabase
+client may point to different databases. Do **not** run `npm run db:migrate` or
+`npm run db:push` without team approval: the current schema drift can cause
+Prisma to propose a destructive reset.
+
+Use `npm run db:generate` normally. Use `npm run db:deploy` only for reviewed,
+existing Prisma migrations. Supabase SQL migrations under `supabase/migrations`
+are managed separately.
+
+## Delivery checks
+
+GitHub Actions runs type-checking, ESLint, and a production build for pull
+requests and pushes to `main`. Automated tests have not been added yet; new
+business logic should include tests as the test baseline is introduced.
