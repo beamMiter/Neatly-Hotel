@@ -9,12 +9,26 @@ function formatDate(value: string) {
   return format(new Date(value), "EEE, d MMM yyyy");
 }
 
+function formatAmount(amount: number) {
+  return amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 function formatThb(amount: number) {
-  return `THB ${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `THB ${formatAmount(amount)}`;
 }
 
 function formatStatus(status: BookingStatus) {
   return status.replaceAll("_", " ");
+}
+
+function capitalize(value: string) {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function formatPaymentMethod(booking: CustomerBookingDetail) {
+  if (booking.paymentMethod === "cash") return "Cash";
+  const brand = booking.cardBrand ? capitalize(booking.cardBrand) : "Credit Card";
+  return booking.cardLast4 ? `${brand} •••• ${booking.cardLast4}` : brand;
 }
 
 function Field({ label, value }: { label: string; value: string }) {
@@ -46,7 +60,6 @@ export function BookingDetailView({ booking }: { booking: CustomerBookingDetail 
         <div className="mx-auto flex max-w-3xl flex-col gap-6 rounded-lg border border-brand-border bg-white p-8">
           <Field label="Booking code" value={booking.bookingCode} />
           <Field label="Status" value={formatStatus(booking.status)} />
-          <Field label="Payment" value={booking.paymentStatus.replaceAll("_", " ")} />
           <Field label="Customer name" value={booking.customerName} />
           <Field label="Guest(s)" value={String(booking.guests)} />
           <Field label="Room type" value={booking.roomType} />
@@ -61,10 +74,62 @@ export function BookingDetailView({ booking }: { booking: CustomerBookingDetail 
           <Field label="Stay (total)" value={`${booking.nights} night${booking.nights === 1 ? "" : "s"}`} />
           <Field label="Booking date" value={formatDate(booking.bookingDate)} />
 
-          <div className="flex items-center justify-between rounded-md bg-brand-surface px-5 py-4 text-sm font-semibold text-brand-body">
-            <span>Total</span>
-            <span>{formatThb(booking.totalAmount)}</span>
+          {booking.standardRequests.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <span className="text-sm text-brand-muted">Requests</span>
+              <div className="flex flex-wrap gap-2">
+                {booking.standardRequests.map((label) => (
+                  <span
+                    key={label}
+                    className="rounded-full bg-brand-surface-alt px-3 py-1 text-xs text-brand-body"
+                  >
+                    {label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-col gap-2 rounded-md bg-brand-surface px-5 py-4 text-sm text-brand-body">
+            <div className="flex items-center justify-between pb-2 text-xs text-brand-muted">
+              <span>Payment {booking.paymentStatus.replaceAll("_", " ")} via</span>
+              <span className="font-semibold text-brand-body">{formatPaymentMethod(booking)}</span>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span>{booking.roomType}</span>
+              <span>{formatAmount(booking.roomSubtotal)}</span>
+            </div>
+
+            {booking.specialRequests.map((item) => (
+              <div key={item.label} className="flex items-center justify-between">
+                <span>
+                  {item.label}
+                  {item.quantity > 1 ? ` ×${item.quantity}` : ""}
+                </span>
+                <span>{formatAmount(item.price * item.quantity)}</span>
+              </div>
+            ))}
+
+            {booking.promoCode && (
+              <div className="flex items-center justify-between">
+                <span>Promotion Code ({booking.promoCode})</span>
+                <span>-{formatAmount(booking.discountAmount)}</span>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between border-t border-brand-border pt-2 font-semibold">
+              <span>Total</span>
+              <span>{formatThb(booking.totalAmount)}</span>
+            </div>
           </div>
+
+          {booking.additionalRequest && (
+            <div className="flex flex-col gap-1 rounded-md bg-brand-surface-alt px-5 py-4">
+              <span className="text-sm font-medium text-brand-body">Additional Request</span>
+              <span className="text-sm text-brand-body">{booking.additionalRequest}</span>
+            </div>
+          )}
 
           <BookingStayActions booking={booking} />
         </div>

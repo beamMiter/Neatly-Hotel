@@ -2,13 +2,18 @@ import "server-only";
 import { differenceInCalendarDays } from "date-fns";
 import { prisma } from "@/server/db";
 import { supabaseAdmin } from "@/server/db/supabase-admin";
-import type { BookingPaymentStatus, BookingStatus } from "@/types/booking";
+import { getSpecialRequestCatalogForDisplay } from "@/server/queries/special-requests.query";
+import type { BookingPaymentStatus, BookingStatus, SelectedSpecialRequest } from "@/types/booking";
 import type { CustomerBookingSummary, CustomerBookingDetail } from "@/types/customer-booking";
 
 export const CUSTOMER_BOOKINGS_PAGE_SIZE = 10;
 
 const BOOKING_SELECT =
-  "id, booking_code, customer_id, check_in, check_out, guests, status, payment_status, total_amount, created_at, booking_rooms(price_per_night, rooms(room_no, room_type, bed_type))";
+  "id, booking_code, customer_id, check_in, check_out, guests, status, payment_status, total_amount, created_at, guest_first_name, guest_last_name, booking_rooms(price_per_night, rooms(room_no, room_type, bed_type))";
+
+// Detail-only: the list view has no use for the itemized breakdown, so it
+// stays on the lighter BOOKING_SELECT above.
+const BOOKING_DETAIL_SELECT = `${BOOKING_SELECT}, standard_requests, special_requests, additional_request, promo_code, discount_amount, payment_method`;
 
 const CHECK_IN_ROOM_STATUS = "Occupied";
 const CHECK_OUT_ROOM_STATUS = "Vacant Dirty";
@@ -29,7 +34,22 @@ type BookingRow = {
   payment_status: string;
   total_amount: number | string;
   created_at: string;
+  guest_first_name: string | null;
+  guest_last_name: string | null;
   booking_rooms: BookingRoomRow[] | null;
+};
+
+// `quantity` is optional on the way in: rows written before add-ons became
+// countable don't have it (mirrors bookings.query.ts's toBookingRecord).
+type StoredSpecialRequest = Omit<SelectedSpecialRequest, "quantity"> & { quantity?: number };
+
+type BookingDetailRow = BookingRow & {
+  standard_requests: string[] | null;
+  special_requests: StoredSpecialRequest[] | null;
+  additional_request: string | null;
+  promo_code: string | null;
+  discount_amount: number | string | null;
+  payment_method: string | null;
 };
 
 export class BookingNotFoundError extends Error {
@@ -71,6 +91,40 @@ function summarizeDistinct(values: (string | null | undefined)[]): string {
   return `${distinct[0]} +${distinct.length - 1} more`;
 }
 
+// Bookings snapshot the guest's name at booking time (bookings.guest_*),
+// independent of whatever the account's profile says now — preferred when
+// present. Older bookings (created before these columns existed) have them
+// null, so those fall back to the live profile lookup.
+function resolveCustomerName(guestFirstName: string | null, guestLastName: string | null, profileName: string) {
+  const guestName = `${guestFirstName ?? ""} ${guestLastName ?? ""}`.trim();
+  return guestName || profileName;
+}
+
+async function fetchSuccessfulPayment(bookingId: string): Promise<{ cardBrand: string | null; cardLast4: string | null }> {
+  const { data, error } = await supabaseAdmin
+    .from("payments")
+    .select("card_brand, card_last4")
+    .eq("booking_id", bookingId)
+    .eq("status", "succeeded")
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[payments] failed to fetch card details:", error);
+    return { cardBrand: null, cardLast4: null };
+  }
+
+  return { cardBrand: data?.card_brand ?? null, cardLast4: data?.card_last4 ?? null };
+}
+
+async function resolveStandardRequestLabels(codes: string[]): Promise<string[]> {
+  if (codes.length === 0) return [];
+  const catalog = await getSpecialRequestCatalogForDisplay();
+  const labelByCode = new Map(catalog.map((option) => [option.code, option.label]));
+  return codes.map((code) => labelByCode.get(code) ?? code);
+}
+
 async function customerNamesByProfileId(customerIds: string[]): Promise<Map<string, string>> {
   if (customerIds.length === 0) return new Map();
 
@@ -102,8 +156,20 @@ function toSummary(row: BookingRow, customerName: string): CustomerBookingSummar
   };
 }
 
-function toDetail(row: BookingRow, customerName: string): CustomerBookingDetail {
+function asPaymentMethod(value: string | null): "credit_card" | "cash" {
+  return value === "cash" ? "cash" : "credit_card";
+}
+
+async function toDetail(
+  row: BookingDetailRow,
+  customerName: string,
+  card: { cardBrand: string | null; cardLast4: string | null }
+): Promise<CustomerBookingDetail> {
   const rooms = row.booking_rooms ?? [];
+  const nights = differenceInCalendarDays(new Date(row.check_out), new Date(row.check_in));
+  const roomSubtotal = rooms.reduce((sum, room) => sum + Number(room.price_per_night), 0) * nights;
+  const standardRequests = await resolveStandardRequestLabels(row.standard_requests ?? []);
+
   return {
     id: row.id,
     bookingCode: row.booking_code,
@@ -114,12 +180,25 @@ function toDetail(row: BookingRow, customerName: string): CustomerBookingDetail 
     bedType: summarizeDistinct(rooms.map((room) => room.rooms?.bed_type)),
     checkIn: row.check_in,
     checkOut: row.check_out,
-    nights: differenceInCalendarDays(new Date(row.check_out), new Date(row.check_in)),
+    nights,
     bookingDate: row.created_at,
     totalAmount: Number(row.total_amount),
     status: asBookingStatus(row.status),
     paymentStatus: asPaymentStatus(row.payment_status),
     roomNos: rooms.map((room) => room.rooms?.room_no).filter((value): value is string => Boolean(value)),
+    paymentMethod: asPaymentMethod(row.payment_method),
+    cardBrand: card.cardBrand,
+    cardLast4: card.cardLast4,
+    roomSubtotal,
+    standardRequests,
+    specialRequests: (row.special_requests ?? []).map((item) => ({
+      label: item.label,
+      price: item.price,
+      quantity: item.quantity ?? 1,
+    })),
+    additionalRequest: row.additional_request,
+    promoCode: row.promo_code,
+    discountAmount: Number(row.discount_amount ?? 0),
   };
 }
 
@@ -165,23 +244,29 @@ export async function getCustomerBookings({
   const rows = (data ?? []) as unknown as BookingRow[];
   const nameByCustomerId = await customerNamesByProfileId(rows.map((row) => row.customer_id));
 
-  const bookings = rows.map((row) => toSummary(row, nameByCustomerId.get(row.customer_id) ?? "Unknown"));
+  const bookings = rows.map((row) =>
+    toSummary(row, resolveCustomerName(row.guest_first_name, row.guest_last_name, nameByCustomerId.get(row.customer_id) ?? "Unknown"))
+  );
   const totalPages = Math.max(1, Math.ceil((count ?? 0) / CUSTOMER_BOOKINGS_PAGE_SIZE));
 
   return { bookings, totalPages };
 }
 
 export async function getCustomerBookingById(id: string): Promise<CustomerBookingDetail | null> {
-  const { data, error } = await supabaseAdmin.from("bookings").select(BOOKING_SELECT).eq("id", id).single();
+  const { data, error } = await supabaseAdmin.from("bookings").select(BOOKING_DETAIL_SELECT).eq("id", id).single();
 
   if (error || !data) {
     console.error("[bookings] failed to fetch booking detail:", error);
     return null;
   }
 
-  const row = data as unknown as BookingRow;
-  const nameByCustomerId = await customerNamesByProfileId([row.customer_id]);
-  return toDetail(row, nameByCustomerId.get(row.customer_id) ?? "Unknown");
+  const row = data as unknown as BookingDetailRow;
+  const [nameByCustomerId, card] = await Promise.all([
+    customerNamesByProfileId([row.customer_id]),
+    fetchSuccessfulPayment(row.id),
+  ]);
+  const customerName = resolveCustomerName(row.guest_first_name, row.guest_last_name, nameByCustomerId.get(row.customer_id) ?? "Unknown");
+  return toDetail(row, customerName, card);
 }
 
 export async function checkInBooking(bookingId: string): Promise<CustomerBookingDetail> {
