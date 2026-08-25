@@ -17,13 +17,12 @@ export default async function BookingSuccessPage({ searchParams }: BookingSucces
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
 
   const [booking, hotel] = await Promise.all([
-    getBookingById(bookingId, user.id),
+    getBookingById(bookingId, user?.id ?? null),
     loadHotelInformation(),
   ]);
-  if (!booking) redirect("/search");
+  if (!booking) redirect("/booking/lookup");
 
   return (
     <main className="flex-1 bg-[#F7F7FB]">

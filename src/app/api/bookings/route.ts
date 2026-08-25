@@ -31,9 +31,8 @@ export async function POST(request: Request) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ message: "You must be logged in to book a room" }, { status: 401 });
-  }
+  // Guest checkout allowed — logged-in users still attach customer_id;
+  // guests leave it null and are identified by guest_* columns.
 
   const body = await request.json().catch(() => null);
   const parsed = parseCreateBookingPayload(body);
@@ -49,7 +48,7 @@ export async function POST(request: Request) {
 
   try {
     const { booking, pricing, expiresAt } = await createPendingBooking({
-      customerId: user.id,
+      customerId: user?.id ?? null,
       roomTypeId: data.roomTypeId,
       checkIn: data.checkIn,
       checkOut: data.checkOut,

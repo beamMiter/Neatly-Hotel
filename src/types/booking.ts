@@ -45,7 +45,7 @@ export type SpecialRequestSelection = {
 };
 
 export type CreateBookingInput = {
-  customerId: string;
+  customerId: string | null;
   roomTypeId: string;
   checkIn: string; // ISO date
   checkOut: string; // ISO date

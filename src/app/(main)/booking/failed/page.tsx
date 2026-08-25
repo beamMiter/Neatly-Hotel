@@ -15,10 +15,9 @@ export default async function BookingFailedPage({ searchParams }: BookingFailedP
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
 
-  const booking = await getBookingById(bookingId, user.id);
-  if (!booking) redirect("/search");
+  const booking = await getBookingById(bookingId, user?.id ?? null);
+  if (!booking) redirect("/booking/lookup");
 
   return (
     <main className="flex-1 bg-[#F7F7FB]">
