@@ -63,6 +63,13 @@ export function BookingWizard({
 }: BookingWizardProps) {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2 | 3>(1);
+
+  // Each step change re-renders the same scroll position — without this,
+  // moving from a step where the guest scrolled down to reach "Next" lands
+  // them mid-way through the next step instead of at its top.
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [step]);
   const [basicInfo, setBasicInfo] = useState<BasicInfoFields>(
     prefill
       ? {
@@ -279,13 +286,16 @@ export function BookingWizard({
   }
 
   return (
-    <div className="mx-auto max-w-[1122px] px-4 py-10">
-      <h1 className="[font-family:var(--font-noto-serif)] text-[68px] leading-[125%] font-medium tracking-[-0.02em] text-[#2F3E35]">
+    <div className="mx-auto max-w-[1122px] px-4 py-6 lg:py-10">
+      <h1 className="[font-family:var(--font-noto-serif)] text-[44px] leading-[125%] font-medium tracking-[-0.02em] text-[#2F3E35] lg:text-[68px]">
         Booking Room
       </h1>
       <WizardStepper current={step} />
 
-      <div className="grid grid-cols-1 items-start gap-6 pt-10 lg:grid-cols-[740px_358px]">
+      {/* -mx-4 cancels this page's own px-4 so the white/green/gray cards below
+          go edge-to-edge at 375px on mobile (Figma: each card owns its 16px
+          horizontal inset, not the page) — reverts to normal at lg. */}
+      <div className="-mx-4 grid grid-cols-1 items-start gap-6 pt-6 lg:mx-0 lg:pt-10 lg:grid-cols-[740px_358px]">
         <div className="flex flex-col gap-8">
           {step === 1 && (
             <BasicInfoStep

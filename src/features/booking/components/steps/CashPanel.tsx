@@ -15,7 +15,14 @@ type CashPanelProps = {
   onBack: () => void;
 };
 
-export function CashPanel({ promoCode, onPromoCodeChange, promoMessage, promoValid, onSubmit, onBack }: CashPanelProps) {
+export function CashPanel({
+  promoCode,
+  onPromoCodeChange,
+  promoMessage,
+  promoValid,
+  onSubmit,
+  onBack,
+}: CashPanelProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,14 +43,15 @@ export function CashPanel({ promoCode, onPromoCodeChange, promoMessage, promoVal
 
   return (
     <div className="flex w-full flex-col gap-10">
-      <h2 className="[font-family:var(--font-inter)] text-xl leading-[150%] font-semibold tracking-[-0.02em] text-[#424C6B]">
+      <h2 className="[font-family:var(--font-inter)] text-xl leading-[150%] font-semibold tracking-[-0.02em] text-[#9AA1B9]">
         Cash
       </h2>
 
-      <div className="flex items-center gap-4 rounded border border-[#E4E6ED] bg-[#F7F7FB] p-4">
-        <PayCashIcon className="h-8 w-8 flex-none text-[#E76B39]" />
-        <p className="[font-family:var(--font-inter)] text-base leading-[150%] text-[#646D89]">
-          Pay at the hotel with cash or cheque. No payment is required until check-in.
+      <div className="flex items-center gap-4 rounded bg-[#F1F2F6] px-6 py-4">
+        <PayCashIcon className="h-[50px] w-[50px] flex-none text-[#E76B39]" />
+        <p className="[font-family:var(--font-inter)] text-base leading-[150%] text-[#2A2E3F]">
+          Pay at the hotel with cash or cheque. No payment is required until
+          check-in
         </p>
       </div>
 

@@ -19,7 +19,7 @@ function stepStyles(step: number, current: number) {
 
 export function WizardStepper({ current }: { current: 1 | 2 | 3 }) {
   return (
-    <ol className="flex flex-row items-start gap-15 border-b border-[#E4E6ED] py-10">
+    <ol className="flex flex-col gap-4 border-b border-[#E4E6ED] py-6 lg:flex-row lg:items-start lg:gap-15 lg:py-10">
       {STEPS.map(({ step, label }) => {
         const styles = stepStyles(step, current);
         return (
