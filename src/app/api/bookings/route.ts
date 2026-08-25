@@ -15,6 +15,7 @@ import {
 } from "@/server/queries/bookings.query";
 import { cancelPaymentIntent, createBookingPaymentIntent } from "@/server/payments/stripe";
 import { supabaseAdmin } from "@/server/db/supabase-admin";
+import { assertEmailVerificationToken } from "@/server/queries/email-otp.query";
 
 export async function POST(request: Request) {
   // Booking creation runs entirely through Prisma (see bookings.query.ts's
@@ -44,6 +45,22 @@ export async function POST(request: Request) {
   const dateError = validateStayDates(data.checkIn, data.checkOut);
   if (dateError) {
     return NextResponse.json({ message: dateError }, { status: 400 });
+  }
+
+  if (!user) {
+    const token =
+      body && typeof body === "object" && typeof (body as Record<string, unknown>).emailVerificationToken === "string"
+        ? ((body as Record<string, unknown>).emailVerificationToken as string)
+        : "";
+    if (!token || !assertEmailVerificationToken(data.email, token)) {
+      return NextResponse.json(
+        {
+          message: "Please verify your email before booking",
+          fieldErrors: { email: "Please verify your email before booking" },
+        },
+        { status: 400 },
+      );
+    }
   }
 
   try {
