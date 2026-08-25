@@ -26,6 +26,7 @@
     "db:apply-booking-status": "dotenv -e .env.local -- prisma db execute --file supabase/migrations/0007_booking_status_check.sql --schema prisma/schema.prisma",
     "db:apply-guest-booking": "dotenv -e .env.local -- prisma db execute --file supabase/migrations/0008_guest_booking_nullable_customer.sql --schema prisma/schema.prisma",
     "db:apply-email-otp": "dotenv -e .env.local -- prisma db execute --file supabase/migrations/0009_email_otp.sql --schema prisma/schema.prisma",
+    "db:apply-analytics-tracking": "dotenv -e .env.local -- prisma db execute --file supabase/migrations/202608310001_analytics_tracking.sql --schema prisma/schema.prisma",
     "db:execute-hotel": "dotenv -e .env.local -- prisma db execute --file prisma/migrations/20260814090000_init_postgres/migration.sql --schema prisma/schema.prisma",
     "db:setup": "npm run db:execute-hotel && npm run db:generate && npm run db:seed"
   },
