@@ -11,7 +11,7 @@ import {
   subDays,
   startOfHour,
 } from "date-fns";
-import { getMockDataset, type MockBooking } from "@/features/analytics/mock-data";
+import { MOCK_ROOMS, getMockBookings, getMockTrafficBuckets, type MockBooking } from "@/features/analytics/mock-data";
 import type {
   DashboardKpis,
   KpiMetric,
@@ -56,7 +56,8 @@ function kpisForMonth(bookings: MockBooking[], start: Date, end: Date) {
 }
 
 export async function getDashboardKpis(): Promise<DashboardKpis> {
-  const { bookings, pageViews } = getMockDataset();
+  const bookings = getMockBookings();
+  const trafficBuckets = getMockTrafficBuckets();
   const now = new Date();
   const currentStart = startOfMonth(now);
   const currentEnd = endOfMonth(now);
@@ -66,8 +67,20 @@ export async function getDashboardKpis(): Promise<DashboardKpis> {
   const current = kpisForMonth(bookings, currentStart, currentEnd);
   const previous = kpisForMonth(bookings, previousStart, previousEnd);
 
+  // Buckets only store a per-hour unique-visitor count, not the underlying
+  // visitor ids, so this sums those counts across the month rather than
+  // computing a true set union — a returning visitor across two days
+  // double-counts. Acceptable for mock data whose job is to look
+  // plausible, not to reconcile exactly against raw events we deliberately
+  // didn't keep (see mock-data.ts's header comment).
   const visitorsInRange = (start: Date, end: Date) =>
-    new Set(pageViews.filter((v) => v.createdAt >= start && v.createdAt < end).map((v) => v.visitorId)).size;
+    trafficBuckets
+      .filter((bucket) => {
+        const bucketDate = new Date(`${bucket.date}T00:00:00`);
+        bucketDate.setHours(bucket.hour);
+        return bucketDate >= start && bucketDate < end;
+      })
+      .reduce((sum, bucket) => sum + bucket.uniqueVisitors, 0);
 
   return {
     totalBookings: toMetric(current.bookings, previous.bookings),
@@ -83,7 +96,8 @@ export async function getDashboardKpis(): Promise<DashboardKpis> {
 // "Available" otherwise. Out-of-service rooms are excluded from all three
 // — they're not sellable inventory.
 export async function getRoomAvailabilityBreakdown(range: DateRange): Promise<RoomAvailabilityBreakdown> {
-  const { rooms, bookings } = getMockDataset();
+  const rooms = MOCK_ROOMS;
+  const bookings = getMockBookings();
   let occupied = 0;
   let booked = 0;
   let available = 0;
@@ -108,7 +122,7 @@ export async function getRoomAvailabilityBreakdown(range: DateRange): Promise<Ro
 // Each weekday's share of total bookings (by check-in date) within the
 // range — the 7 bars always sum to 100%.
 export async function getBookingTrendsByDay(range: DateRange): Promise<BookingTrendDay[]> {
-  const { bookings } = getMockDataset();
+  const bookings = getMockBookings();
   const inRange = bookings.filter((b) => !isCancelled(b) && b.checkIn >= range.from && b.checkIn <= range.to);
 
   const countByDow = new Map<number, number>();
@@ -126,7 +140,7 @@ export async function getBookingTrendsByDay(range: DateRange): Promise<BookingTr
 }
 
 export async function getRevenueTrend(range: DateRange): Promise<RevenuePoint[]> {
-  const { bookings } = getMockDataset();
+  const bookings = getMockBookings();
   const inRange = bookings.filter((b) => !isCancelled(b) && b.createdAt >= range.from && b.createdAt <= range.to);
 
   const amountByMonth = new Map<string, number>();
@@ -146,8 +160,8 @@ export async function getRevenueTrend(range: DateRange): Promise<RevenuePoint[]>
 // individual nights so one that spans a month boundary splits correctly
 // instead of counting whole against one side.
 export async function getOccupancyTrend(range: DateRange): Promise<OccupancyPoint[]> {
-  const { rooms, bookings } = getMockDataset();
-  const sellableRooms = rooms.filter((room) => room.status !== "Out of Service").length;
+  const bookings = getMockBookings();
+  const sellableRooms = MOCK_ROOMS.filter((room) => room.status !== "Out of Service").length;
 
   const nightsByMonth = new Map<string, number>();
   for (const b of bookings) {
@@ -177,7 +191,7 @@ export async function getOccupancyTrend(range: DateRange): Promise<OccupancyPoin
 // falls in the range. "Returning" = they booked again in the range after
 // an earlier booking made before it.
 export async function getGuestVisitBreakdown(range: DateRange): Promise<GuestVisitBreakdown> {
-  const { bookings } = getMockDataset();
+  const bookings = getMockBookings();
 
   const firstBookingByCustomer = new Map<string, Date>();
   for (const b of bookings) {
@@ -204,7 +218,7 @@ export async function getGuestVisitBreakdown(range: DateRange): Promise<GuestVis
 }
 
 export async function getPaymentMethodBreakdown(range: DateRange): Promise<PaymentMethodBreakdown> {
-  const { bookings } = getMockDataset();
+  const bookings = getMockBookings();
   const inRange = bookings.filter((b) => !isCancelled(b) && b.createdAt >= range.from && b.createdAt <= range.to);
 
   let creditCard = 0;
@@ -236,7 +250,7 @@ function average(values: number[]): number | null {
 }
 
 export async function getCheckInOutAverages(): Promise<CheckInOutAverages> {
-  const { bookings } = getMockDataset();
+  const bookings = getMockBookings();
   const checkInSeconds = bookings.filter((b) => b.checkedInAt).map((b) => secondsOfDay(b.checkedInAt as Date));
   const checkOutSeconds = bookings.filter((b) => b.checkedOutAt).map((b) => secondsOfDay(b.checkedOutAt as Date));
 
@@ -266,16 +280,16 @@ function trafficRangeFor(key: TrafficRangeKey): { from: Date; bucket: "hour" | "
 }
 
 export async function getWebsiteTraffic(rangeKey: TrafficRangeKey): Promise<TrafficPoint[]> {
-  const { pageViews } = getMockDataset();
+  const trafficBuckets = getMockTrafficBuckets();
   const { from, bucket, labelFormat } = trafficRangeFor(rangeKey);
   const to = endOfDay(new Date());
 
-  const countByBucketKey = new Map<string, number>();
-  for (const view of pageViews) {
-    if (view.createdAt < from || view.createdAt > to) continue;
-    const bucketDate = bucket === "hour" ? startOfHour(view.createdAt) : startOfDay(view.createdAt);
-    const key = bucketDate.toISOString();
-    countByBucketKey.set(key, (countByBucketKey.get(key) ?? 0) + 1);
+  // Keyed by "yyyy-MM-dd|hour" — already the bucket's own granularity, so
+  // no re-bucketing needed, just a lookup.
+  const viewsByKey = new Map<string, number>();
+  for (const b of trafficBuckets) {
+    const key = `${b.date}|${b.hour}`;
+    viewsByKey.set(key, (viewsByKey.get(key) ?? 0) + b.views);
   }
 
   const points: TrafficPoint[] = [];
@@ -285,10 +299,14 @@ export async function getWebsiteTraffic(rangeKey: TrafficRangeKey): Promise<Traf
 
   for (let t = startBucket; t <= endBucket; t += step) {
     const bucketDate = new Date(t);
-    points.push({
-      label: format(bucketDate, labelFormat),
-      count: countByBucketKey.get(bucketDate.toISOString()) ?? 0,
-    });
+    const dateKey = format(bucketDate, "yyyy-MM-dd");
+    let count = 0;
+    if (bucket === "hour") {
+      count = viewsByKey.get(`${dateKey}|${bucketDate.getHours()}`) ?? 0;
+    } else {
+      for (let hour = 0; hour < 24; hour++) count += viewsByKey.get(`${dateKey}|${hour}`) ?? 0;
+    }
+    points.push({ label: format(bucketDate, labelFormat), count });
   }
   return points;
 }
