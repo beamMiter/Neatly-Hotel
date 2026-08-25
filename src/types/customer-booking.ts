@@ -16,6 +16,12 @@ export type CustomerBookingSummary = {
   status: BookingStatus;
 };
 
+export type CustomerBookingSpecialRequest = {
+  label: string;
+  price: number;
+  quantity: number;
+};
+
 export type CustomerBookingDetail = {
   id: string;
   bookingCode: string;
@@ -32,4 +38,13 @@ export type CustomerBookingDetail = {
   status: BookingStatus;
   paymentStatus: BookingPaymentStatus;
   roomNos: string[];
+  paymentMethod: "credit_card" | "cash";
+  cardBrand: string | null;
+  cardLast4: string | null;
+  roomSubtotal: number;
+  standardRequests: string[];
+  specialRequests: CustomerBookingSpecialRequest[];
+  additionalRequest: string | null;
+  promoCode: string | null;
+  discountAmount: number;
 };
