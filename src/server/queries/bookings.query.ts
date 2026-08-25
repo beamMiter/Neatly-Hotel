@@ -293,7 +293,10 @@ export async function createPendingBooking(
   throw new Error("Failed to generate a unique booking code after multiple attempts");
 }
 
-export async function getBookingById(id: string, customerId: string): Promise<BookingRecord | null> {
+export async function getBookingById(id: string, customerId: string | null): Promise<BookingRecord | null> {
+  // Access rule:
+  // - guest booking (customer_id is null): anyone with the booking UUID may read it
+  // - member booking: only the owning customer_id may read it
   const rows = await prisma.$queryRaw<Parameters<typeof toBookingRecord>[0][]>`
     select b.id, b.booking_code, b.customer_id, b.check_in, b.check_out, b.guests, b.status, b.total_amount,
            b.guest_first_name, b.guest_last_name, b.guest_email, b.guest_phone,
@@ -318,7 +321,11 @@ export async function getBookingById(id: string, customerId: string): Promise<Bo
       where booking_id = b.id and status = 'succeeded'
       order by updated_at desc limit 1
     ) p on true
-    where b.id = ${id}::uuid and b.customer_id = ${customerId}::uuid
+    where b.id = ${id}::uuid
+      and (
+        b.customer_id is null
+        or (${customerId}::uuid is not null and b.customer_id = ${customerId}::uuid)
+      )
   `;
 
   const row = rows[0];
@@ -404,7 +411,7 @@ export async function markBookingCashConfirmed(bookingId: string): Promise<void>
 //  2. Releasing those rooms means someone else may have booked them by now.
 //     Re-run the same overlap check createPendingBooking uses before handing
 //     back a hold, otherwise a retry can re-claim already-sold inventory.
-export async function extendBookingHold(bookingId: string, customerId: string): Promise<boolean> {
+export async function extendBookingHold(bookingId: string, customerId: string | null): Promise<boolean> {
   return prisma.$transaction(async (tx) => {
       // Selected as text so the ::date casts below compare the same literal
       // form createPendingBooking uses. A Prisma `date` comes back as a
@@ -417,7 +424,11 @@ export async function extendBookingHold(bookingId: string, customerId: string): 
         select to_char(check_in, 'YYYY-MM-DD') as check_in,
                to_char(check_out, 'YYYY-MM-DD') as check_out
         from bookings
-        where id = ${bookingId}::uuid and customer_id = ${customerId}::uuid
+        where id = ${bookingId}::uuid
+          and (
+            (${customerId}::uuid is null and customer_id is null)
+            or customer_id = ${customerId}::uuid
+          )
           and payment_status in ('pending', 'failed')
           and status in ('pending_payment', 'cancelled', 'canceled')
         for update
