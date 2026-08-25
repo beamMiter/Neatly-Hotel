@@ -28,11 +28,13 @@ export function trackPageView(request: NextRequest, event: NextFetchEvent, respo
   }
 
   event.waitUntil(
-    supabaseAdmin
-      .from("page_views")
-      .insert({ path: pathname, visitor_id: visitorId })
-      .then(({ error }) => {
-        if (error) console.error("[page_views] failed to log page view:", error);
-      }),
+    Promise.resolve(
+      supabaseAdmin
+        .from("page_views")
+        .insert({ path: pathname, visitor_id: visitorId })
+        .then(({ error }) => {
+          if (error) console.error("[page_views] failed to log page view:", error);
+        }),
+    ),
   );
 }
