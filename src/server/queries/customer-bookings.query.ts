@@ -92,10 +92,12 @@ function summarizeDistinct(values: (string | null | undefined)[]): string {
 }
 
 // Bookings snapshot the guest's name at booking time (bookings.guest_*),
-// independent of whatever the account's profile says now — preferred when
-// present. Older bookings (created before these columns existed) have them
-// null, so those fall back to the live profile lookup.
-function resolveCustomerName(guestFirstName: string | null, guestLastName: string | null, profileName: string) {
+// preferred when present. Older bookings fall back to the live profile name.
+function resolveCustomerName(
+  guestFirstName: string | null,
+  guestLastName: string | null,
+  profileName: string,
+): string {
   const guestName = `${guestFirstName ?? ""} ${guestLastName ?? ""}`.trim();
   return guestName || profileName;
 }
@@ -140,16 +142,6 @@ async function customerNamesByProfileId(customerIds: string[]): Promise<Map<stri
   }
 
   return new Map((data ?? []).map((row) => [row.id as string, `${row.first_name} ${row.last_name}`.trim()]));
-}
-
-function resolveCustomerName(row: BookingRow, nameByCustomerId: Map<string, string>): string {
-  if (row.customer_id) {
-    const fromProfile = nameByCustomerId.get(row.customer_id);
-    if (fromProfile) return fromProfile;
-  }
-
-  const fromGuest = `${row.guest_first_name ?? ""} ${row.guest_last_name ?? ""}`.trim();
-  return fromGuest || "Guest";
 }
 
 function toSummary(row: BookingRow, customerName: string): CustomerBookingSummary {
@@ -263,7 +255,16 @@ export async function getCustomerBookings({
     rows.map((row) => row.customer_id).filter((id): id is string => Boolean(id)),
   );
 
-  const bookings = rows.map((row) => toSummary(row, resolveCustomerName(row, nameByCustomerId)));
+  const bookings = rows.map((row) =>
+    toSummary(
+      row,
+      resolveCustomerName(
+        row.guest_first_name,
+        row.guest_last_name,
+        row.customer_id ? (nameByCustomerId.get(row.customer_id) ?? "Unknown") : "Guest",
+      ),
+    ),
+  );
   const totalPages = Math.max(1, Math.ceil((count ?? 0) / CUSTOMER_BOOKINGS_PAGE_SIZE));
 
   return { bookings, totalPages };
