@@ -1,8 +1,13 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { createClient } from "@/server/db/supabase-browser";
-import type { ChatbotSettings, ChatbotSuggestion } from "@/app/lib/chatbot-faq";
+import type { ChatbotSettings, ChatbotSuggestion } from "@/types/chatbot";
+import {
+  createChatbotSuggestion,
+  deleteChatbotSuggestion,
+  saveChatbotSettings,
+  updateChatbotSuggestion,
+} from "@/lib/chatbot-admin-api";
 
 type PresetTopic = {
   id: string;
@@ -15,14 +20,12 @@ type PresetTopic = {
 };
 
 const defaultTopics: PresetTopic[] = [
-  { id: "room-types", topic: "Room Types", format: "Room type", reply: "Neatly Hotel offers a variety of room types to suit your needs! 🏨✨ Here are the options", rooms: ["Superior Garden View", "Deluxe", "Superior", "Supreme"], buttonName: "View Details" },
-  { id: "booking", topic: "Booking", format: "Room type", reply: "Let's get your booking started First, please choose the type of room you'd like 🛏️✨", rooms: ["Superior Garden View", "Deluxe", "Superior", "Supreme"], buttonName: "Book Now" },
+  { id: "room-types", topic: "Room Types", format: "Room type", reply: "Neatly Hotel offers a variety of room types to suit your needs! 🏨✨ Here are the options", buttonName: "View Details" },
+  { id: "booking", topic: "Booking", format: "Room type", reply: "Let's get your booking started First, please choose the type of room you'd like 🛏️✨", buttonName: "Book Now" },
   { id: "check-times", topic: "Check-in & Check-out Time", format: "Message", reply: "Great! 😊 Here are our check-in and check-out times:\nCheck-in time: From 2:00 PM onwards 🕑\nCheck-out time: By 12:00 PM 🕛" },
   { id: "payment", topic: "Payment methods", format: "Option with details", reply: "Here are the payment methods we accept. Tap to see more details 💳💵", options: [{ name: "Credit Card", details: "We accept credit cards including Visa and MasterCard." }, { name: "Cash", details: "You can pay at the hotel with cash or cheque. No payment is required until check-in." }] },
-  { id: "promotion", topic: "Promotion", format: "Room type", reply: "🎉 Our promotion this month. Get 10% off 🌞 when you book your stay within this month. Don't miss out!", rooms: ["Superior Garden View", "Deluxe", "Superior", "Supreme"], buttonName: "Book Now" },
+  { id: "promotion", topic: "Promotion", format: "Room type", reply: "🎉 Our promotion this month. Get 10% off 🌞 when you book your stay within this month. Don't miss out!", buttonName: "Book Now" },
 ];
-
-const availableRoomTypes = ["Superior Garden View", "Deluxe", "Superior", "Supreme"];
 
 function DragIcon() {
   return <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true"><path d="M10 9C9.46957 9 8.96086 8.78929 8.58579 8.41421C8.21071 8.03914 8 7.53043 8 7C8 6.46957 8.21071 5.96086 8.58579 5.58579C8.96086 5.21071 9.46957 5 10 5C10.5304 5 11.0391 5.21071 11.4142 5.58579C11.7893 5.96086 12 6.46957 12 7C12 7.53043 11.7893 8.03914 11.4142 8.41421C11.0391 8.78929 10.5304 9 10 9ZM10 15C9.46957 15 8.96086 14.7893 8.58579 14.4142C8.21071 14.0391 8 13.5304 8 13C8 12.4696 8.21071 11.9609 8.58579 11.5858C8.96086 11.2107 9.46957 11 10 11C10.5304 11 11.0391 11.2107 11.4142 11.5858C11.7893 11.9609 12 12.4696 12 13C12 13.5304 11.7893 14.0391 11.4142 14.4142C11.0391 14.7893 10.5304 15 10 15ZM10 21C9.46957 21 8.96086 20.7893 8.58579 20.4142C8.21071 20.0391 8 19.5304 8 19C8 18.4696 8.21071 17.9609 8.58579 17.5858C8.96086 17.2107 9.46957 17 10 17C10.5304 17 11.0391 17.2107 11.4142 17.5858C11.7893 17.9609 12 18.4696 12 19C12 19.5304 11.7893 20.0391 11.4142 20.4142C11.0391 20.7893 10.5304 21 10 21Z" fill="#646D89"/><path d="M16 9C15.4696 9 14.9609 8.78929 14.5858 8.41421C14.2107 8.03914 14 7.53043 14 7C14 6.46957 14.2107 5.96086 14.5858 5.58579C14.9609 5.21071 15.4696 5 16 5C16.5304 5 17.0391 5.21071 17.4142 5.58579C17.7893 5.96086 18 6.46957 18 7C18 7.53043 17.7893 8.03914 17.4142 8.41421C17.0391 8.78929 16.5304 9 16 9ZM16 15C15.4696 15 14.9609 14.7893 14.5858 14.4142C14.2107 14.0391 14 13.5304 14 13C14 12.4696 14.2107 11.9609 14.5858 11.5858C14.9609 11.2107 15.4696 11 16 11C16.5304 11 17.0391 11.2107 17.4142 11.5858C17.7893 11.9609 18 12.4696 18 13C18 13.5304 17.7893 14.0391 17.4142 14.4142C17.0391 14.7893 16.5304 15 16 15ZM16 21C15.4696 21 14.9609 20.7893 14.5858 20.4142C14.2107 20.0391 14 19.5304 14 19C14 18.4696 14.2107 17.9609 14.5858 17.5858C14.9609 17.2107 15.4696 17 16 17C16.5304 17 17.0391 17.2107 17.4142 17.5858C17.7893 17.9609 18 18.4696 18 19C18 19.5304 17.7893 20.0391 17.4142 20.4142C17.0391 20.7893 16.5304 21 16 21Z" fill="#646D89"/></svg>;
@@ -48,10 +51,14 @@ function toSuggestion(topic: PresetTopic, sortOrder: number) {
   return { id: topic.id, topic: topic.topic, format: topic.format, reply: topic.reply, button_name: topic.buttonName ?? null, rooms: topic.rooms ?? [], options: topic.options ?? [], is_active: true, sort_order: sortOrder };
 }
 
-export default function FaqManager({ initialSettings, initialSuggestions }: { initialSettings: ChatbotSettings; initialSuggestions: ChatbotSuggestion[] }) {
+export default function FaqManager({ initialSettings, initialSuggestions, roomTypes }: { initialSettings: ChatbotSettings; initialSuggestions: ChatbotSuggestion[]; roomTypes: string[] }) {
+  const selectableRoomTypes = Array.from(new Set([
+    ...roomTypes,
+    ...initialSuggestions.flatMap((suggestion) => suggestion.rooms),
+  ]));
   const [settings, setSettings] = useState(initialSettings);
   const [isSaving, setIsSaving] = useState(false);
-  const [presetTopics, setPresetTopics] = useState(initialSuggestions.length ? initialSuggestions.map(fromSuggestion) : defaultTopics);
+  const [presetTopics, setPresetTopics] = useState(initialSuggestions.length ? initialSuggestions.map(fromSuggestion) : defaultTopics.map((topic) => topic.format === "Room type" ? { ...topic, rooms: [...selectableRoomTypes] } : topic));
   const [saveError, setSaveError] = useState("");
   const [isAddingTopic, setIsAddingTopic] = useState(false);
   const [newTopic, setNewTopic] = useState("");
@@ -64,6 +71,8 @@ export default function FaqManager({ initialSettings, initialSuggestions }: { in
   const [newButtonName, setNewButtonName] = useState("");
   const [roomSearch, setRoomSearch] = useState("");
   const [isRoomDropdownOpen, setIsRoomDropdownOpen] = useState(false);
+  const [editingRoomSearch, setEditingRoomSearch] = useState("");
+  const [isEditingRoomDropdownOpen, setIsEditingRoomDropdownOpen] = useState(false);
   const [draggedTopicId, setDraggedTopicId] = useState<string | null>(null);
   const [editingTopic, setEditingTopic] = useState<PresetTopic | null>(null);
   const [deletingTopic, setDeletingTopic] = useState<PresetTopic | null>(null);
@@ -92,8 +101,7 @@ export default function FaqManager({ initialSettings, initialSuggestions }: { in
     const hasInvalidOption = cleanedOptions.some((option) => !option.name || !option.details);
     if (!newTopic.trim() || !newReplyFormat || (newReplyFormat === "Message" && !newReplyMessage.trim()) || (newReplyFormat === "Option with details" && (!newReplyTitle.trim() || hasInvalidOption)) || (newReplyFormat === "Room type" && (!newRoomTitle.trim() || selectedRooms.length === 0 || !newButtonName.trim()))) return;
     const topic = { id: `topic-${crypto.randomUUID()}`, topic: newTopic.trim(), format: newReplyFormat, reply: newReplyFormat === "Option with details" ? newReplyTitle.trim() : newReplyFormat === "Room type" ? newRoomTitle.trim() : newReplyMessage.trim(), options: newReplyFormat === "Option with details" ? cleanedOptions : undefined, rooms: newReplyFormat === "Room type" ? selectedRooms : undefined, buttonName: newReplyFormat === "Room type" ? newButtonName.trim() : undefined } satisfies PresetTopic;
-    const { error } = await createClient().from("chatbot_suggestions").insert(toSuggestion(topic, presetTopics.length));
-    if (error) { setSaveError(error.message); return; }
+    try { await createChatbotSuggestion(toSuggestion(topic, presetTopics.length) as Omit<ChatbotSuggestion, "created_at" | "updated_at">); } catch (error) { setSaveError(error instanceof Error ? error.message : "Unable to save suggestion"); return; }
     setSaveError("");
     setPresetTopics((current) => [...current, topic]);
     setIsAddingTopic(false);
@@ -136,6 +144,8 @@ export default function FaqManager({ initialSettings, initialSuggestions }: { in
       rooms: topic.rooms ? [...topic.rooms] : undefined,
       options: topic.options?.map((option) => ({ ...option })),
     });
+    setEditingRoomSearch("");
+    setIsEditingRoomDropdownOpen(false);
   }
 
   async function saveEditingTopic(event: FormEvent<HTMLFormElement>) {
@@ -150,27 +160,39 @@ export default function FaqManager({ initialSettings, initialSuggestions }: { in
       buttonName: editingTopic.buttonName?.trim(),
     };
     const sortOrder = presetTopics.findIndex((topic) => topic.id === updated.id);
-    const { error } = await createClient().from("chatbot_suggestions").update(toSuggestion(updated, sortOrder)).eq("id", updated.id);
-    if (error) { setSaveError(error.message); return; }
+    try { await updateChatbotSuggestion(updated.id, toSuggestion(updated, sortOrder)); } catch (error) { setSaveError(error instanceof Error ? error.message : "Unable to save suggestion"); return; }
     setSaveError("");
     setPresetTopics((current) => current.map((topic) => topic.id === updated.id ? updated : topic));
     setEditingTopic(null);
+    setIsEditingRoomDropdownOpen(false);
   }
 
   function changeEditingFormat(format: PresetTopic["format"]) {
     setEditingTopic((current) => current ? {
       ...current,
       format,
-      rooms: format === "Room type" ? (current.rooms?.length ? current.rooms : [...availableRoomTypes]) : undefined,
+      rooms: format === "Room type" ? (current.rooms?.length ? current.rooms : [...selectableRoomTypes]) : undefined,
       buttonName: format === "Room type" ? (current.buttonName ?? "") : undefined,
       options: format === "Option with details" ? (current.options?.length ? current.options : [{ name: "", details: "" }]) : undefined,
     } : current);
   }
 
+  function toggleEditingRoom(room: string) {
+    setEditingTopic((current) => {
+      if (!current) return current;
+      const currentRooms = current.rooms ?? [];
+      return {
+        ...current,
+        rooms: currentRooms.includes(room)
+          ? currentRooms.filter((item) => item !== room)
+          : [...currentRooms, room],
+      };
+    });
+  }
+
   async function confirmDeleteTopic() {
     if (!deletingTopic) return;
-    const { error } = await createClient().from("chatbot_suggestions").delete().eq("id", deletingTopic.id);
-    if (error) { setSaveError(error.message); return; }
+    try { await deleteChatbotSuggestion(deletingTopic.id); } catch (error) { setSaveError(error instanceof Error ? error.message : "Unable to delete suggestion"); return; }
     setSaveError("");
     setPresetTopics((current) => current.filter((topic) => topic.id !== deletingTopic.id));
     setDeletingTopic(null);
@@ -185,16 +207,14 @@ export default function FaqManager({ initialSettings, initialSuggestions }: { in
       const [movedTopic] = reordered.splice(sourceIndex, 1);
       reordered.splice(targetIndex, 0, movedTopic);
     setPresetTopics(reordered);
-    const results = await Promise.all(reordered.map((topic, index) => createClient().from("chatbot_suggestions").update({ sort_order: index }).eq("id", topic.id)));
-    const error = results.find((result) => result.error)?.error;
-    if (error) setSaveError(error.message); else setSaveError("");
+    try { await Promise.all(reordered.map((topic, index) => updateChatbotSuggestion(topic.id, { sort_order: index }))); setSaveError(""); } catch (error) { setSaveError(error instanceof Error ? error.message : "Unable to reorder suggestions"); }
     setDraggedTopicId(null);
   }
 
   async function saveSettings(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsSaving(true);
-    await createClient().from("chatbot_settings").update({ greeting_message: settings.greeting_message.trim(), auto_reply_message: settings.auto_reply_message.trim() }).eq("id", true);
+    try { await saveChatbotSettings({ greeting_message: settings.greeting_message.trim(), auto_reply_message: settings.auto_reply_message.trim() }); setSaveError(""); } catch (error) { setSaveError(error instanceof Error ? error.message : "Unable to save settings"); }
     setIsSaving(false);
   }
 
@@ -232,13 +252,13 @@ export default function FaqManager({ initialSettings, initialSuggestions }: { in
 
                     <label className="grid gap-1 text-base leading-6 text-[#2A2E3F]">{displayedTopic.format === "Message" ? "Reply message" : "Reply title"}<textarea className={`${displayedTopic.format === "Message" ? "h-24" : "h-12"} w-full resize-none rounded-lg border border-[#D6D9E4] bg-white px-3 py-3 text-base leading-6 text-black outline-none disabled:text-[#646D89]`} required value={displayedTopic.reply} onChange={(event) => setEditingTopic((current) => current ? { ...current, reply: event.target.value } : current)} /></label>
 
-                    {displayedTopic.format === "Room type" && <div className="grid gap-1"><span className="text-base leading-6 text-[#2A2E3F]">Room type</span><div className="flex min-h-14 flex-wrap items-center gap-2 rounded-sm border border-[#D6D9E4] bg-white px-3 py-2">{displayedTopic.rooms?.map((room) => <button className="flex h-8 items-center gap-2 rounded-full border-0 bg-[#F1F2F6] px-4 text-base text-[#424C6B] enabled:cursor-pointer" key={room} type="button" onClick={() => setEditingTopic((current) => current ? { ...current, rooms: current.rooms?.filter((item) => item !== room) } : current)}>{room}<span aria-hidden="true">×</span></button>)}</div></div>}
+                    {displayedTopic.format === "Room type" && <div className="relative grid gap-1"><span className="text-base leading-6 text-[#2A2E3F]">Room type</span><div className="flex min-h-14 flex-wrap items-center gap-2 rounded-sm border border-[#D6D9E4] bg-white px-3 py-2">{displayedTopic.rooms?.map((room) => <button className="flex h-8 items-center gap-2 rounded-full border-0 bg-[#F1F2F6] px-4 text-base text-[#424C6B] enabled:cursor-pointer" key={room} type="button" onClick={() => toggleEditingRoom(room)}>{room}<span aria-hidden="true">×</span></button>)}<button className="h-8 cursor-pointer rounded-full border border-dashed border-[#729280] bg-white px-4 text-sm text-[#526b5d] hover:bg-[#f4f8f5]" type="button" onClick={() => setIsEditingRoomDropdownOpen((current) => !current)}>+ Add room type</button></div>{isEditingRoomDropdownOpen && <div className="absolute top-full z-30 mt-1 flex max-h-[293px] w-full flex-col overflow-hidden border border-[#2684FF] bg-white shadow-[4px_4px_16px_rgba(0,0,0,0.08)]"><input className="h-[45px] shrink-0 border-0 border-b border-[#D6D9E4] px-4 text-sm text-[#2A2E3F] outline-none placeholder:text-[#9AA1B9]" autoFocus placeholder="Search room type..." value={editingRoomSearch} onChange={(event) => setEditingRoomSearch(event.target.value)} /><div className="grid gap-2 overflow-y-auto p-2"><button className="flex h-10 w-full cursor-pointer items-center justify-between border-0 bg-white px-4 text-left text-base text-[#646D89] hover:bg-[#F6F7FC]" type="button" onClick={() => setEditingTopic((current) => current ? { ...current, rooms: current.rooms?.length === selectableRoomTypes.length ? [] : [...selectableRoomTypes] } : current)}><span>All</span>{displayedTopic.rooms?.length === selectableRoomTypes.length && <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 12 4 4L19 6" stroke="#9AA1B9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}</button>{selectableRoomTypes.filter((room) => room.toLowerCase().includes(editingRoomSearch.trim().toLowerCase())).map((room) => <button className="flex h-10 w-full cursor-pointer items-center justify-between border-0 bg-white px-4 text-left text-base text-[#646D89] hover:bg-[#F6F7FC]" key={room} type="button" onClick={() => toggleEditingRoom(room)}><span>{room}</span>{displayedTopic.rooms?.includes(room) && <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 12 4 4L19 6" stroke="#9AA1B9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}</button>)}</div></div>}</div>}
 
                     {displayedTopic.format === "Option with details" && displayedTopic.options?.map((option, index) => <div className="grid grid-cols-2 gap-10 max-md:grid-cols-1 max-md:gap-4" key={`${topic.id}-${index}`}><label className="grid gap-1 text-base leading-6 text-[#2A2E3F]">Option<input className="h-12 rounded-sm border border-[#D6D9E4] bg-white px-3 text-base text-black outline-none disabled:text-[#646D89]" required value={option.name} onChange={(event) => setEditingTopic((current) => current ? { ...current, options: current.options?.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item) } : current)} /></label><label className="grid gap-1 text-base leading-6 text-[#2A2E3F]">Details<textarea className="h-[76px] resize-none rounded-lg border border-[#D6D9E4] bg-white px-3 py-3 text-base leading-6 text-black outline-none disabled:text-[#646D89]" required value={option.details} onChange={(event) => setEditingTopic((current) => current ? { ...current, options: current.options?.map((item, itemIndex) => itemIndex === index ? { ...item, details: event.target.value } : item) } : current)} /></label></div>)}
 
                     {displayedTopic.format === "Room type" && <label className="grid gap-1 text-base leading-6 text-[#2A2E3F]">Button name<input className="h-12 rounded-sm border border-[#D6D9E4] bg-white px-3 text-base text-black outline-none disabled:text-[#646D89]" required value={displayedTopic.buttonName ?? ""} onChange={(event) => setEditingTopic((current) => current ? { ...current, buttonName: event.target.value } : current)} /></label>}
 
-                    {isEditing && <div className="flex h-12 items-center gap-6"><button className="flex h-12 w-[100px] cursor-pointer items-center justify-center rounded-sm border-0 bg-[#C14817] px-8 text-base leading-4 font-semibold text-white" type="submit">Save</button><button className="h-6 cursor-pointer border-0 bg-transparent px-2 text-base leading-4 font-semibold text-[#646D89]" type="button" onClick={() => setEditingTopic(null)}>Cancel</button></div>}
+                    {isEditing && <div className="flex h-12 items-center gap-6"><button className="flex h-12 w-[100px] cursor-pointer items-center justify-center rounded-sm border-0 bg-[#C14817] px-8 text-base leading-4 font-semibold text-white" type="submit">Save</button><button className="h-6 cursor-pointer border-0 bg-transparent px-2 text-base leading-4 font-semibold text-[#646D89]" type="button" onClick={() => { setEditingTopic(null); setIsEditingRoomDropdownOpen(false); }}>Cancel</button></div>}
                   </fieldset>
 
                   <div className="flex shrink-0 flex-col items-center gap-4"><span className={`grid h-[26px] w-[26px] place-items-center ${editingTopic ? "cursor-not-allowed" : "cursor-grab"}`} title="Drag to reorder"><DragIcon /></span><button className="grid h-[26px] w-[26px] cursor-pointer place-items-center border-0 bg-transparent disabled:cursor-not-allowed" type="button" title="Edit topic" disabled={Boolean(editingTopic || isAddingTopic)} onClick={() => startEditingTopic(topic)}><EditIcon /></button><button className="grid h-[26px] w-[26px] cursor-pointer place-items-center border-0 bg-transparent disabled:cursor-not-allowed" type="button" title="Delete topic" disabled={Boolean(editingTopic)} onClick={() => setDeletingTopic(topic)}><DeleteIcon /></button></div>
@@ -266,8 +286,8 @@ export default function FaqManager({ initialSettings, initialSuggestions }: { in
                     {isRoomDropdownOpen && <div className="absolute top-full z-30 mt-1 flex max-h-[293px] w-full flex-col overflow-hidden border border-[#2684FF] bg-white shadow-[4px_4px_16px_rgba(0,0,0,0.08)]">
                       <input className="h-[45px] shrink-0 border-0 border-b border-[#D6D9E4] px-4 text-sm text-[#2A2E3F] outline-none placeholder:text-[#9AA1B9]" autoFocus placeholder="Search room type..." value={roomSearch} onClick={(event) => event.stopPropagation()} onChange={(event) => setRoomSearch(event.target.value)} />
                       <div className="grid gap-2 overflow-y-auto p-2">
-                        <button className="flex h-10 w-full cursor-pointer items-center justify-between border-0 bg-white px-4 text-left text-base text-[#646D89] hover:bg-[#F6F7FC]" type="button" onClick={() => setSelectedRooms(selectedRooms.length === availableRoomTypes.length ? [] : [...availableRoomTypes])}><span>All</span>{selectedRooms.length === availableRoomTypes.length && <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 12 4 4L19 6" stroke="#9AA1B9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}</button>
-                        {availableRoomTypes.filter((room) => room.toLowerCase().includes(roomSearch.trim().toLowerCase())).map((room) => <button className="flex h-10 w-full cursor-pointer items-center justify-between border-0 bg-white px-4 text-left text-base text-[#646D89] hover:bg-[#F6F7FC]" key={room} type="button" onClick={() => toggleRoom(room)}><span>{room}</span>{selectedRooms.includes(room) && <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 12 4 4L19 6" stroke="#9AA1B9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}</button>)}
+                        <button className="flex h-10 w-full cursor-pointer items-center justify-between border-0 bg-white px-4 text-left text-base text-[#646D89] hover:bg-[#F6F7FC]" type="button" onClick={() => setSelectedRooms(selectedRooms.length === selectableRoomTypes.length ? [] : [...selectableRoomTypes])}><span>All</span>{selectedRooms.length === selectableRoomTypes.length && <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 12 4 4L19 6" stroke="#9AA1B9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}</button>
+                        {selectableRoomTypes.filter((room) => room.toLowerCase().includes(roomSearch.trim().toLowerCase())).map((room) => <button className="flex h-10 w-full cursor-pointer items-center justify-between border-0 bg-white px-4 text-left text-base text-[#646D89] hover:bg-[#F6F7FC]" key={room} type="button" onClick={() => toggleRoom(room)}><span>{room}</span>{selectedRooms.includes(room) && <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 12 4 4L19 6" stroke="#9AA1B9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}</button>)}
                       </div>
                     </div>}
                   </div>

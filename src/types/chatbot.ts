@@ -1,0 +1,76 @@
+export type ChatbotFaq = {
+  id: number;
+  question: string;
+  answer: string;
+  category: string;
+  keywords: string[];
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ChatbotFaqInput = Pick<
+  ChatbotFaq,
+  "question" | "answer" | "category" | "keywords" | "is_active" | "sort_order"
+>;
+
+export type ChatbotSettings = {
+  id: boolean;
+  greeting_message: string;
+  auto_reply_message: string;
+  updated_at: string;
+};
+
+export type ChatbotSuggestionFormat = "Room type" | "Message" | "Option with details";
+
+export type ChatbotSuggestionOption = {
+  name: string;
+  details: string;
+};
+
+export type ChatbotSuggestion = {
+  id: string;
+  topic: string;
+  format: ChatbotSuggestionFormat;
+  reply: string;
+  button_name: string | null;
+  rooms: string[];
+  options: ChatbotSuggestionOption[];
+  is_active: boolean;
+  sort_order: number;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type ChatbotSearchState = {
+  checkIn: string | null;
+  checkOut: string | null;
+  guests: number | null;
+  budget: number | null;
+};
+
+export type ChatbotRoomResult = {
+  id: string;
+  name: string;
+  description: string;
+  capacity: number;
+  price: number;
+  size: string;
+  bed: string;
+  available: boolean;
+  imageUrl: string | null;
+  amenities: string[];
+  detailHref: string;
+};
+
+export type ChatbotEventType = "response" | "handoff";
+
+export type ChatbotEventInput = {
+  requestId: string;
+  eventType: ChatbotEventType;
+  intent: "faq" | "search_room" | "unknown";
+  responseMode: "managed_suggestion" | "managed_faq" | "room_information" | "gemini" | "gemini_fallback" | "demo";
+  fallbackReason: string | null;
+  handoffReason: string | null;
+};

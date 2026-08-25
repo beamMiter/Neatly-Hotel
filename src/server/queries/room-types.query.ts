@@ -82,6 +82,23 @@ export async function getRooms({ query, page = 1 }: GetRoomsParams): Promise<Get
   return { rooms, totalCount, totalPages };
 }
 
+/** Names used by the chatbot CMS Room Type picker. */
+export async function getRoomTypeNames(): Promise<string[]> {
+  const { data, error } = await supabaseAdmin
+    .from("room_types")
+    .select("name")
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    console.error("[room_types] failed to fetch room names:", error);
+    return [];
+  }
+
+  return (data ?? [])
+    .map((room) => room.name)
+    .filter((name): name is string => typeof name === "string" && name.trim().length > 0);
+}
+
 type CreateRoomTypeParams = {
   data: CreateRoomInput;
   mainImage: File;

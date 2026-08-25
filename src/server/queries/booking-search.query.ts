@@ -206,3 +206,22 @@ export async function getGuestRoomTypeById(id: string): Promise<RoomSearchResult
   if (!data) return null;
   return mapRoomType(data as unknown as RoomTypeRow);
 }
+
+/** Public room information for the chatbot's Room Type quick actions. */
+export async function getGuestRoomTypeByName(name: string): Promise<RoomSearchResult | null> {
+  const roomName = name.trim();
+  if (!roomName) return null;
+
+  const { data, error } = await supabaseAdmin
+    .from("room_types")
+    .select(ROOM_TYPE_SELECT)
+    .eq("name", roomName)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[room_types] failed to fetch by name:", error);
+    return null;
+  }
+
+  return data ? mapRoomType(data as unknown as RoomTypeRow) : null;
+}
