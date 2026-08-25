@@ -2,7 +2,7 @@
 
 export type SendEmailOtpResult =
   | { ok: true; expiresInSeconds: number; devCode?: string }
-  | { ok: false; code: "RATE_LIMITED" | "INVALID_EMAIL"; message: string };
+  | { ok: false; code: "RATE_LIMITED" | "INVALID_EMAIL" | "SEND_FAILED"; message: string };
 
 export type VerifyEmailOtpResult =
   | { ok: true; verificationToken: string; expiresAt: string }

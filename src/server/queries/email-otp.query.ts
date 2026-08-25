@@ -1,6 +1,7 @@
 import "server-only";
 import crypto from "node:crypto";
 import { prisma } from "@/server/db";
+import { sendBookingOtpEmail } from "@/server/services/email";
 import type { SendEmailOtpResult, VerifyEmailOtpResult } from "@/types/email-otp";
 
 const OTP_LENGTH = 6;
@@ -93,15 +94,25 @@ export async function sendEmailOtp(rawEmail: string): Promise<SendEmailOtpResult
     values (${email}, ${codeHash}, ${expiresAt})
   `;
 
-  // Commit 2: no mailer yet — log in non-production so local testing works.
-  // Commit 3 will send a real email and stop returning/logging the code.
+  if (process.env.RESEND_API_KEY) {
+    const sent = await sendBookingOtpEmail(email, code);
+    if (!sent.ok) {
+      return { ok: false, code: "SEND_FAILED", message: sent.message };
+    }
+    return { ok: true, expiresInSeconds: OTP_TTL_SECONDS };
+  }
+
+  // No mailer configured — dev fallback only.
   if (process.env.NODE_ENV !== "production") {
     console.info(`[email-otp] code for ${email}: ${code}`);
     return { ok: true, expiresInSeconds: OTP_TTL_SECONDS, devCode: code };
   }
 
-  console.info(`[email-otp] code created for ${email} (expires in ${OTP_TTL_SECONDS}s)`);
-  return { ok: true, expiresInSeconds: OTP_TTL_SECONDS };
+  return {
+    ok: false,
+    code: "SEND_FAILED",
+    message: "Email service is not configured",
+  };
 }
 
 export async function verifyEmailOtp(rawEmail: string, rawCode: string): Promise<VerifyEmailOtpResult> {

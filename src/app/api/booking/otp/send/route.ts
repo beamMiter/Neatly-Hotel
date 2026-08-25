@@ -21,7 +21,8 @@ export async function POST(request: Request) {
   try {
     const result = await sendEmailOtp(parsed.data.email);
     if (!result.ok) {
-      const status = result.code === "RATE_LIMITED" ? 429 : 400;
+      const status =
+        result.code === "RATE_LIMITED" ? 429 : result.code === "SEND_FAILED" ? 503 : 400;
       return NextResponse.json({ message: result.message, code: result.code }, { status });
     }
 
