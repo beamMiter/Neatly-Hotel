@@ -328,6 +328,52 @@ export async function getBookingById(id: string, customerId: string): Promise<Bo
   return { ...record, cardBrand: typedRow.card_brand, cardLast4: typedRow.card_last4 };
 }
 
+// Guest booking lookup — both booking_code and guest_email must match.
+// Email compare is case-insensitive; booking codes are stored uppercase.
+export async function lookupBookingByCodeAndEmail(
+  bookingCode: string,
+  email: string,
+): Promise<BookingRecord | null> {
+  const normalizedCode = bookingCode.trim().toUpperCase();
+  const normalizedEmail = email.trim().toLowerCase();
+  if (!normalizedCode || !normalizedEmail) return null;
+
+  const rows = await prisma.$queryRaw<Parameters<typeof toBookingRecord>[0][]>`
+    select b.id, b.booking_code, b.customer_id, b.check_in, b.check_out, b.guests, b.status, b.total_amount,
+           b.guest_first_name, b.guest_last_name, b.guest_email, b.guest_phone,
+           b.guest_date_of_birth, b.guest_country, b.standard_requests, b.special_requests,
+           b.additional_request, b.promo_code, b.discount_amount, b.created_at,
+           b.payment_method, b.payment_status,
+           br.room_type_id, br.room_type_name, coalesce(brc.rooms_count, 0) as rooms_count,
+           p.card_brand, p.card_last4
+    from bookings b
+    left join lateral (
+      select r.room_type_id, rt.name as room_type_name
+      from booking_rooms br2
+      join rooms r on r.id = br2.room_id
+      join room_types rt on rt.id = r.room_type_id
+      where br2.booking_id = b.id limit 1
+    ) br on true
+    left join lateral (
+      select count(*)::int as rooms_count from booking_rooms br3 where br3.booking_id = b.id
+    ) brc on true
+    left join lateral (
+      select card_brand, card_last4 from payments
+      where booking_id = b.id and status = 'succeeded'
+      order by updated_at desc limit 1
+    ) p on true
+    where upper(b.booking_code) = ${normalizedCode}
+      and lower(trim(b.guest_email)) = ${normalizedEmail}
+    limit 1
+  `;
+
+  const row = rows[0];
+  if (!row) return null;
+  const record = toBookingRecord(row);
+  const typedRow = row as unknown as { card_brand: string | null; card_last4: string | null };
+  return { ...record, cardBrand: typedRow.card_brand, cardLast4: typedRow.card_last4 };
+}
+
 // Called only from the Stripe webhook handler — the source of truth for
 // payment state (see plan §9: client-side confirmPayment is advisory only).
 export async function updateBookingPaymentStatus(bookingId: string, outcome: "paid" | "failed"): Promise<void> {
