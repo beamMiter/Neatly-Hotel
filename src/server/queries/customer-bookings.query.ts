@@ -339,7 +339,7 @@ export async function checkInBooking(bookingId: string): Promise<CustomerBooking
 
     await tx.booking.update({
       where: { id: bookingId },
-      data: { status: "checked_in" },
+      data: { status: "checked_in", checkedInAt: new Date() },
     });
 
     await tx.room.updateMany({
@@ -378,7 +378,7 @@ export async function checkOutBooking(bookingId: string): Promise<CustomerBookin
 
     await tx.booking.update({
       where: { id: bookingId },
-      data: { status: "completed" },
+      data: { status: "completed", checkedOutAt: new Date() },
     });
 
     await tx.room.updateMany({
