@@ -1,4 +1,4 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { createClient } from "@/server/db/supabase-server";
 import { getGuestRoomTypeById } from "@/server/queries/booking-search.query";
 import { getSpecialRequestCatalogForDisplay } from "@/server/queries/special-requests.query";
@@ -39,10 +39,6 @@ export default async function BookingFlowPage({ params, searchParams }: BookingF
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) {
-    const qs = new URLSearchParams(query as Record<string, string>).toString();
-    redirect(`/login?redirectTo=${encodeURIComponent(`/booking/${roomTypeId}?${qs}`)}`);
-  }
 
   const checkIn = query.checkIn ?? "";
   const checkOut = query.checkOut ?? "";
@@ -51,11 +47,11 @@ export default async function BookingFlowPage({ params, searchParams }: BookingF
   const guests = Math.max(1, Math.min(8, Number(query.guests) || 1));
   const rooms = Math.max(1, Math.min(3, Number(query.rooms) || 1));
 
-  const [room, specialRequestCatalog, prefill, hotel] = await Promise.all([
+  const [room, specialRequestCatalog, hotel, prefill] = await Promise.all([
     getGuestRoomTypeById(roomTypeId),
     getSpecialRequestCatalogForDisplay(),
-    getProfileForBookingPrefill(user.id),
     loadHotelInformation(),
+    user ? getProfileForBookingPrefill(user.id) : Promise.resolve(null),
   ]);
 
   if (!room) notFound();
