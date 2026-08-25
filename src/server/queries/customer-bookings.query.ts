@@ -9,12 +9,11 @@ import type { CustomerBookingSummary, CustomerBookingDetail } from "@/types/cust
 export const CUSTOMER_BOOKINGS_PAGE_SIZE = 10;
 
 const BOOKING_SELECT =
-  "id, booking_code, customer_id, check_in, check_out, guests, status, payment_status, total_amount, created_at, guest_first_name, guest_last_name, booking_rooms(price_per_night, rooms(room_no, room_type, bed_type))";
+  "id, booking_code, customer_id, check_in, check_out, guests, status, payment_status, total_amount, created_at, guest_first_name, guest_last_name, guest_email, booking_rooms(price_per_night, rooms(room_no, room_type, bed_type))";
 
 // Detail-only: the list view has no use for the itemized breakdown, so it
 // stays on the lighter BOOKING_SELECT above.
 const BOOKING_DETAIL_SELECT = `${BOOKING_SELECT}, standard_requests, special_requests, additional_request, promo_code, discount_amount, payment_method`;
-
 const CHECK_IN_ROOM_STATUS = "Occupied";
 const CHECK_OUT_ROOM_STATUS = "Vacant Dirty";
 
@@ -26,7 +25,7 @@ type BookingRoomRow = {
 type BookingRow = {
   id: string;
   booking_code: string;
-  customer_id: string;
+  customer_id: string | null;
   check_in: string;
   check_out: string;
   guests: number;
@@ -36,6 +35,7 @@ type BookingRow = {
   created_at: string;
   guest_first_name: string | null;
   guest_last_name: string | null;
+  guest_email: string | null;
   booking_rooms: BookingRoomRow[] | null;
 };
 
@@ -126,12 +126,13 @@ async function resolveStandardRequestLabels(codes: string[]): Promise<string[]> 
 }
 
 async function customerNamesByProfileId(customerIds: string[]): Promise<Map<string, string>> {
-  if (customerIds.length === 0) return new Map();
+  const ids = customerIds.filter(Boolean);
+  if (ids.length === 0) return new Map();
 
   const { data, error } = await supabaseAdmin
     .from("profiles")
     .select("id, first_name, last_name")
-    .in("id", customerIds);
+    .in("id", ids);
 
   if (error) {
     console.error("[profiles] failed to fetch customer names:", error);
@@ -139,6 +140,16 @@ async function customerNamesByProfileId(customerIds: string[]): Promise<Map<stri
   }
 
   return new Map((data ?? []).map((row) => [row.id as string, `${row.first_name} ${row.last_name}`.trim()]));
+}
+
+function resolveCustomerName(row: BookingRow, nameByCustomerId: Map<string, string>): string {
+  if (row.customer_id) {
+    const fromProfile = nameByCustomerId.get(row.customer_id);
+    if (fromProfile) return fromProfile;
+  }
+
+  const fromGuest = `${row.guest_first_name ?? ""} ${row.guest_last_name ?? ""}`.trim();
+  return fromGuest || "Guest";
 }
 
 function toSummary(row: BookingRow, customerName: string): CustomerBookingSummary {
@@ -228,10 +239,16 @@ export async function getCustomerBookings({
     const { data: matchedProfiles } = await profileQuery;
     const matchingCustomerIds = (matchedProfiles ?? []).map((profile) => profile.id as string);
 
-    request =
-      matchingCustomerIds.length > 0
-        ? request.or(`booking_code.ilike.%${query}%,customer_id.in.(${matchingCustomerIds.join(",")})`)
-        : request.ilike("booking_code", `%${query}%`);
+    const filters = [
+      `booking_code.ilike.%${query}%`,
+      `guest_first_name.ilike.%${query}%`,
+      `guest_last_name.ilike.%${query}%`,
+      `guest_email.ilike.%${query}%`,
+    ];
+    if (matchingCustomerIds.length > 0) {
+      filters.push(`customer_id.in.(${matchingCustomerIds.join(",")})`);
+    }
+    request = request.or(filters.join(","));
   }
 
   const { data, count, error } = await request;
@@ -242,11 +259,11 @@ export async function getCustomerBookings({
   }
 
   const rows = (data ?? []) as unknown as BookingRow[];
-  const nameByCustomerId = await customerNamesByProfileId(rows.map((row) => row.customer_id));
-
-  const bookings = rows.map((row) =>
-    toSummary(row, resolveCustomerName(row.guest_first_name, row.guest_last_name, nameByCustomerId.get(row.customer_id) ?? "Unknown"))
+  const nameByCustomerId = await customerNamesByProfileId(
+    rows.map((row) => row.customer_id).filter((id): id is string => Boolean(id)),
   );
+
+  const bookings = rows.map((row) => toSummary(row, resolveCustomerName(row, nameByCustomerId)));
   const totalPages = Math.max(1, Math.ceil((count ?? 0) / CUSTOMER_BOOKINGS_PAGE_SIZE));
 
   return { bookings, totalPages };
@@ -259,13 +276,21 @@ export async function getCustomerBookingById(id: string): Promise<CustomerBookin
     console.error("[bookings] failed to fetch booking detail:", error);
     return null;
   }
-
   const row = data as unknown as BookingDetailRow;
+
   const [nameByCustomerId, card] = await Promise.all([
-    customerNamesByProfileId([row.customer_id]),
+    customerNamesByProfileId(row.customer_id ? [row.customer_id] : []),
     fetchSuccessfulPayment(row.id),
   ]);
-  const customerName = resolveCustomerName(row.guest_first_name, row.guest_last_name, nameByCustomerId.get(row.customer_id) ?? "Unknown");
+
+  const customerName = resolveCustomerName(
+    row.guest_first_name,
+    row.guest_last_name,
+    row.customer_id
+      ? nameByCustomerId.get(row.customer_id) ?? "Unknown"
+      : "Unknown"
+  );
+
   return toDetail(row, customerName, card);
 }
 

@@ -28,9 +28,6 @@ export async function POST(request: Request, { params }: RouteParams) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ message: "You must be logged in" }, { status: 401 });
-  }
 
   const { id } = await params;
 
@@ -77,7 +74,8 @@ export async function POST(request: Request, { params }: RouteParams) {
     priorIntentToCancel = prior.stripe_payment_intent_id;
   }
 
-  const extended = await extendBookingHold(id, user.id);
+  const viewerId = user?.id ?? null;
+  const extended = await extendBookingHold(id, viewerId);
   if (!extended) {
     return NextResponse.json(
       { message: "This booking can no longer be retried — please start a new booking" },
@@ -85,7 +83,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     );
   }
 
-  const booking = await getBookingById(id, user.id);
+  const booking = await getBookingById(id, viewerId);
   if (!booking) {
     return NextResponse.json({ message: "Booking not found" }, { status: 404 });
   }

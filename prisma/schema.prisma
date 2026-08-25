@@ -67,7 +67,9 @@ model RoomImage {
 model Booking {
   id          String   @id @default(uuid()) @db.Uuid
   bookingCode String   @unique @map("booking_code")
-  customerId  String   @map("customer_id") @db.Uuid
+  // Nullable for guest checkout — logged-in bookings still set this to
+  // auth.users(id). Guest identity lives on guest_* columns instead.
+  customerId  String?  @map("customer_id") @db.Uuid
   checkIn     DateTime @map("check_in") @db.Date
   checkOut    DateTime @map("check_out") @db.Date
   guests      Int
