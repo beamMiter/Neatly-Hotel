@@ -1,9 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo, useState } from "react";
-import type { SupportConversationStatus } from "@/types/live-support";
+import { useEffect, useMemo, useState } from "react";
+import type { SupportConversation, SupportConversationStatus, SupportCustomer, SupportMemberMatch } from "@/types/live-support";
 import { useLiveSupportAdmin } from "@/features/live-support/components/useLiveSupportAdmin";
+import { COUNTRIES } from "@/lib/countries";
 
 type SupportTab = "open" | "mine" | "resolved";
 type SupportFilter = "all" | "booking" | "room" | "payment" | "other";
@@ -213,6 +214,7 @@ export function LiveSupportPage() {
   const [search, setSearch] = useState("");
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   const [reply, setReply] = useState("");
+  const [isCreateBookingOpen, setIsCreateBookingOpen] = useState(false);
   const {
     conversations,
     supportMessages,
@@ -223,6 +225,7 @@ export function LiveSupportPage() {
     isSending,
     sendReply: sendSupportReply,
     updateConversation: updateSupportConversation,
+    refresh,
   } = useLiveSupportAdmin(selectedThreadId, setSelectedThreadId);
 
   const threads = useMemo<Conversation[]>(() => conversations.map((conversation) => ({
@@ -651,6 +654,10 @@ export function LiveSupportPage() {
                 <button
                   key={action}
                   type="button"
+                  disabled={!currentConversation}
+                  onClick={() => {
+                    if (action === "Create Booking") setIsCreateBookingOpen(true);
+                  }}
                   className="flex h-14 items-center gap-2 rounded-[14px] border border-[#d9deea] bg-white px-4 text-left text-[14px] font-medium text-[#344054] transition-colors hover:border-[#b8c3dc] hover:bg-[#fbfcfe]"
                 >
                   <QuickActionIcon label={action} />
@@ -672,8 +679,174 @@ export function LiveSupportPage() {
           </PanelCard>
         </aside>
       </div>
+      {isCreateBookingOpen && currentConversation && (
+        <CreateBookingDialog
+          conversation={currentConversation}
+          customer={customer}
+          onClose={() => setIsCreateBookingOpen(false)}
+          onCreated={() => {
+            setIsCreateBookingOpen(false);
+            void refresh();
+          }}
+        />
+      )}
     </div>
   );
+}
+
+type RoomOption = { id: string; name: string; guests: number; discountedPrice: number };
+type BookingIdentity = {
+  kind: "member" | "guest" | "ambiguous";
+  matches: SupportMemberMatch[];
+  selectedCustomerId: string | null;
+};
+
+function CreateBookingDialog({ conversation, customer, onClose, onCreated }: {
+  conversation: SupportConversation;
+  customer: SupportCustomer | null;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const nameParts = (customer?.name ?? conversation.customer_name ?? "").trim().split(/\s+/).filter(Boolean);
+  const [checkIn, setCheckIn] = useState("");
+  const [checkOut, setCheckOut] = useState("");
+  const [guests, setGuests] = useState(1);
+  const [rooms, setRooms] = useState(1);
+  const [availableRooms, setAvailableRooms] = useState<RoomOption[]>([]);
+  const [roomTypeId, setRoomTypeId] = useState("");
+  const [firstName, setFirstName] = useState(nameParts[0] ?? "");
+  const [lastName, setLastName] = useState(nameParts.slice(1).join(" "));
+  const [email, setEmail] = useState(customer?.email ?? "");
+  const [phone, setPhone] = useState(customer?.phone ?? conversation.customer_phone ?? "");
+  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [country, setCountry] = useState(customer?.country ?? "Thailand");
+  const [identity, setIdentity] = useState<BookingIdentity | null>(null);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(conversation.customer_id);
+  const [isMatching, setIsMatching] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    const timeoutId = window.setTimeout(async () => {
+      setIsMatching(true);
+      try {
+        const params = new URLSearchParams({ conversationId: conversation.id, phone, email });
+        const response = await fetch(`/api/live-support/admin/booking?${params}`, { cache: "no-store" });
+        const data = await response.json() as { identity?: BookingIdentity; error?: string };
+        if (!response.ok || !data.identity) throw new Error(data.error ?? "Unable to identify customer");
+        if (cancelled) return;
+        setIdentity(data.identity);
+        setSelectedCustomerId((current) => {
+          if (data.identity?.selectedCustomerId) return data.identity.selectedCustomerId;
+          return data.identity?.matches.some((match) => match.customerId === current) ? current : null;
+        });
+      } catch (cause) {
+        if (!cancelled) setError(cause instanceof Error ? cause.message : "Unable to identify customer");
+      } finally {
+        if (!cancelled) setIsMatching(false);
+      }
+    }, 450);
+    return () => { cancelled = true; window.clearTimeout(timeoutId); };
+  }, [conversation.id, email, phone]);
+
+  async function findAvailableRooms() {
+    if (!checkIn || !checkOut) { setError("Select check-in and check-out dates."); return; }
+    setIsLoading(true); setError("");
+    try {
+      const params = new URLSearchParams({ checkIn, checkOut, guests: String(guests), rooms: String(rooms) });
+      const response = await fetch(`/api/live-support/admin/booking?${params}`);
+      const data = await response.json() as { rooms?: RoomOption[]; error?: string };
+      if (!response.ok) throw new Error(data.error ?? "Unable to check availability");
+      setAvailableRooms(data.rooms ?? []);
+      setRoomTypeId(data.rooms?.[0]?.id ?? "");
+      if (!data.rooms?.length) setError("No rooms are available for these dates.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to check availability");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function createBooking(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!roomTypeId) { setError("Check availability and select a room type first."); return; }
+    if (identity?.kind === "ambiguous" && !selectedCustomerId) { setError("Select the correct member."); return; }
+    setIsLoading(true); setError("");
+    try {
+      const response = await fetch("/api/live-support/admin/booking", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversationId: conversation.id,
+          selectedCustomerId,
+          booking: {
+            roomTypeId, checkIn, checkOut, guests, rooms, firstName, lastName, email, phone,
+            dateOfBirth, country, standardRequests: [], specialRequests: [], paymentMethod: "cash",
+          },
+        }),
+      });
+      const data = await response.json() as { error?: string; matches?: SupportMemberMatch[] };
+      if (!response.ok) {
+        if (data.matches) setIdentity({ kind: "ambiguous", matches: data.matches, selectedCustomerId: null });
+        throw new Error(data.error ?? "Unable to create booking");
+      }
+      onCreated();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Unable to create booking");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-[#101828]/45 p-4" role="dialog" aria-modal="true" aria-labelledby="create-booking-title">
+      <form onSubmit={createBooking} className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[22px] bg-white p-6 shadow-2xl">
+        <div className="flex items-start justify-between gap-4">
+          <div><h2 id="create-booking-title" className="text-xl font-semibold text-[#111827]">Create Booking</h2><p className="mt-1 text-sm text-[#667085]">Customer identity is checked automatically. Payment is collected at the hotel.</p></div>
+          <button type="button" onClick={onClose} className="text-2xl text-[#667085]" aria-label="Close">×</button>
+        </div>
+
+        <div className="mt-5 rounded-xl border border-[#e2e8f0] bg-[#f8fafc] p-4">
+          {isMatching ? <p className="text-sm text-[#667085]">Checking member details...</p> : identity?.kind === "member" ? (
+            <div><p className="text-sm font-semibold text-[#18794e]">Member found automatically</p><p className="mt-1 text-sm text-[#475467]">{identity.matches[0]?.name} · matched by {identity.matches[0]?.matchedBy}</p></div>
+          ) : identity?.kind === "ambiguous" ? (
+            <label className="grid gap-2 text-sm font-semibold text-[#9a6617]">Multiple members found
+              <select value={selectedCustomerId ?? ""} onChange={(event) => setSelectedCustomerId(event.target.value || null)} className="h-10 rounded-lg border border-[#d0d5dd] bg-white px-3 font-normal text-[#344054]">
+                <option value="">Select the correct member</option>
+                {identity.matches.map((match) => <option key={match.customerId} value={match.customerId}>{match.name} · {match.email ?? match.phone}</option>)}
+              </select>
+            </label>
+          ) : <div><p className="text-sm font-semibold text-[#475467]">Guest booking</p><p className="mt-1 text-sm text-[#667085]">No member matched this phone or email.</p></div>}
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <BookingField label="Check-in"><input required type="date" value={checkIn} onChange={(event) => setCheckIn(event.target.value)} /></BookingField>
+          <BookingField label="Check-out"><input required type="date" value={checkOut} onChange={(event) => setCheckOut(event.target.value)} /></BookingField>
+          <BookingField label="Guests"><input required type="number" min="1" max="8" value={guests} onChange={(event) => setGuests(Number(event.target.value))} /></BookingField>
+          <BookingField label="Rooms"><input required type="number" min="1" max="3" value={rooms} onChange={(event) => setRooms(Number(event.target.value))} /></BookingField>
+        </div>
+        <button type="button" onClick={() => void findAvailableRooms()} disabled={isLoading} className="mt-3 rounded-lg border border-[#2f6bff] px-4 py-2 text-sm font-semibold text-[#2f6bff] disabled:opacity-50">Check availability</button>
+        {availableRooms.length > 0 && <div className="mt-3"><BookingField label="Available room type"><select required value={roomTypeId} onChange={(event) => setRoomTypeId(event.target.value)}>{availableRooms.map((room) => <option key={room.id} value={room.id}>{room.name} · THB {room.discountedPrice.toLocaleString()} / night</option>)}</select></BookingField></div>}
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <BookingField label="First name"><input required value={firstName} onChange={(event) => setFirstName(event.target.value)} /></BookingField>
+          <BookingField label="Last name"><input required value={lastName} onChange={(event) => setLastName(event.target.value)} /></BookingField>
+          <BookingField label="Email"><input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></BookingField>
+          <BookingField label="Phone"><input required type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} /></BookingField>
+          <BookingField label="Date of birth"><input required type="date" value={dateOfBirth} onChange={(event) => setDateOfBirth(event.target.value)} /></BookingField>
+          <BookingField label="Country"><select required value={country} onChange={(event) => setCountry(event.target.value)}>{COUNTRIES.map((item) => <option key={item} value={item}>{item}</option>)}</select></BookingField>
+        </div>
+
+        {error && <p className="mt-4 rounded-lg bg-[#fef3f2] px-4 py-3 text-sm text-[#b42318]">{error}</p>}
+        <div className="mt-6 flex justify-end gap-3"><button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-semibold text-[#475467]">Cancel</button><button disabled={isLoading || isMatching || !roomTypeId || (identity?.kind === "ambiguous" && !selectedCustomerId)} className="rounded-lg bg-[#2f6bff] px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">{isLoading ? "Creating..." : "Create booking"}</button></div>
+      </form>
+    </div>
+  );
+}
+
+function BookingField({ label, children }: { label: string; children: React.ReactNode }) {
+  return <label className="grid gap-1 text-sm font-medium text-[#344054]"><span>{label}</span><span className="[&_input]:h-10 [&_input]:w-full [&_input]:rounded-lg [&_input]:border [&_input]:border-[#d0d5dd] [&_input]:px-3 [&_select]:h-10 [&_select]:w-full [&_select]:rounded-lg [&_select]:border [&_select]:border-[#d0d5dd] [&_select]:bg-white [&_select]:px-3">{children}</span></label>;
 }
 
 function PanelCard({
