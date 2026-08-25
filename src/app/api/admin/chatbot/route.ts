@@ -1,0 +1,104 @@
+ import { z } from "zod";
+import { getActiveAdminUser } from "@/server/services/admin-auth";
+import {
+  createChatbotSuggestion,
+  deleteChatbotSuggestion,
+  updateChatbotSettings,
+  updateChatbotSuggestion,
+} from "@/server/queries/chatbot-cms.query";
+
+const suggestionSchema = z.object({
+  id: z.string().trim().min(1).max(100),
+  topic: z.string().trim().min(1).max(200),
+  format: z.enum(["Room type", "Message", "Option with details"]),
+  reply: z.string().trim().min(1).max(2000),
+  button_name: z.string().trim().max(100).nullable(),
+  rooms: z.array(z.string().trim().min(1).max(100)).max(20),
+  options: z.array(z.object({ name: z.string().trim().min(1).max(100), details: z.string().trim().min(1).max(1000) }).strict()).max(20),
+  is_active: z.boolean(),
+  sort_order: z.number().int().min(0).max(10000),
+}).strict();
+
+const settingsSchema = z.object({
+  greeting_message: z.string().trim().min(3).max(2000),
+  auto_reply_message: z.string().trim().min(3).max(2000),
+}).strict();
+
+function validationMessage(error: z.ZodError) {
+  return error.issues
+    .map((issue) => `${issue.path.join(".") || "request"}: ${issue.message}`)
+    .join("; ");
+}
+
+function unauthorized() {
+  return Response.json({ error: "Unauthorized" }, { status: 401 });
+}
+
+async function requireAdmin() {
+  return getActiveAdminUser();
+}
+
+export async function PATCH(request: Request) {
+  const admin = await requireAdmin();
+  if (!admin) return unauthorized();
+  const body = await request.json() as unknown;
+  if (!body || typeof body !== "object") return Response.json({ error: "Invalid request" }, { status: 400 });
+  const record = body as Record<string, unknown>;
+
+  try {
+    if (record.resource === "settings") {
+      const parsed = settingsSchema.safeParse(record.data);
+      if (!parsed.success) return Response.json({ error: "Invalid settings" }, { status: 400 });
+      console.info("[chatbot-admin-audit]", { actorId: admin.id, action: "update_settings" });
+      return Response.json({ settings: await updateChatbotSettings(parsed.data) });
+    }
+    if (record.resource === "suggestion") {
+      const id = z.string().trim().min(1).max(100).safeParse(record.id);
+      const suggestionData = record.data && typeof record.data === "object"
+        ? (() => {
+            const { id: _suggestionId, ...data } = record.data as Record<string, unknown>;
+            return data;
+          })()
+        : record.data;
+      const parsed = suggestionSchema.partial().omit({ id: true }).safeParse(suggestionData);
+      if (!id.success) return Response.json({ error: `Invalid suggestion: ${validationMessage(id.error)}` }, { status: 400 });
+      if (!parsed.success) return Response.json({ error: `Invalid suggestion: ${validationMessage(parsed.error)}` }, { status: 400 });
+      console.info("[chatbot-admin-audit]", { actorId: admin.id, action: "update_suggestion", resourceId: id.data });
+      return Response.json({ suggestion: await updateChatbotSuggestion(id.data, parsed.data) });
+    }
+    return Response.json({ error: "Unknown resource" }, { status: 400 });
+  } catch {
+    return Response.json({ error: "Unable to save chatbot configuration" }, { status: 500 });
+  }
+}
+
+export async function POST(request: Request) {
+  const admin = await requireAdmin();
+  if (!admin) return unauthorized();
+  const body = await request.json() as unknown;
+  if (!body || typeof body !== "object") return Response.json({ error: "Invalid request" }, { status: 400 });
+  const record = body as Record<string, unknown>;
+  if (record.resource !== "suggestion") return Response.json({ error: "Unknown resource" }, { status: 400 });
+  const parsed = suggestionSchema.safeParse(record.data);
+  if (!parsed.success) return Response.json({ error: `Invalid suggestion: ${validationMessage(parsed.error)}` }, { status: 400 });
+  try {
+    console.info("[chatbot-admin-audit]", { actorId: admin.id, action: "create_suggestion", resourceId: parsed.data.id });
+    return Response.json({ suggestion: await createChatbotSuggestion(parsed.data) }, { status: 201 });
+  } catch {
+    return Response.json({ error: "Unable to create chatbot suggestion" }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  const admin = await requireAdmin();
+  if (!admin) return unauthorized();
+  const parsed = z.object({ resource: z.literal("suggestion"), id: z.string().trim().min(1).max(100) }).strict().safeParse(await request.json());
+  if (!parsed.success) return Response.json({ error: "Invalid suggestion" }, { status: 400 });
+  try {
+    console.info("[chatbot-admin-audit]", { actorId: admin.id, action: "delete_suggestion", resourceId: parsed.data.id });
+    await deleteChatbotSuggestion(parsed.data.id);
+    return new Response(null, { status: 204 });
+  } catch {
+    return Response.json({ error: "Unable to delete chatbot suggestion" }, { status: 500 });
+  }
+}

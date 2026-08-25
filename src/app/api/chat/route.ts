@@ -1,19 +1,56 @@
 import { GoogleGenAI } from "@google/genai";
+import { z } from "zod";
 import { createClient } from "@/server/db/supabase-server";
-import type { ChatbotFaq, ChatbotSuggestion } from "@/app/lib/chatbot-faq";
+import type { ChatbotFaq, ChatbotSuggestion, ChatbotSearchState } from "@/types/chatbot";
 import {
-  emptySearchState,
-  getMissingSearchFields,
-  isValidDateRange,
-  mergeSearchState,
-  searchAvailableRooms,
-  type SearchState,
-} from "@/app/lib/hotel";
+  emptyChatbotSearchState,
+  getChatbotRoomInformation,
+  getMissingChatbotSearchFields,
+  isValidChatbotDateRange,
+  mergeChatbotSearchState,
+  searchAvailableChatbotRooms,
+} from "@/server/queries/chatbot.query";
+import { recordChatbotEvent } from "@/server/queries/chatbot-events.query";
+import { getPublishedChatbotContent } from "@/server/queries/chatbot-cms.query";
+import { buildChatbotResponse } from "@/server/services/chatbot-response.service";
+import { faqAnswers as managedFaqAnswers, findManagedFaq as matchManagedFaq } from "@/server/services/chatbot-faq.service";
+import { analyzeLocally as analyzeIntentLocally, findHandoffReason as detectHandoffReason, normalizeSearchState as normalizeIntentSearchState } from "@/server/services/chatbot-intent.service";
+import {
+  checkRateLimits,
+  hasOversizedBody,
+  InvalidJsonError,
+  logApiFailure,
+  PayloadTooLargeError,
+  rateLimitExceededResponse,
+  RateLimitUnavailableError,
+  rateLimitUnavailableResponse,
+  readJsonBody,
+  requestId,
+} from "@/server/services/api-security";
 
 type Message = {
   role: "user" | "assistant";
   content: string;
 };
+
+const MAX_REQUEST_BYTES = 64 * 1024;
+const chatRequestSchema = z
+  .object({
+    messages: z
+      .array(
+        z
+          .object({
+            role: z.enum(["user", "assistant"]),
+            content: z.string().trim().min(1).max(800),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(50),
+    search: z.unknown().optional(),
+    suggestionId: z.string().trim().min(1).max(100).optional(),
+  })
+  .strict();
 
 type Intent = "faq" | "search_room" | "unknown";
 type FaqTopic = "check_in" | "facilities" | "location" | "contact" | "other";
@@ -26,6 +63,20 @@ type Analysis = {
   guests: number | null;
   budget: number | null;
 };
+
+type ResponseMode = "managed_suggestion" | "managed_faq" | "room_information" | "gemini" | "gemini_fallback" | "demo";
+type HandoffReason = "explicit_agent_request" | "sensitive_request" | "repeated_question" | "unanswered";
+
+class GeminiAnalysisError extends Error {
+  constructor(readonly reason: "gemini_timeout" | "gemini_quota" | "gemini_unavailable") {
+    super(reason);
+    this.name = "GeminiAnalysisError";
+  }
+}
+
+const GEMINI_CONTEXT_MESSAGE_LIMIT = 6;
+const GEMINI_CONTEXT_MESSAGE_CHARS = 450;
+const GEMINI_TIMEOUT_MS = 8_000;
 
 const intentSchema = {
   type: "object",
@@ -52,7 +103,7 @@ const faqAnswers: Record<FaqTopic, string> = {
   other: "ยินดีช่วยตอบข้อมูลทั่วไปเกี่ยวกับ Neatly Hotel ค่ะ คุณสามารถถามเรื่องเวลาเช็กอิน สิ่งอำนวยความสะดวก หรือค้นหาห้องพักได้เลย",
 };
 
-const fieldLabels: Record<keyof SearchState, string> = {
+const fieldLabels: Record<keyof ChatbotSearchState, string> = {
   checkIn: "วันเช็กอิน",
   checkOut: "วันเช็กเอาต์",
   guests: "จำนวนผู้เข้าพัก",
@@ -60,24 +111,76 @@ const fieldLabels: Record<keyof SearchState, string> = {
 };
 
 async function getChatbotContent(): Promise<{ faqs: ChatbotFaq[]; autoReply: string | null }> {
-  try {
-    const supabase = await createClient();
-    const [faqResult, settingsResult] = await Promise.all([
-      supabase.from("chatbot_faqs").select("*").eq("is_active", true).order("sort_order").limit(100),
-      supabase.from("chatbot_settings").select("auto_reply_message").eq("id", true).maybeSingle(),
-    ]);
-
-    return {
-      faqs: faqResult.error ? [] : faqResult.data as ChatbotFaq[],
-      autoReply: settingsResult.data?.auto_reply_message ?? null,
-    };
-  } catch {
-    return { faqs: [], autoReply: null };
-  }
+  try { return await getPublishedChatbotContent(); } catch { return { faqs: [], autoReply: null }; }
 }
 
 function normalizeForMatch(value: string) {
   return value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+}
+
+function findHandoffReason(message: string, messages: Message[]): HandoffReason | null {
+  const normalized = normalizeForMatch(message);
+  const explicitlyRequestsAgent = [
+    "คุยกับเจ้าหน้าที่",
+    "ติดต่อเจ้าหน้าที่",
+    "ขอเจ้าหน้าที่",
+    "เจ้าหน้าที่ช่วย",
+    "human agent",
+    "talk to an agent",
+    "speak to staff",
+  ].some((phrase) => normalized.includes(normalizeForMatch(phrase)));
+  if (explicitlyRequestsAgent) return "explicit_agent_request";
+
+  const sensitiveRequest = [
+    "ชำระเงิน", "จ่ายเงิน", "payment", "refund", "ยกเลิก", "cancel", "ร้องเรียน", "complaint", "complain",
+  ].some((phrase) => normalized.includes(normalizeForMatch(phrase)));
+  if (sensitiveRequest) return "sensitive_request";
+
+  const previousUserMessages = messages.slice(0, -1)
+    .filter((item) => item.role === "user")
+    .map((item) => normalizeForMatch(item.content));
+  if (normalized.length > 0 && previousUserMessages.includes(normalized)) return "repeated_question";
+
+  return null;
+}
+
+function redactForGemini(value: string) {
+  return value
+    .replace(/(?<!\w)(?:\+?\d[\d\s().-]{6,}\d)(?!\w)/g, "[REDACTED_PHONE]")
+    .replace(/\b(?:booking\s*(?:code|no\.?|number)?\s*[:#-]?\s*[a-z0-9_-]{4,}|(?:bk|res|book)[-_]?[a-z0-9]{4,})\b/gi, "[REDACTED_BOOKING_CODE]")
+    .slice(0, GEMINI_CONTEXT_MESSAGE_CHARS);
+}
+
+function geminiFailureReason(error: unknown): GeminiAnalysisError["reason"] {
+  if (error instanceof GeminiAnalysisError) return error.reason;
+  const message = error instanceof Error ? error.message.toLowerCase() : "";
+  if (message.includes("quota") || message.includes("resource_exhausted") || message.includes("429")) return "gemini_quota";
+  return "gemini_unavailable";
+}
+
+async function responseWithEvent(
+  payload: Record<string, unknown>,
+  event: {
+    requestId: string;
+    intent: Intent;
+    mode: ResponseMode;
+    fallbackReason?: string | null;
+    handoffReason?: HandoffReason | null;
+  },
+) {
+  try {
+    await recordChatbotEvent({
+      requestId: event.requestId,
+      eventType: event.handoffReason ? "handoff" : "response",
+      intent: event.intent,
+      responseMode: event.mode,
+      fallbackReason: event.fallbackReason ?? null,
+      handoffReason: event.handoffReason ?? null,
+    });
+  } catch (error) {
+    logApiFailure("chat:event", event.requestId, error);
+  }
+  return Response.json(payload);
 }
 
 function findManagedFaq(message: string, faqs: ChatbotFaq[]) {
@@ -97,9 +200,9 @@ function findManagedFaq(message: string, faqs: ChatbotFaq[]) {
   return ranked[0]?.score >= 2 ? ranked[0].faq : null;
 }
 
-function normalizeSearchState(value: unknown): SearchState {
-  if (!value || typeof value !== "object") return emptySearchState;
-  const state = value as Partial<SearchState>;
+function normalizeSearchState(value: unknown): ChatbotSearchState {
+  if (!value || typeof value !== "object") return emptyChatbotSearchState;
+  const state = value as Partial<ChatbotSearchState>;
   return {
     checkIn: typeof state.checkIn === "string" ? state.checkIn : null,
     checkOut: typeof state.checkOut === "string" ? state.checkOut : null,
@@ -162,16 +265,25 @@ function isAnalysis(value: unknown): value is Analysis {
   );
 }
 
-async function analyzeWithGemini(messages: Message[], state: SearchState): Promise<Analysis> {
+async function analyzeWithGemini(messages: Message[], state: ChatbotSearchState): Promise<Analysis> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY is not configured");
 
   const ai = new GoogleGenAI({ apiKey });
   const today = new Date().toISOString().slice(0, 10);
   const conversation = messages
+    .slice(-GEMINI_CONTEXT_MESSAGE_LIMIT)
     .map((message) => `${message.role === "user" ? "ผู้ใช้" : "ผู้ช่วย"}: ${message.content}`)
     .join("\n");
-  const response = await ai.models.generateContent({
+  const redactedConversation = conversation
+    .split("\n")
+    .map(redactForGemini)
+    .join("\n");
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new GeminiAnalysisError("gemini_timeout")), GEMINI_TIMEOUT_MS);
+  });
+  const request = ai.models.generateContent({
     model: process.env.GEMINI_MODEL ?? "gemini-3.6-flash",
     contents: `จำแนก intent และดึงข้อมูลค้นหาห้องจากบทสนทนาโรงแรม
 วันนี้คือ ${today} แปลงวันที่เป็น YYYY-MM-DD
@@ -182,7 +294,7 @@ faqTopic ใช้ check_in, facilities, location, contact หรือ other
 search state ปัจจุบัน: ${JSON.stringify(state)}
 
 บทสนทนา:
-${conversation}`,
+${redactedConversation}`,
     config: {
       responseMimeType: "application/json",
       responseJsonSchema: intentSchema,
@@ -192,6 +304,12 @@ ${conversation}`,
       maxOutputTokens: 1024,
     },
   });
+  let response: Awaited<typeof request>;
+  try {
+    response = await Promise.race([request, timeout]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
 
   if (!response.text) throw new Error("Gemini returned an empty response");
   const parsed: unknown = JSON.parse(response.text);
@@ -199,15 +317,15 @@ ${conversation}`,
   return parsed;
 }
 
-async function searchResponse(analysis: Analysis, current: SearchState) {
-  const search = mergeSearchState(current, {
+async function searchResponse(analysis: Analysis, current: ChatbotSearchState) {
+  const search = mergeChatbotSearchState(current, {
     checkIn: analysis.checkIn,
     checkOut: analysis.checkOut,
     guests: analysis.guests,
     budget: analysis.budget,
   });
 
-  if (!isValidDateRange(search)) {
+  if (!isValidChatbotDateRange(search)) {
     return {
       intent: "search_room" as const,
       message: "วันเช็กเอาต์ต้องอยู่หลังวันเช็กอินค่ะ กรุณาระบุวันที่ใหม่อีกครั้ง",
@@ -216,7 +334,7 @@ async function searchResponse(analysis: Analysis, current: SearchState) {
     };
   }
 
-  const missing = getMissingSearchFields(search);
+  const missing = getMissingChatbotSearchFields(search);
   if (missing.length > 0) {
     const labels = missing.map((field) => fieldLabels[field]);
     return {
@@ -227,7 +345,7 @@ async function searchResponse(analysis: Analysis, current: SearchState) {
     };
   }
 
-  const rooms = await searchAvailableRooms(search);
+  const rooms = await searchAvailableChatbotRooms(search);
   return {
     intent: "search_room" as const,
     message: rooms.length
@@ -239,22 +357,51 @@ async function searchResponse(analysis: Analysis, current: SearchState) {
 }
 
 export async function POST(request: Request) {
+  const id = requestId(request);
+  if (hasOversizedBody(request, MAX_REQUEST_BYTES)) {
+    return Response.json({ error: "Request body is too large" }, { status: 413 });
+  }
+
   try {
-    const body = (await request.json()) as { messages?: Message[]; search?: unknown; suggestionId?: unknown };
-    const messages = Array.isArray(body.messages) ? body.messages.slice(-12) : [];
-    const validMessages = messages.filter(
-      (message): message is Message =>
-        (message.role === "user" || message.role === "assistant") &&
-        typeof message.content === "string" &&
-        message.content.trim().length > 0 &&
-        message.content.length <= 800,
-    );
+    const limit = await checkRateLimits(request, [
+      { scope: "chat:ip:minute", limit: 10, windowSeconds: 60 },
+      { scope: "chat:ip:hour", limit: 60, windowSeconds: 60 * 60 },
+    ]);
+    if (!limit.allowed) return rateLimitExceededResponse(limit.retryAfterSeconds);
+
+    const rawBody = await readJsonBody(request, MAX_REQUEST_BYTES);
+    const parsedBody = chatRequestSchema.safeParse(rawBody);
+    if (!parsedBody.success) {
+      return Response.json({ error: "Invalid chat request" }, { status: 400 });
+    }
+
+    const body = parsedBody.data;
+    const validMessages: Message[] = body.messages.slice(-12);
     const lastMessage = validMessages.at(-1);
     if (!lastMessage || lastMessage.role !== "user") {
       return Response.json({ error: "กรุณาส่งข้อความที่ถูกต้อง" }, { status: 400 });
     }
 
-    if (typeof body.suggestionId === "string" && body.suggestionId.length <= 100) {
+    const ruleBasedHandoff = body.suggestionId
+      ? null
+      : detectHandoffReason(lastMessage.content, validMessages) ?? findHandoffReason(lastMessage.content, validMessages);
+    if (ruleBasedHandoff) {
+      return responseWithEvent({
+        intent: "unknown",
+        message: "ฉันจะส่งต่อเรื่องนี้ให้เจ้าหน้าที่ช่วยดูแลต่อค่ะ กด “คุยกับเจ้าหน้าที่” ด้านล่างเพื่อเริ่ม Live Support ได้เลย",
+        search: normalizeSearchState(body.search),
+        rooms: [],
+        mode: "demo",
+        handoff: { reason: ruleBasedHandoff },
+      }, {
+        requestId: id,
+        intent: "unknown",
+        mode: "demo",
+        handoffReason: ruleBasedHandoff,
+      });
+    }
+
+    if (body.suggestionId) {
       const supabase = await createClient();
       const { data: suggestion, error } = await supabase
         .from("chatbot_suggestions")
@@ -263,33 +410,56 @@ export async function POST(request: Request) {
         .eq("is_active", true)
         .maybeSingle();
 
-      if (error) console.error("Chatbot suggestion lookup failed:", error.message);
+      if (error) logApiFailure("chat:suggestion", id, error);
       if (suggestion) {
-        return Response.json({
+        return buildChatbotResponse({
           intent: "faq",
           message: suggestion.reply,
           suggestion: suggestion as ChatbotSuggestion,
-          search: emptySearchState,
+          search: emptyChatbotSearchState,
           rooms: [],
+          mode: "managed_suggestion",
+        }, {
+          requestId: id,
+          intent: "faq",
           mode: "managed_suggestion",
         });
       }
     }
 
+    const currentSearch = normalizeIntentSearchState(body.search);
+    const roomInformation = await getChatbotRoomInformation(lastMessage.content);
+    if (roomInformation) {
+      return responseWithEvent({
+        intent: "faq",
+        message: `${roomInformation.name}\n${roomInformation.description || "ดูรายละเอียดห้อง ราคา ขนาด เตียง และสิ่งอำนวยความสะดวกได้ด้านล่างค่ะ"}`,
+        search: currentSearch,
+        rooms: [roomInformation],
+        mode: "room_information",
+      }, {
+        requestId: id,
+        intent: "faq",
+        mode: "room_information",
+      });
+    }
+
     const chatbotContent = await getChatbotContent();
-    const managedFaq = findManagedFaq(lastMessage.content, chatbotContent.faqs);
+    const managedFaq = matchManagedFaq(lastMessage.content, chatbotContent.faqs) ?? findManagedFaq(lastMessage.content, chatbotContent.faqs);
     if (managedFaq) {
-      return Response.json({
+      return responseWithEvent({
         intent: "faq",
         message: managedFaq.answer,
         faqId: managedFaq.id,
-        search: emptySearchState,
+        search: emptyChatbotSearchState,
         rooms: [],
+        mode: "managed_faq",
+      }, {
+        requestId: id,
+        intent: "faq",
         mode: "managed_faq",
       });
     }
 
-    const currentSearch = normalizeSearchState(body.search);
     const hasStoredSearchState = Object.values(currentSearch).some(Boolean);
     const hasSearchHistory = validMessages.slice(0, -1).some((message) =>
       ["ค้นหาห้อง", "หาห้อง", "ห้องว่าง", "จอง", "ข้อมูลเพิ่ม"].some((word) =>
@@ -297,42 +467,68 @@ export async function POST(request: Request) {
       ),
     );
     let analysis: Analysis;
-    let mode: "gemini" | "gemini_fallback" | "demo" = "demo";
+    let mode: ResponseMode = "demo";
+    let fallbackReason: string | null = null;
     if (process.env.GEMINI_API_KEY) {
       try {
         analysis = await analyzeWithGemini(validMessages, currentSearch);
         mode = "gemini";
       } catch (error) {
-        console.error("Gemini analysis failed; using local fallback:", error);
-        analysis = analyzeLocally(lastMessage.content, hasStoredSearchState || hasSearchHistory);
+        logApiFailure("chat:gemini", id, error);
+        analysis = analyzeIntentLocally(lastMessage.content, hasStoredSearchState || hasSearchHistory);
         mode = "gemini_fallback";
+        fallbackReason = geminiFailureReason(error);
       }
     } else {
       analysis = analyzeLocally(lastMessage.content, hasStoredSearchState || hasSearchHistory);
     }
 
     if (analysis.intent === "search_room") {
-      return Response.json({ ...(await searchResponse(analysis, currentSearch)), mode });
+      return responseWithEvent({ ...(await searchResponse(analysis, currentSearch)), mode }, {
+        requestId: id,
+        intent: "search_room",
+        mode,
+        fallbackReason,
+      });
     }
     if (analysis.intent === "faq") {
-      return Response.json({
+      return responseWithEvent({
         intent: "faq",
-        message: faqAnswers[analysis.faqTopic],
-        search: emptySearchState,
+        message: managedFaqAnswers[analysis.faqTopic] ?? faqAnswers[analysis.faqTopic],
+        search: emptyChatbotSearchState,
         rooms: [],
         mode,
+      }, {
+        requestId: id,
+        intent: "faq",
+        mode,
+        fallbackReason,
       });
     }
 
-    return Response.json({
+    return responseWithEvent({
       intent: "unknown",
-      message: chatbotContent.autoReply ?? "ขออภัยค่ะ ฉันยังไม่เข้าใจคำถาม รบกวนอธิบายเพิ่มเติม หรือเลือกถามเรื่องห้องพัก ราคา เวลาเช็กอิน และสิ่งอำนวยความสะดวกได้ค่ะ",
+      message: chatbotContent.autoReply ?? "ขออภัยค่ะ ฉันยังไม่เข้าใจคำถาม และจะส่งต่อให้เจ้าหน้าที่ช่วยดูแลต่อ กด “คุยกับเจ้าหน้าที่” เพื่อเริ่ม Live Support ได้เลยค่ะ",
       search: currentSearch,
       rooms: [],
       mode,
+      handoff: { reason: "unanswered" },
+    }, {
+      requestId: id,
+      intent: "unknown",
+      mode,
+      fallbackReason,
+      handoffReason: "unanswered",
     });
   } catch (error) {
-    console.error("Chat API error:", error);
+    logApiFailure("chat", id, error);
+    if (error instanceof PayloadTooLargeError) {
+      return Response.json({ error: error.message }, { status: 413 });
+    }
+    if (error instanceof InvalidJsonError) {
+      return Response.json({ error: error.message }, { status: 400 });
+    }
+    if (error instanceof RateLimitUnavailableError) return rateLimitUnavailableResponse();
     return Response.json({ error: "ระบบแชตขัดข้องชั่วคราว กรุณาลองใหม่" }, { status: 500 });
   }
 }
