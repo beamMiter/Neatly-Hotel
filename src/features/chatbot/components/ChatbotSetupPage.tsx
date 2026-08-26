@@ -1,6 +1,7 @@
 import { createClient } from "@/server/db/supabase-server";
 import { redirect } from "next/navigation";
-import FaqManager from "@/app/admin/chatbot-faqs/faq-manager";
+import FaqManager from "@/features/chatbot/components/faq-manager";
+import { getRoomTypeNames } from "@/server/queries/room-types.query";
 
 export async function ChatbotSetupPage() {
   const supabase = await createClient();
@@ -20,9 +21,10 @@ export async function ChatbotSetupPage() {
 
   if (!staffMember) redirect("/login?error=access-denied");
 
-  const [{ data: settings }, { data: suggestions }] = await Promise.all([
+  const [{ data: settings }, { data: suggestions }, roomTypes] = await Promise.all([
     supabase.from("chatbot_settings").select("*").eq("id", true).single(),
     supabase.from("chatbot_suggestions").select("*").order("sort_order"),
+    getRoomTypeNames(),
   ]);
 
   return (
@@ -34,6 +36,7 @@ export async function ChatbotSetupPage() {
         updated_at: "",
       }}
       initialSuggestions={suggestions ?? []}
+      roomTypes={roomTypes}
     />
   );
 }
