@@ -80,5 +80,11 @@ export function useLiveSupportAdmin(selectedThreadId: string | null, onInitialSe
     return data.conversation;
   }
 
-  return { conversations, supportMessages, agents, currentAdminId, customer, bookings, isSending, sendReply, updateConversation, refresh };
+  function appendSupportMessage(message: SupportMessage) {
+    setSupportMessages((current) => (
+      current.some((item) => item.id === message.id) ? current : [...current, message]
+    ));
+  }
+
+  return { conversations, supportMessages, agents, currentAdminId, customer, bookings, isSending, sendReply, updateConversation, appendSupportMessage, refresh };
 }

@@ -36,7 +36,7 @@ type SupportMessageResponse = {
 };
 
 type SupportSessionResponse = {
-  conversation: Pick<SupportConversation, "id" | "status" | "assigned_agent_id" | "phone_verification_status"> | null;
+  conversation: Pick<SupportConversation, "id" | "status" | "assigned_agent_id" | "phone_verification_status" | "booking_id"> | null;
   messages: SupportMessageResponse[];
 };
 
@@ -505,6 +505,7 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, suggesti
   const liveSupportStatus = supportStatusLabel(supportConversation);
   const liveSupportStatusDescription = supportStatusDescription(supportConversation);
   const isSupportResolved = supportConversation?.status === "resolved";
+  const supportBookingId = supportConversation?.booking_id;
 
   return (
     <aside className="fixed right-2 bottom-2 z-50 sm:right-[18px] sm:bottom-[18px]" aria-label="ผู้ช่วย Neatly Hotel">
@@ -554,6 +555,15 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, suggesti
               <div className={`rounded-lg border px-3 py-2 text-xs ${isSupportResolved ? "border-[#D5D9E4] bg-[#F0F2F6] text-[#596176]" : "border-[#C9DDD1] bg-[#F1F8F3] text-[#476454]"}`}>
                 <span className="font-semibold">{liveSupportStatus}</span> · {liveSupportStatusDescription}
               </div>
+            )}
+            {supportBookingId && !isSupportResolved && (
+              <button
+                type="button"
+                onClick={() => router.push(`/booking/payment?bookingId=${supportBookingId}`)}
+                className="w-full rounded-lg bg-[#C14817] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#A93F13]"
+              >
+                Review booking & choose payment
+              </button>
             )}
             {messages.map((message) => (
               <div key={message.id} className="w-full">
