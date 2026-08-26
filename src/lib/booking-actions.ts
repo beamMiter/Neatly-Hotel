@@ -37,8 +37,7 @@ export function formatStayDate(isoDate: string): string {
 }
 
 export function formatPaymentMethod(payment: BookingPayment): string {
-  const digits = payment.lastDigits.slice(-3);
-  return `Credit Card - *${digits}`;
+  return `Credit Card - *${payment.lastDigits}`;
 }
 
 export function getBookingActions(
