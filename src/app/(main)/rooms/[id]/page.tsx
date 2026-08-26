@@ -5,6 +5,7 @@ import { toLandingRoom } from "@/features/booking/format";
 import { getGuestRoomTypeById, searchRoomTypes } from "@/server/queries/booking-search.query";
 import { ROOMS, getRoomBySlug } from "@/data/rooms";
 import { shuffle } from "@/lib/shuffle";
+import { createClient } from "@/server/db/supabase-server";
 
 type RoomDetailPageProps = {
   params: Promise<{ id: string }>;
@@ -65,6 +66,12 @@ export default async function RoomDetailPage({ params, searchParams }: RoomDetai
   const guests = parseCount(first(search.guests), 2, 8);
   const rooms = parseCount(first(search.rooms), 1, 3);
 
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const isLoggedIn = Boolean(user);
+
   if (isUuid(id)) {
     const room = await getGuestRoomTypeById(id);
     if (!room) notFound();
@@ -80,6 +87,7 @@ export default async function RoomDetailPage({ params, searchParams }: RoomDetai
           room={toLandingRoom(room)}
           otherRooms={otherRooms}
           bookingQuery={{ checkIn, checkOut, guests, rooms }}
+          isLoggedIn={isLoggedIn}
         />
       </main>
     );
@@ -92,7 +100,7 @@ export default async function RoomDetailPage({ params, searchParams }: RoomDetai
 
   return (
     <main className="flex-1">
-      <RoomDetail room={room} otherRooms={otherRooms} />
+      <RoomDetail room={room} otherRooms={otherRooms} isLoggedIn={isLoggedIn} />
     </main>
   );
 }

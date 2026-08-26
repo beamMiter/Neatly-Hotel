@@ -1,15 +1,17 @@
 import Link from "next/link";
 import { formatThb } from "@/features/booking/format";
 import { RoomImagePlaceholder } from "@/features/booking/components/RoomImagePlaceholder";
+import { BookNowButton } from "@/components/shared/BookNowButton";
 import { buildBookingHref } from "@/features/booking-flow/utils";
 import type { RoomSearchResult, SearchQuery } from "@/types/room-search";
 
 type RoomCardProps = {
   room: RoomSearchResult;
   searchQuery: SearchQuery;
+  isLoggedIn: boolean;
 };
 
-export function RoomCard({ room, searchQuery }: RoomCardProps) {
+export function RoomCard({ room, searchQuery, isLoggedIn }: RoomCardProps) {
   const hasDiscount = room.discountedPrice < room.fullPrice;
   const cover = room.imageUrls[0];
   const bookingHref = buildBookingHref(room.id, searchQuery);
@@ -50,12 +52,13 @@ export function RoomCard({ room, searchQuery }: RoomCardProps) {
           >
             Room Detail
           </Link>
-          <Link
+          <BookNowButton
             href={bookingHref}
+            isLoggedIn={isLoggedIn}
             className="cursor-pointer rounded-sm bg-brand-primary px-6 py-3 text-sm font-medium text-white hover:bg-brand-primary-hover"
           >
             Book Now
-          </Link>
+          </BookNowButton>
         </div>
       </div>
     </article>
