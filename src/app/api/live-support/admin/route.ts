@@ -1,5 +1,6 @@
 import {
   addSupportMessage,
+  countWaitingSupportConversations,
   getSupportCustomer,
   listActiveSupportAgents,
   listSupportBookings,
@@ -15,7 +16,13 @@ export async function GET(request: Request) {
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    const conversationId = new URL(request.url).searchParams.get("conversationId");
+    const searchParams = new URL(request.url).searchParams;
+    if (searchParams.get("notifications") === "true") {
+      const unreadCount = await countWaitingSupportConversations();
+      return Response.json({ unreadCount }, { headers: { "Cache-Control": "no-store" } });
+    }
+
+    const conversationId = searchParams.get("conversationId");
     const [conversations, agents] = await Promise.all([
       listSupportConversations(),
       listActiveSupportAgents(),

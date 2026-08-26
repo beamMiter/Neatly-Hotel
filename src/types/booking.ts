@@ -108,6 +108,10 @@ export type ProfilePrefill = {
   email: string; // from auth.users, not profiles
 };
 
+// Customer profile returned by the booking profile query.
+// Keep this name for callers that consume the server-query contract.
+export type BookingCustomerProfile = ProfilePrefill;
+
 export type CreateBookingResult =
   | { ok: true; booking: BookingRecord; pricing: BookingPricing; clientSecret: string | null }
   | { ok: false; code: "SOLD_OUT" | "INVALID_PROMO" | "INVALID_DATES" | "AMOUNT_TOO_LOW"; message: string };
