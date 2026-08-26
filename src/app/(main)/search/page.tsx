@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { SearchPageView } from "@/features/booking/components/SearchPageView";
 import { searchRoomTypes } from "@/server/queries/booking-search.query";
+import { validateStayDates } from "@/features/booking/date-rules";
 import {
   SEARCH_PRICE_MAX,
   SEARCH_PRICE_MIN,
@@ -60,9 +61,13 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     maxPrice = swapped;
   }
 
+  const checkIn = first(params.checkIn) || bangkokIsoDate(0);
+  const checkOut = first(params.checkOut) || bangkokIsoDate(1);
+  const hasInvalidDates = validateStayDates(checkIn, checkOut) !== null;
+
   const initialQuery: SearchQuery = {
-    checkIn: first(params.checkIn) || bangkokIsoDate(0),
-    checkOut: first(params.checkOut) || bangkokIsoDate(1),
+    checkIn: hasInvalidDates ? bangkokIsoDate(0) : checkIn,
+    checkOut: hasInvalidDates ? bangkokIsoDate(1) : checkOut,
     rooms: parseCount(first(params.rooms), 1, 3),
     guests: parseCount(first(params.guests), 2, 8),
     minPrice,
