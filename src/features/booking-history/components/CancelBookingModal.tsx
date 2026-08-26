@@ -7,6 +7,8 @@ import type { BookingCancelType } from "@/lib/booking-actions";
 type CancelBookingModalProps = {
   open: boolean;
   variant: BookingCancelType;
+  isSubmitting: boolean;
+  error: string | null;
   onClose: () => void;
   onConfirm: () => void;
 };
@@ -25,9 +27,16 @@ const COPY: Record<
   },
 };
 
-export function CancelBookingModal({ open, variant, onClose, onConfirm }: CancelBookingModalProps) {
+export function CancelBookingModal({
+  open,
+  variant,
+  isSubmitting,
+  error,
+  onClose,
+  onConfirm,
+}: CancelBookingModalProps) {
   useEffect(() => {
-    if (!open) return;
+    if (!open || isSubmitting) return;
 
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") onClose();
@@ -35,7 +44,7 @@ export function CancelBookingModal({ open, variant, onClose, onConfirm }: Cancel
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, onClose]);
+  }, [open, isSubmitting, onClose]);
 
   if (!open) return null;
 
@@ -46,7 +55,7 @@ export function CancelBookingModal({ open, variant, onClose, onConfirm }: Cancel
       role="presentation"
       className="fixed inset-0 z-60 flex items-center justify-center bg-black/40 px-4"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
+        if (event.target === event.currentTarget && !isSubmitting) onClose();
       }}
     >
       <div
@@ -65,8 +74,9 @@ export function CancelBookingModal({ open, variant, onClose, onConfirm }: Cancel
           <button
             type="button"
             onClick={onClose}
+            disabled={isSubmitting}
             aria-label="Close"
-            className="cursor-pointer text-[#9AA1B9] transition-colors hover:text-[#2A2E3F]"
+            className="cursor-pointer text-[#9AA1B9] transition-colors hover:text-[#2A2E3F] disabled:cursor-not-allowed disabled:opacity-40"
           >
             <CloseIcon className="h-5 w-5" />
           </button>
@@ -76,18 +86,24 @@ export function CancelBookingModal({ open, variant, onClose, onConfirm }: Cancel
           {copy.body}
         </p>
 
+        {error ? (
+          <p className="px-6 pb-4 [font-family:var(--font-inter)] text-sm text-[#B61515]">{error}</p>
+        ) : null}
+
         <div className="flex flex-col gap-3 px-6 pb-6 sm:flex-row sm:justify-end sm:gap-3">
           <button
             type="button"
             onClick={onConfirm}
-            className="cursor-pointer rounded-sm border border-[#C14817] bg-white px-6 py-3 [font-family:var(--font-open-sans)] text-base font-semibold text-[#C14817] transition-colors hover:bg-[#FFF7F3]"
+            disabled={isSubmitting}
+            className="cursor-pointer rounded-sm border border-[#C14817] bg-white px-6 py-3 [font-family:var(--font-open-sans)] text-base font-semibold text-[#C14817] transition-colors hover:bg-[#FFF7F3] disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {copy.confirmLabel}
+            {isSubmitting ? "Cancelling..." : copy.confirmLabel}
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="cursor-pointer rounded-sm bg-[#C14817] px-6 py-3 [font-family:var(--font-open-sans)] text-base font-semibold text-white transition-colors hover:bg-[#A93F13]"
+            disabled={isSubmitting}
+            className="cursor-pointer rounded-sm bg-[#C14817] px-6 py-3 [font-family:var(--font-open-sans)] text-base font-semibold text-white transition-colors hover:bg-[#A93F13] disabled:cursor-not-allowed disabled:opacity-40"
           >
             No, Don&apos;t Cancel
           </button>

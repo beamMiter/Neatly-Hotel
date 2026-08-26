@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { BookingCard } from "@/features/booking-history/components/BookingCard";
 import { CancelBookingModal } from "@/features/booking-history/components/CancelBookingModal";
 import { getBookingActions } from "@/lib/booking-actions";
@@ -13,10 +14,18 @@ type BookingHistoryViewProps = {
   bookings: BookingHistoryItem[];
 };
 
+type CancelBookingResponse = {
+  message: string;
+  refunded: boolean;
+};
+
 export function BookingHistoryView({ bookings: initialBookings }: BookingHistoryViewProps) {
-  const [bookings, setBookings] = useState(initialBookings);
+  const router = useRouter();
+  const [bookings] = useState(initialBookings);
   const [page, setPage] = useState(1);
   const [cancelTarget, setCancelTarget] = useState<BookingHistoryItem | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   const totalPages = Math.max(1, Math.ceil(bookings.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
@@ -28,18 +37,38 @@ export function BookingHistoryView({ bookings: initialBookings }: BookingHistory
     [totalPages],
   );
 
-  function handleConfirmCancel() {
-    if (!cancelTarget) return;
-    const cancelledAt = new Date().toISOString();
+  function openCancelModal(booking: BookingHistoryItem) {
+    setCancelError(null);
+    setCancelTarget(booking);
+  }
 
-    setBookings((current) =>
-      current.map((booking) =>
-        booking.id === cancelTarget.id
-          ? { ...booking, status: "cancelled", cancelledAt, checkedInAt: null }
-          : booking,
-      ),
-    );
+  function closeCancelModal() {
+    if (isCancelling) return;
     setCancelTarget(null);
+    setCancelError(null);
+  }
+
+  async function handleConfirmCancel() {
+    if (!cancelTarget) return;
+    setIsCancelling(true);
+    setCancelError(null);
+
+    try {
+      const response = await fetch(`/api/bookings/${cancelTarget.id}/cancel`, { method: "POST" });
+      const data = (await response.json().catch(() => null)) as CancelBookingResponse | { message?: string } | null;
+
+      if (!response.ok) {
+        setCancelError(data?.message ?? "Unable to cancel this booking. Please try again.");
+        return;
+      }
+
+      const refunded = Boolean((data as CancelBookingResponse)?.refunded);
+      router.push(refunded ? `/refund?bookingId=${cancelTarget.id}` : `/cancel-booking?bookingId=${cancelTarget.id}`);
+    } catch {
+      setCancelError("Unable to cancel this booking. Please try again.");
+    } finally {
+      setIsCancelling(false);
+    }
   }
 
   return (
@@ -57,7 +86,7 @@ export function BookingHistoryView({ bookings: initialBookings }: BookingHistory
           <>
             <div className="mt-10 flex flex-col gap-10 lg:mt-16 lg:gap-16">
               {pageItems.map((booking) => (
-                <BookingCard key={booking.id} booking={booking} onCancel={setCancelTarget} />
+                <BookingCard key={booking.id} booking={booking} onCancel={openCancelModal} />
               ))}
             </div>
 
@@ -106,7 +135,9 @@ export function BookingHistoryView({ bookings: initialBookings }: BookingHistory
         <CancelBookingModal
           open={Boolean(cancelTarget)}
           variant={cancelType}
-          onClose={() => setCancelTarget(null)}
+          isSubmitting={isCancelling}
+          error={cancelError}
+          onClose={closeCancelModal}
           onConfirm={handleConfirmCancel}
         />
       ) : null}

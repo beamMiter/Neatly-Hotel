@@ -2,13 +2,19 @@ import "server-only";
 import crypto from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/server/db";
-import { nightsBetween } from "@/features/booking/date-rules";
+import { supabaseAdmin } from "@/server/db/supabase-admin";
+import { isChangeDateEligible, isRefundEligible, nightsBetween } from "@/features/booking/date-rules";
 import { validatePromotionCode } from "@/server/queries/promo.query";
 import {
   getSpecialRequestCatalog,
   resolveSelectedSpecialRequests,
   validateStandardRequestCodes,
 } from "@/server/queries/special-requests.query";
+import {
+  BookingNotFoundError,
+  InvalidBookingTransitionError,
+} from "@/server/queries/customer-bookings.query";
+import { refundPayment } from "@/server/payments/stripe";
 import type {
   BookingPricing,
   BookingRecord,
@@ -472,4 +478,113 @@ export async function extendBookingHold(bookingId: string, customerId: string | 
   // retryable", which the route turns into a 409 telling the guest to start
   // over. A dropped connection or deadlock is not that — let it surface as a
   // 500 so the guest can simply try again.
+}
+
+const CANCELLABLE_STATUSES: BookingRecord["status"][] = ["pending_payment", "confirmed"];
+const CHANGEABLE_STATUSES: BookingRecord["status"][] = ["pending_payment", "confirmed"];
+
+// Cancels a booking and, when the guest cancels within the refund window
+// (isRefundEligible — see date-rules.ts), refunds the original Stripe
+// charge. No new payments-table migration: the refund outcome is recorded
+// only as booking.status = "refunded" (already a legal DB value, see
+// NON_BLOCKING_BOOKING_STATUSES above); the payments row itself is left as
+// "succeeded" rather than mutated, a known/accepted gap for now.
+export async function cancelBooking(
+  bookingId: string,
+  customerId: string | null,
+): Promise<{ booking: BookingRecord; refunded: boolean }> {
+  const booking = await getBookingById(bookingId, customerId);
+  if (!booking) throw new BookingNotFoundError();
+
+  if (!CANCELLABLE_STATUSES.includes(booking.status)) {
+    throw new InvalidBookingTransitionError("This booking can no longer be cancelled");
+  }
+
+  let refunded = false;
+
+  if (isRefundEligible(booking.checkIn) && booking.paymentMethod === "credit_card" && booking.paymentStatus === "paid") {
+    const { data: payment, error } = await supabaseAdmin
+      .from("payments")
+      .select("stripe_payment_intent_id")
+      .eq("booking_id", bookingId)
+      .eq("status", "succeeded")
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error("[payments] failed to look up payment intent for refund:", error);
+    } else if (payment?.stripe_payment_intent_id) {
+      await refundPayment(payment.stripe_payment_intent_id);
+      refunded = true;
+    }
+  }
+
+  await prisma.booking.update({
+    where: { id: bookingId },
+    data: { status: refunded ? "refunded" : "cancelled" },
+  });
+
+  const updated = await getBookingById(bookingId, customerId);
+  if (!updated) throw new BookingNotFoundError();
+  return { booking: updated, refunded };
+}
+
+function toDateOnly(isoDate: string): Date {
+  return new Date(`${isoDate}T00:00:00.000Z`);
+}
+
+// Changes a confirmed booking's stay dates — only within the change-date
+// window (isChangeDateEligible), only for the same number of nights (no
+// re-pricing needed, matches the "locked-nights" picker UI), and only if
+// this booking's own rooms are actually free for the new range (excludes
+// its own row from the overlap check, same pattern as extendBookingHold).
+export async function changeBookingDates(
+  bookingId: string,
+  customerId: string | null,
+  checkIn: string,
+  checkOut: string,
+): Promise<BookingRecord> {
+  const booking = await getBookingById(bookingId, customerId);
+  if (!booking) throw new BookingNotFoundError();
+
+  if (!CHANGEABLE_STATUSES.includes(booking.status)) {
+    throw new InvalidBookingTransitionError("This booking's dates can no longer be changed");
+  }
+
+  if (!isChangeDateEligible(booking.createdAt)) {
+    throw new InvalidBookingTransitionError("Date changes are only allowed within 24 hours of booking");
+  }
+
+  const originalNights = nightsBetween(booking.checkIn, booking.checkOut);
+  const requestedNights = nightsBetween(checkIn, checkOut);
+  if (requestedNights !== originalNights) {
+    throw new InvalidBookingTransitionError(
+      `The new dates must be ${originalNights} night${originalNights === 1 ? "" : "s"}, same as the original booking`,
+    );
+  }
+
+  const conflicts = await prisma.$queryRaw<{ count: bigint }[]>`
+    select count(*) as count
+    from booking_rooms br
+    join bookings b on b.id = br.booking_id
+    where br.room_id in (select room_id from booking_rooms where booking_id = ${bookingId}::uuid)
+      and b.id <> ${bookingId}::uuid
+      and b.status not in (${Prisma.join(NON_BLOCKING_BOOKING_STATUSES)})
+      and (b.expires_at is null or b.expires_at > now())
+      and b.check_in < ${checkOut}::date
+      and b.check_out > ${checkIn}::date
+  `;
+  if (Number(conflicts[0]?.count ?? 0) > 0) {
+    throw new BookingConflictError();
+  }
+
+  await prisma.booking.update({
+    where: { id: bookingId },
+    data: { checkIn: toDateOnly(checkIn), checkOut: toDateOnly(checkOut) },
+  });
+
+  const updated = await getBookingById(bookingId, customerId);
+  if (!updated) throw new BookingNotFoundError();
+  return updated;
 }

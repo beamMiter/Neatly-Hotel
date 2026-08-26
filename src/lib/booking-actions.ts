@@ -1,3 +1,4 @@
+import { isChangeDateEligible, isRefundEligible } from "@/features/booking/date-rules";
 import type { BookingHistoryItem, BookingPayment } from "@/types/booking";
 
 export type BookingCancelType = "refundable" | "non-refundable";
@@ -9,7 +10,6 @@ export type BookingActions = {
   cancelType: BookingCancelType | null;
 };
 
-const DAY_MS = 24 * 60 * 60 * 1000;
 const BANGKOK_OFFSET = "+07:00";
 
 const BANGKOK_DATE_FORMAT: Intl.DateTimeFormatOptions = {
@@ -63,12 +63,12 @@ export function getBookingActions(
     };
   }
 
-  const msSinceBooking = now.getTime() - new Date(booking.bookingCreatedAt).getTime();
-  const msUntilCheckIn = parseLocalDate(booking.checkInDate).getTime() - now.getTime();
-  const cancelType: BookingCancelType = msUntilCheckIn <= DAY_MS ? "non-refundable" : "refundable";
+  const cancelType: BookingCancelType = isRefundEligible(booking.checkInDate, now)
+    ? "refundable"
+    : "non-refundable";
 
   return {
-    showChangeDate: msSinceBooking < DAY_MS,
+    showChangeDate: isChangeDateEligible(booking.bookingCreatedAt, now),
     showCancel: true,
     showRoomDetail: true,
     cancelType,

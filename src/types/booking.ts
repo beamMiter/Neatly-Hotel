@@ -72,7 +72,8 @@ export type BookingStatus =
   | "confirmed"
   | "checked_in"
   | "completed"
-  | "cancelled";
+  | "cancelled"
+  | "refunded";
 export type BookingPaymentStatus = "pending" | "paid" | "failed" | "pay_at_hotel";
 
 export type BookingRecord = {

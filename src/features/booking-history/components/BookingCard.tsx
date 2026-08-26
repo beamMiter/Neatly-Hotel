@@ -89,12 +89,12 @@ export function BookingCard({ booking, onCancel }: BookingCardProps) {
                 </Link>
               ) : null}
               {actions.showChangeDate ? (
-                <button
-                  type="button"
-                  className="h-12 cursor-pointer rounded-sm bg-[#C14817] px-8 [font-family:var(--font-open-sans)] text-base font-semibold text-white transition-colors hover:bg-[#A93F13]"
+                <Link
+                  href={`/change-date?bookingId=${booking.id}`}
+                  className="flex h-12 items-center justify-center rounded-sm bg-[#C14817] px-8 [font-family:var(--font-open-sans)] text-base font-semibold text-white transition-colors hover:bg-[#A93F13]"
                 >
                   Change Date
-                </button>
+                </Link>
               ) : null}
             </div>
           </div>

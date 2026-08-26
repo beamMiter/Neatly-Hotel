@@ -61,3 +61,10 @@ export function constructWebhookEvent(rawBody: string | Buffer, signature: strin
 export async function retrieveChargeWithCard(chargeId: string): Promise<Stripe.Charge> {
   return getStripe().charges.retrieve(chargeId, { expand: ["payment_method_details"] });
 }
+
+// Full refund of a succeeded payment intent — used by booking cancellation
+// when the guest cancels within the refund-eligible window (see
+// isRefundEligible in src/features/booking/date-rules.ts).
+export async function refundPayment(paymentIntentId: string): Promise<Stripe.Refund> {
+  return getStripe().refunds.create({ payment_intent: paymentIntentId });
+}
