@@ -9,9 +9,10 @@ import type { RoomSearchResult, SearchQuery } from "@/types/room-search";
 type SearchPageViewProps = {
   rooms: RoomSearchResult[];
   initialQuery: SearchQuery;
+  isLoggedIn: boolean;
 };
 
-export function SearchPageView({ rooms, initialQuery }: SearchPageViewProps) {
+export function SearchPageView({ rooms, initialQuery, isLoggedIn }: SearchPageViewProps) {
   useEffect(() => {
     window.scrollTo(0, 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -43,7 +44,9 @@ export function SearchPageView({ rooms, initialQuery }: SearchPageViewProps) {
             No rooms match this search. Try different dates, rooms, guests, or filters.
           </p>
         ) : (
-          rooms.map((room) => <RoomCard key={room.id} room={room} searchQuery={initialQuery} />)
+          rooms.map((room) => (
+            <RoomCard key={room.id} room={room} searchQuery={initialQuery} isLoggedIn={isLoggedIn} />
+          ))
         )}
       </div>
     </main>

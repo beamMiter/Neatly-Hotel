@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { SearchPageView } from "@/features/booking/components/SearchPageView";
 import { searchRoomTypes } from "@/server/queries/booking-search.query";
+import { createClient } from "@/server/db/supabase-server";
 import {
   SEARCH_PRICE_MAX,
   SEARCH_PRICE_MIN,
@@ -70,7 +71,12 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     sort: parseSort(first(params.sort)),
   };
 
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   const rooms = await searchRoomTypes(initialQuery);
 
-  return <SearchPageView rooms={rooms} initialQuery={initialQuery} />;
+  return <SearchPageView rooms={rooms} initialQuery={initialQuery} isLoggedIn={Boolean(user)} />;
 }
