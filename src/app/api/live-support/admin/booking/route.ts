@@ -45,6 +45,7 @@ export async function POST(request: Request) {
   const parsed = z.object({
     conversationId: z.string().uuid(),
     selectedCustomerId: z.string().uuid().nullable().optional(),
+    emailVerificationToken: z.string().min(1).max(1024).optional(),
     booking: z.unknown(),
   }).safeParse(body);
   if (!parsed.success) return Response.json({ error: "Invalid booking request" }, { status: 400 });
