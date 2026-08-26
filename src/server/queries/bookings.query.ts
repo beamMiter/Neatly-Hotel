@@ -489,6 +489,14 @@ const CHANGEABLE_STATUSES: BookingRecord["status"][] = ["pending_payment", "conf
 // only as booking.status = "refunded" (already a legal DB value, see
 // NON_BLOCKING_BOOKING_STATUSES above); the payments row itself is left as
 // "succeeded" rather than mutated, a known/accepted gap for now.
+//
+// Double-refund guard: the status transition is claimed atomically (via
+// updateMany's WHERE) *before* Stripe is called, not after. Two concurrent
+// cancel requests for the same booking (double-click, two tabs, a retry)
+// would otherwise both read the pre-cancel status and both issue a Stripe
+// refund; with the claim first, only the request that actually flips the
+// row proceeds to call Stripe — the loser sees claim.count === 0 and fails
+// with InvalidBookingTransitionError before ever touching Stripe.
 export async function cancelBooking(
   bookingId: string,
   customerId: string | null,
@@ -500,7 +508,7 @@ export async function cancelBooking(
     throw new InvalidBookingTransitionError("This booking can no longer be cancelled");
   }
 
-  let refunded = false;
+  let paymentIntentId: string | null = null;
 
   if (isRefundEligible(booking.checkIn) && booking.paymentMethod === "credit_card" && booking.paymentStatus === "paid") {
     const { data: payment, error } = await supabaseAdmin
@@ -515,19 +523,36 @@ export async function cancelBooking(
     if (error) {
       console.error("[payments] failed to look up payment intent for refund:", error);
     } else if (payment?.stripe_payment_intent_id) {
-      await refundPayment(payment.stripe_payment_intent_id);
-      refunded = true;
+      paymentIntentId = payment.stripe_payment_intent_id;
     }
   }
 
-  await prisma.booking.update({
-    where: { id: bookingId },
-    data: { status: refunded ? "refunded" : "cancelled" },
+  const finalStatus = paymentIntentId ? "refunded" : "cancelled";
+
+  const claim = await prisma.booking.updateMany({
+    where: { id: bookingId, status: { in: CANCELLABLE_STATUSES } },
+    data: { status: finalStatus },
   });
+
+  if (claim.count === 0) {
+    throw new InvalidBookingTransitionError("This booking can no longer be cancelled");
+  }
+
+  if (paymentIntentId) {
+    try {
+      await refundPayment(paymentIntentId, `refund_${bookingId}`);
+    } catch (error) {
+      // We already claimed "refunded" but Stripe didn't actually refund —
+      // roll back to "cancelled" rather than leave the booking claiming a
+      // refund that never happened.
+      await prisma.booking.update({ where: { id: bookingId }, data: { status: "cancelled" } });
+      throw error;
+    }
+  }
 
   const updated = await getBookingById(bookingId, customerId);
   if (!updated) throw new BookingNotFoundError();
-  return { booking: updated, refunded };
+  return { booking: updated, refunded: finalStatus === "refunded" };
 }
 
 function toDateOnly(isoDate: string): Date {
