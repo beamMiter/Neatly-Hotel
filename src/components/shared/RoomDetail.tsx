@@ -13,12 +13,14 @@ import type { SearchQuery } from '@/types/room-search';
 import { buildBookingHref, isRoomTypeUuid } from '@/features/booking-flow/utils';
 import { smoothScrollTo } from '@/lib/smoothScroll';
 import { useInterval } from '@/lib/useInterval';
+import { BookNowButton } from '@/components/shared/BookNowButton';
 
 // ── Types ──────────────────────────────────────────────────────
 type RoomDetailProps = {
 	room: LandingRoom;
 	otherRooms: LandingRoom[];
 	bookingQuery?: SearchQuery;
+	isLoggedIn: boolean;
 };
 
 // ── Sub components ────────────────────────────────────────────
@@ -28,7 +30,7 @@ const GrayArrowIcon = ({ direction }: { direction: 'left' | 'right' }) => (
 	</svg>
 );
 
-const RoomDetail = ({ room, otherRooms, bookingQuery }: RoomDetailProps) => {
+const RoomDetail = ({ room, otherRooms, bookingQuery, isLoggedIn }: RoomDetailProps) => {
 	const gallerySliderRef = useRef<HTMLDivElement>(null);
 	const galleryTrackRef = useRef<HTMLDivElement>(null);
 	const galleryIndexRef = useRef(0);
@@ -202,12 +204,13 @@ const RoomDetail = ({ room, otherRooms, bookingQuery }: RoomDetailProps) => {
 							</div>
 
 							{bookingHref ? (
-								<Link
+								<BookNowButton
 									href={bookingHref}
+									isLoggedIn={isLoggedIn}
 									className="flex h-12 w-36 cursor-pointer items-center justify-center gap-2.5 rounded bg-[#C14817] px-8 py-4 [font-family:var(--font-open-sans)] text-base font-semibold text-white transition-transform duration-150 hover:bg-[#A93F13] active:scale-90"
 								>
 									Book Now
-								</Link>
+								</BookNowButton>
 							) : (
 								<button
 									type="button"
