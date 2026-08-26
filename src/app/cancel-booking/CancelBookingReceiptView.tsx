@@ -39,7 +39,7 @@ const CancelBookingReceiptView = ({ roomName, checkIn, checkOut, guests }: Cance
 								The Cancellation is Complete
 							</h1>
 							<p className="max-w-172.5 [font-family:var(--font-inter)] text-sm leading-[150%] tracking-[-0.02em] text-[#ABC0B4]">
-								Your booking has been cancelled. As it was within 24 hours of check-in, no refund applies.
+								Your booking has been cancelled. As it was within 72 hours (3 days) of check-in, no refund applies.
 							</p>
 						</div>
 
