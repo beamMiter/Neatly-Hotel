@@ -77,13 +77,6 @@ export function SearchFilterDropdown({ query }: SearchFilterDropdownProps) {
 
   useEffect(() => {
     if (!isOpen) return;
-    setMinPrice(appliedMin);
-    setMaxPrice(appliedMax);
-    setSort(appliedSort);
-  }, [isOpen, appliedMin, appliedMax, appliedSort]);
-
-  useEffect(() => {
-    if (!isOpen) return;
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setIsOpen(false);
@@ -118,6 +111,18 @@ export function SearchFilterDropdown({ query }: SearchFilterDropdownProps) {
     setIsOpen(false);
   };
 
+  const handleToggle = () => {
+    if (isOpen) {
+      setIsOpen(false);
+      return;
+    }
+
+    setMinPrice(appliedMin);
+    setMaxPrice(appliedMax);
+    setSort(appliedSort);
+    setIsOpen(true);
+  };
+
   const handleClear = () => {
     if (!clearEnabled) return;
     setMinPrice(SEARCH_PRICE_MIN);
@@ -138,7 +143,7 @@ export function SearchFilterDropdown({ query }: SearchFilterDropdownProps) {
         type="button"
         aria-expanded={isOpen}
         aria-haspopup="dialog"
-        onClick={() => setIsOpen((open) => !open)}
+        onClick={handleToggle}
         className="flex h-12 w-full cursor-pointer items-center gap-2 rounded border border-[#D6D9E4] bg-white px-3 py-3"
       >
         <span className="[font-family:var(--font-inter)] text-base text-[#646D89]">Filters</span>

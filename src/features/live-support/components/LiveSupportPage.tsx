@@ -1,9 +1,10 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { EmailOtpVerification } from "@/features/booking/components/EmailOtpVerification";
-import type { SupportConversation, SupportConversationStatus, SupportCustomer, SupportMemberMatch } from "@/types/live-support";
+import type { SupportBooking, SupportConversation, SupportConversationStatus, SupportCustomer, SupportMemberMatch, SupportMessage } from "@/types/live-support";
 import { useLiveSupportAdmin } from "@/features/live-support/components/useLiveSupportAdmin";
 import { COUNTRIES } from "@/lib/countries";
 
@@ -219,6 +220,7 @@ export function LiveSupportPage() {
     isSending,
     sendReply: sendSupportReply,
     updateConversation: updateSupportConversation,
+    appendSupportMessage,
     refresh,
   } = useLiveSupportAdmin(selectedThreadId, setSelectedThreadId);
 
@@ -504,6 +506,23 @@ export function LiveSupportPage() {
             <div className="mt-5 grid gap-5">
               {supportMessages.map((message) => {
                 const isAgent = message.sender === "agent";
+                const isSystem = message.sender === "system";
+
+                if (isSystem) {
+                  const bookingCode = message.content.match(/Booking\s+(NB-[A-Z0-9-]+)/i)?.[1];
+                  const booking = bookingCode
+                    ? bookings.find((item) => item.bookingCode.toUpperCase() === bookingCode.toUpperCase())
+                    : undefined;
+
+                  return (
+                    <div key={message.id} className="grid justify-items-center gap-3">
+                      <div className="max-w-[min(92%,36rem)] rounded-xl border border-[#b9e7c9] bg-[#effaf2] px-4 py-3 text-center text-[13px] leading-5 text-[#176b3a]">
+                        {message.content}
+                      </div>
+                      {booking ? <ConversationBookingCard booking={booking} /> : null}
+                    </div>
+                  );
+                }
 
                 return (
                   <div
@@ -671,8 +690,9 @@ export function LiveSupportPage() {
           conversation={currentConversation}
           customer={customer}
           onClose={() => setIsCreateBookingOpen(false)}
-          onCreated={() => {
+          onCreated={(supportMessage) => {
             setIsCreateBookingOpen(false);
+            if (supportMessage) appendSupportMessage(supportMessage);
             void refresh();
           }}
         />
@@ -692,7 +712,7 @@ function CreateBookingDialog({ conversation, customer, onClose, onCreated }: {
   conversation: SupportConversation;
   customer: SupportCustomer | null;
   onClose: () => void;
-  onCreated: () => void;
+  onCreated: (supportMessage?: SupportMessage) => void;
 }) {
   const nameParts = (customer?.name ?? conversation.customer_name ?? "").trim().split(/\s+/).filter(Boolean);
   const [checkIn, setCheckIn] = useState("");
@@ -791,12 +811,12 @@ function CreateBookingDialog({ conversation, customer, onClose, onCreated }: {
           },
         }),
       });
-      const data = await response.json() as { error?: string; matches?: SupportMemberMatch[] };
+      const data = await response.json() as { error?: string; matches?: SupportMemberMatch[]; supportMessage?: SupportMessage };
       if (!response.ok) {
         if (data.matches) setIdentity({ kind: "ambiguous", matches: data.matches, selectedCustomerId: null });
         throw new Error(data.error ?? "Unable to create booking");
       }
-      onCreated();
+      onCreated(data.supportMessage);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to create booking");
     } finally {
@@ -808,7 +828,7 @@ function CreateBookingDialog({ conversation, customer, onClose, onCreated }: {
     <div className="fixed inset-0 z-50 grid place-items-center bg-[#101828]/45 p-4" role="dialog" aria-modal="true" aria-labelledby="create-booking-title">
       <form onSubmit={createBooking} className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[22px] bg-white p-6 shadow-2xl">
         <div className="flex items-start justify-between gap-4">
-          <div><h2 id="create-booking-title" className="text-xl font-semibold text-[#111827]">Create Booking</h2><p className="mt-1 text-sm text-[#667085]">Customer identity is checked automatically. Payment is collected at the hotel.</p></div>
+          <div><h2 id="create-booking-title" className="text-xl font-semibold text-[#111827]">Create Booking</h2><p className="mt-1 text-sm text-[#667085]">Customer identity is checked automatically. The customer chooses payment on the Neatly Hotel website.</p></div>
           <button type="button" onClick={onClose} className="text-2xl text-[#667085]" aria-label="Close">×</button>
         </div>
 
@@ -871,6 +891,32 @@ function CreateBookingDialog({ conversation, customer, onClose, onCreated }: {
 
 function BookingField({ label, children }: { label: string; children: React.ReactNode }) {
   return <label className="grid gap-1 text-sm font-medium text-[#344054]"><span>{label}</span><span className="[&_input]:h-10 [&_input]:w-full [&_input]:rounded-lg [&_input]:border [&_input]:border-[#d0d5dd] [&_input]:px-3 [&_select]:h-10 [&_select]:w-full [&_select]:rounded-lg [&_select]:border [&_select]:border-[#d0d5dd] [&_select]:bg-white [&_select]:px-3">{children}</span></label>;
+}
+
+function ConversationBookingCard({ booking }: { booking: SupportBooking }) {
+  return (
+    <article className="w-full max-w-[28rem] rounded-[16px] border border-[#d9e4fb] bg-white p-4 shadow-[0_8px_20px_rgba(15,23,42,0.06)]">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#526aa8]">Booking created</p>
+          <h3 className="mt-1 text-[16px] font-semibold text-[#111827]">{booking.roomType}</h3>
+        </div>
+        <span className="rounded-full bg-[#fff1dc] px-2.5 py-1 text-[12px] font-semibold capitalize text-[#9a6617]">
+          {booking.status.replaceAll("_", " ")}
+        </span>
+      </div>
+      <div className="mt-3 grid gap-1 text-[13px] text-[#667085] sm:grid-cols-2">
+        <span>{booking.checkIn} - {booking.checkOut}</span>
+        <span className="sm:text-right">THB {booking.totalAmount.toLocaleString("en-US")}</span>
+      </div>
+      <div className="mt-3 flex items-center justify-between gap-3 border-t border-[#edf0f5] pt-3">
+        <span className="text-[12px] text-[#667085]">#{booking.bookingCode}</span>
+        <Link href={`/customer-booking/${booking.id}`} className="text-[13px] font-semibold text-[#2f6bff] hover:text-[#1f54e8]">
+          View booking
+        </Link>
+      </div>
+    </article>
+  );
 }
 
 function PanelCard({

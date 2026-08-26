@@ -1,7 +1,7 @@
 import "server-only";
 import { parseCreateBookingPayload } from "@/features/booking/validations";
 import { validateStayDates } from "@/features/booking/date-rules";
-import { createPendingBooking, markBookingCashConfirmed } from "@/server/queries/bookings.query";
+import { createPendingBooking } from "@/server/queries/bookings.query";
 import { assertEmailVerificationToken } from "@/server/queries/email-otp.query";
 import {
   addSupportMessage,
@@ -85,16 +85,17 @@ export async function createBookingForSupportConversation(input: {
     specialRequests: data.specialRequests,
     additionalRequest: data.additionalRequest ?? null,
     promoCode: data.promoCode ?? null,
-    paymentMethod: "cash",
+    // The customer chooses the final payment method on the main website.
+    // This creates a standard 30-minute pending-payment hold in the meantime.
+    paymentMethod: "credit_card",
   });
 
-  await markBookingCashConfirmed(booking.id);
   await updateSupportConversation(conversation.id, { booking_id: booking.id, customer_id: customerId });
-  await addSupportMessage(
+  const supportMessage = await addSupportMessage(
     conversation.id,
     "system",
-    `Booking ${booking.bookingCode} created as ${customerId ? "member" : "guest"} booking. Payment: pay at hotel.`,
+    `Booking ${booking.bookingCode} is ready for confirmation. Review the booking and choose a payment method on the Neatly Hotel website.`,
   );
 
-  return { booking, customerType: customerId ? "member" as const : "guest" as const, customerId };
+  return { booking, customerType: customerId ? "member" as const : "guest" as const, customerId, supportMessage };
 }
