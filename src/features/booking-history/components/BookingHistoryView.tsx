@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
-import { createMockBookingHistory } from "@/data/booking-history";
 import { BookingCard } from "@/features/booking-history/components/BookingCard";
 import { CancelBookingModal } from "@/features/booking-history/components/CancelBookingModal";
 import { getBookingActions } from "@/lib/booking-actions";
@@ -10,8 +9,12 @@ import type { BookingHistoryItem } from "@/types/booking";
 
 const PAGE_SIZE = 4;
 
-export function BookingHistoryView() {
-  const [bookings, setBookings] = useState(() => createMockBookingHistory());
+type BookingHistoryViewProps = {
+  bookings: BookingHistoryItem[];
+};
+
+export function BookingHistoryView({ bookings: initialBookings }: BookingHistoryViewProps) {
+  const [bookings, setBookings] = useState(initialBookings);
   const [page, setPage] = useState(1);
   const [cancelTarget, setCancelTarget] = useState<BookingHistoryItem | null>(null);
 
@@ -46,49 +49,57 @@ export function BookingHistoryView() {
           Booking History
         </h1>
 
-        <div className="mt-10 flex flex-col gap-10 lg:mt-16 lg:gap-16">
-          {pageItems.map((booking) => (
-            <BookingCard key={booking.id} booking={booking} onCancel={setCancelTarget} />
-          ))}
-        </div>
+        {bookings.length === 0 ? (
+          <p className="py-16 text-center text-sm text-[#646D89]">
+            You don&apos;t have any bookings yet.
+          </p>
+        ) : (
+          <>
+            <div className="mt-10 flex flex-col gap-10 lg:mt-16 lg:gap-16">
+              {pageItems.map((booking) => (
+                <BookingCard key={booking.id} booking={booking} onCancel={setCancelTarget} />
+              ))}
+            </div>
 
-        <nav className="flex items-center justify-center gap-1 py-10 lg:py-16" aria-label="Pagination">
-          <button
-            type="button"
-            onClick={() => setPage((current) => Math.max(1, current - 1))}
-            disabled={currentPage <= 1}
-            aria-label="Previous page"
-            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md disabled:pointer-events-none disabled:opacity-40"
-          >
-            <Image src="/icons/icon/arrow-left.svg" alt="" width={16} height={16} />
-          </button>
+            <nav className="flex items-center justify-center gap-1 py-10 lg:py-16" aria-label="Pagination">
+              <button
+                type="button"
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+                disabled={currentPage <= 1}
+                aria-label="Previous page"
+                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md disabled:pointer-events-none disabled:opacity-40"
+              >
+                <Image src="/icons/icon/arrow-left.svg" alt="" width={16} height={16} />
+              </button>
 
-          {pages.map((pageNumber) => (
-            <button
-              key={pageNumber}
-              type="button"
-              onClick={() => setPage(pageNumber)}
-              aria-current={pageNumber === currentPage ? "page" : undefined}
-              className={`flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-sm ${
-                pageNumber === currentPage
-                  ? "bg-[#E4E6ED] font-medium text-[#2A2E3F]"
-                  : "text-[#646D89] hover:bg-[#F1F2F6]"
-              }`}
-            >
-              {pageNumber}
-            </button>
-          ))}
+              {pages.map((pageNumber) => (
+                <button
+                  key={pageNumber}
+                  type="button"
+                  onClick={() => setPage(pageNumber)}
+                  aria-current={pageNumber === currentPage ? "page" : undefined}
+                  className={`flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-sm ${
+                    pageNumber === currentPage
+                      ? "bg-[#E4E6ED] font-medium text-[#2A2E3F]"
+                      : "text-[#646D89] hover:bg-[#F1F2F6]"
+                  }`}
+                >
+                  {pageNumber}
+                </button>
+              ))}
 
-          <button
-            type="button"
-            onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
-            disabled={currentPage >= totalPages}
-            aria-label="Next page"
-            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md disabled:pointer-events-none disabled:opacity-40"
-          >
-            <Image src="/icons/icon/arrow-right.svg" alt="" width={16} height={16} />
-          </button>
-        </nav>
+              <button
+                type="button"
+                onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                disabled={currentPage >= totalPages}
+                aria-label="Next page"
+                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md disabled:pointer-events-none disabled:opacity-40"
+              >
+                <Image src="/icons/icon/arrow-right.svg" alt="" width={16} height={16} />
+              </button>
+            </nav>
+          </>
+        )}
       </div>
 
       {cancelType ? (
