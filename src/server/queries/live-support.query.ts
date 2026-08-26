@@ -121,6 +121,16 @@ export async function listSupportConversations() {
   return (data ?? []) as SupportConversation[];
 }
 
+export async function countWaitingSupportConversations() {
+  const { count, error } = await supabaseAdmin
+    .from("support_conversations")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "waiting");
+
+  if (error) throw new Error(error.message);
+  return count ?? 0;
+}
+
 export async function getSupportConversation(conversationId: string) {
   const { data, error } = await supabaseAdmin
     .from("support_conversations")
