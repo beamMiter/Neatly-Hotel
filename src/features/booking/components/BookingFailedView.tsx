@@ -41,8 +41,8 @@ export function BookingFailedView({ bookingId, booking }: BookingFailedViewProps
   }
 
   return (
-    <div className="mx-auto flex max-w-[738px] flex-col gap-10 px-4 py-20">
-      <div className="flex w-full flex-col items-center gap-6 rounded bg-[#FAEDE8] px-6 pt-16 pb-[88px]">
+    <div className="mx-auto flex max-w-[738px] flex-col gap-10 pb-6 lg:px-4 lg:py-20">
+      <div className="flex w-full flex-col items-center gap-6 bg-[#FAEDE8] px-6 py-[88px] lg:rounded lg:pt-16 lg:pb-[88px]">
         <Image src="/icons/icon/icon-error.svg" alt="" width={64} height={64} />
 
         <div className="flex flex-col items-center gap-3">
@@ -56,26 +56,31 @@ export function BookingFailedView({ bookingId, booking }: BookingFailedViewProps
         </div>
 
         {error && <p className="text-sm text-red-600">{error}</p>}
-
-        {!clientSecret && (
-          <div className="flex items-center gap-10">
-            <Link
-              href="/"
-              className="cursor-pointer px-2 py-1 [font-family:var(--font-open-sans)] text-base leading-none font-semibold text-[#E76B39]"
-            >
-              Back to Home
-            </Link>
-            <button
-              type="button"
-              onClick={handleRetry}
-              disabled={isStartingRetry}
-              className="flex h-12 w-[250px] items-center justify-center rounded bg-[#C14817] px-8 py-4 [font-family:var(--font-open-sans)] text-base leading-none font-semibold text-white hover:bg-[#A93F13] disabled:opacity-60"
-            >
-              {isStartingRetry ? "Starting..." : "Try Again"}
-            </button>
-          </div>
-        )}
       </div>
+
+      {/* Sibling of the orange card, not nested inside it — Figma's "button
+          wrapper" frame sits on the plain page background below "head", with
+          its own breathing room, not packed against the card. Mobile stacks
+          primary (full-width) above the ghost button; desktop keeps them
+          side by side. */}
+      {!clientSecret && (
+        <div className="flex w-full flex-col items-center gap-6 px-6 lg:w-auto lg:flex-row lg:gap-10 lg:self-center lg:px-0">
+          <button
+            type="button"
+            onClick={handleRetry}
+            disabled={isStartingRetry}
+            className="flex h-12 w-full items-center justify-center rounded bg-[#C14817] px-8 py-4 [font-family:var(--font-open-sans)] text-base leading-none font-semibold text-white hover:bg-[#A93F13] disabled:opacity-60 lg:order-2 lg:w-[250px]"
+          >
+            {isStartingRetry ? "Starting..." : "Try Again"}
+          </button>
+          <Link
+            href="/"
+            className="cursor-pointer px-2 py-1 [font-family:var(--font-open-sans)] text-base leading-none font-semibold text-[#E76B39] lg:order-1"
+          >
+            Back to Home
+          </Link>
+        </div>
+      )}
 
       {clientSecret && (
         <div className="flex w-full flex-col gap-10 rounded border border-[#E4E6ED] bg-white p-10">

@@ -188,7 +188,7 @@ export function SpecialRequestStep({
   const specialOptions = catalog.filter((option) => option.category === "special");
 
   return (
-    <div className="flex w-full flex-col gap-10 rounded border border-[#E4E6ED] bg-white p-10">
+    <div className="flex w-full flex-col gap-6 rounded border border-[#E4E6ED] bg-white px-4 py-6 lg:gap-10 lg:p-10">
       <div className="flex w-full flex-col gap-10">
         <div className="flex flex-col gap-6">
           <div className="flex flex-col">

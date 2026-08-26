@@ -145,7 +145,7 @@ export function BookingSummaryPanel({
         </div>
       </div>
 
-      <ul className="flex flex-col gap-5 rounded bg-[#E4E6ED] p-4">
+      <ul className="flex flex-col gap-5 bg-[#E4E6ED] p-4">
         <li className="flex items-start gap-2">
           <span className="mt-[7px] h-[5px] w-[5px] flex-none rounded-full bg-[#5D7B6A]" />
           <p className="[font-family:var(--font-inter)] text-xs leading-[150%] font-medium tracking-[-0.02em] text-[#5D7B6A]">

@@ -74,7 +74,7 @@ export function BasicInfoStep({
   const emailLooksValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.email.trim());
 
   return (
-    <div className="flex w-full flex-col gap-10 rounded border border-[#E4E6ED] bg-white p-10">
+    <div className="flex w-full flex-col gap-6 rounded border border-[#E4E6ED] bg-white px-4 py-6 lg:gap-10 lg:p-10">
       <h2 className="[font-family:var(--font-inter)] text-xl leading-[150%] font-semibold text-[#424C6B]">
         Basic Information
       </h2>

@@ -71,8 +71,8 @@ export function BookingSuccessView({
 
   if (isConfirming || timedOut) {
     return (
-      <div className="mx-auto max-w-[738px] px-4 py-20">
-        <div className="overflow-hidden rounded bg-[#465C50] shadow-[4px_4px_16px_rgba(0,0,0,0.08)]">
+      <div className="mx-auto max-w-[738px] pb-6 lg:px-4 lg:py-20">
+        <div className="overflow-hidden lg:rounded bg-[#465C50] shadow-[4px_4px_16px_rgba(0,0,0,0.08)]">
           <div className={HEAD_CLASSNAME}>
             <h1 className={HEADLINE_CLASSNAME}>
               {isConfirming ? "Confirming your payment..." : "We're confirming your payment"}
@@ -98,8 +98,8 @@ export function BookingSuccessView({
       : "Cash (Pay at Hotel)";
 
   return (
-    <div className="mx-auto max-w-[738px] px-4 py-20">
-      <div className="flex w-full flex-col overflow-hidden rounded bg-[#465C50] shadow-[4px_4px_16px_rgba(0,0,0,0.08)]">
+    <div className="mx-auto max-w-[738px] pb-6 lg:px-4 lg:py-20">
+      <div className="flex w-full flex-col overflow-hidden lg:rounded bg-[#465C50] shadow-[4px_4px_16px_rgba(0,0,0,0.08)]">
         <div className={HEAD_CLASSNAME}>
           <h1 className={HEADLINE_CLASSNAME}>Thank you for booking</h1>
           <p className={SUBTEXT_CLASSNAME}>
@@ -108,8 +108,8 @@ export function BookingSuccessView({
           </p>
         </div>
 
-        <div className="flex w-full flex-col items-end gap-10 px-10 pt-6 pb-10">
-          <div className="flex w-full gap-10 rounded bg-[#5D7B6A] p-6">
+        <div className="flex w-full flex-col items-end gap-10 px-4 pt-6 pb-10 lg:px-10">
+          <div className="flex w-full flex-col gap-6 rounded bg-[#5D7B6A] p-4 lg:flex-row lg:gap-10 lg:p-6">
             <div className="flex flex-1 flex-col gap-2">
               <p className="[font-family:var(--font-inter)] text-base leading-[150%] font-semibold tracking-[-0.02em] text-white">
                 {formatDateLabel(booking.checkIn)} &ndash; {formatDateLabel(booking.checkOut)}
@@ -194,7 +194,15 @@ export function BookingSuccessView({
         </div>
       </div>
 
-      <div className="flex items-center justify-center gap-10 pt-10">
+      {/* Mobile stacks primary (full-width) above the ghost button; desktop
+          keeps them side by side — matches the Figma "button wrapper" frame. */}
+      <div className="flex flex-col items-center gap-6 px-6 pt-10 lg:flex-row lg:justify-center lg:gap-10 lg:px-0">
+        <Link
+          href="/"
+          className="flex h-12 w-full items-center justify-center rounded bg-[#C14817] px-8 py-4 [font-family:var(--font-open-sans)] text-base leading-none font-semibold text-white hover:bg-[#A93F13] lg:order-2 lg:w-[172px]"
+        >
+          Back to Home
+        </Link>
         {/* No standalone "view my booking" page exists yet anywhere in the
             app (checked both this branch and the team's dev branch) — this
             button is a placeholder for the Figma spec until that page
@@ -202,16 +210,10 @@ export function BookingSuccessView({
         <button
           type="button"
           disabled
-          className="cursor-not-allowed px-2 py-1 [font-family:var(--font-open-sans)] text-base leading-none font-semibold text-[#E76B39] opacity-50"
+          className="cursor-not-allowed px-2 py-1 [font-family:var(--font-open-sans)] text-base leading-none font-semibold text-[#E76B39] opacity-50 lg:order-1"
         >
           Check Booking Detail
         </button>
-        <Link
-          href="/"
-          className="flex h-12 w-[172px] items-center justify-center rounded bg-[#C14817] px-8 py-4 [font-family:var(--font-open-sans)] text-base leading-none font-semibold text-white hover:bg-[#A93F13]"
-        >
-          Back to Home
-        </Link>
       </div>
     </div>
   );

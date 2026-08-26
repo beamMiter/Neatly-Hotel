@@ -35,13 +35,13 @@ function PaymentOptionCard({
     <button
       type="button"
       onClick={onClick}
-      className={`flex h-20 flex-1 cursor-pointer items-center justify-center gap-2 rounded bg-white shadow-[4px_4px_16px_rgba(0,0,0,0.08)] ${
+      className={`flex h-15 flex-1 cursor-pointer items-center justify-center gap-2 rounded bg-white shadow-[4px_4px_16px_rgba(0,0,0,0.08)] lg:h-20 ${
         selected ? "border border-[#E76B39]" : "border border-[#E4E6ED]"
       }`}
     >
       {icon}
       <span
-        className="[font-family:var(--font-inter)] text-xl leading-[150%] font-semibold tracking-[-0.02em]"
+        className="[font-family:var(--font-inter)] text-xl leading-[150%] font-semibold tracking-[-0.02em] whitespace-nowrap"
         style={{ color }}
       >
         {label}
@@ -61,8 +61,8 @@ export function PaymentMethodStep({
   onBack,
 }: PaymentMethodStepProps) {
   return (
-    <div className="flex w-full flex-col gap-10 rounded border border-[#E4E6ED] bg-white p-10">
-      <div className="flex w-full gap-4">
+    <div className="flex w-full flex-col gap-6 rounded border border-[#E4E6ED] bg-white px-4 py-6 lg:gap-10 lg:p-10">
+      <div className="flex w-full gap-2 lg:gap-4">
         <PaymentOptionCard
           selected={paymentMethod === "credit_card"}
           icon={<CreditCardIcon className="h-8 w-8" style={{ color: paymentMethod === "credit_card" ? "#E76B39" : "#9AA1B9" }} />}
