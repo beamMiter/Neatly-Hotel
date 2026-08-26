@@ -17,7 +17,13 @@ export default async function RefundPage({ searchParams }: RefundPageProps) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const booking = await getBookingById(bookingId, user?.id ?? null);
+  let booking;
+  try {
+    booking = await getBookingById(bookingId, user?.id ?? null);
+  } catch (error) {
+    console.error("[refund] Failed to load booking:", error);
+    redirect("/booking-history");
+  }
   if (!booking || booking.status !== "refunded") redirect("/booking-history");
 
   return (

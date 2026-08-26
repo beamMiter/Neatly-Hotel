@@ -18,7 +18,13 @@ export default async function ChangeDatePage({ searchParams }: ChangeDatePagePro
     data: { user },
   } = await supabase.auth.getUser();
 
-  const booking = await getBookingById(bookingId, user?.id ?? null);
+  let booking;
+  try {
+    booking = await getBookingById(bookingId, user?.id ?? null);
+  } catch (error) {
+    console.error("[change-date] Failed to load booking:", error);
+    redirect("/booking-history");
+  }
   if (!booking) redirect("/booking-history");
 
   const room = await getGuestRoomTypeById(booking.roomTypeId);
