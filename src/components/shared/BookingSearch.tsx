@@ -4,19 +4,16 @@
 
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import DatePicker from '../ui/DatePicker';
 import RoomsGuestsPicker from '../ui/RoomsGuestsPicker';
+import { appendSearchFilterParams, type SearchQuery } from '@/types/room-search';
 
 type BookingSearchProps = {
-	initialQuery?: {
-		checkIn?: string;
-		checkOut?: string;
-		rooms?: number;
-		guests?: number;
-	};
+	initialQuery?: Partial<SearchQuery>;
 	compact?: boolean;
+	extraControl?: ReactNode;
 };
 
 const startOfLocalDay = (date = new Date()) =>
@@ -48,7 +45,7 @@ const toIsoDate = (date: Date) => {
 	return `${year}-${month}-${day}`;
 };
 
-const BookingSearch = ({ initialQuery, compact = false }: BookingSearchProps) => {
+const BookingSearch = ({ initialQuery, compact = false, extraControl }: BookingSearchProps) => {
 	const router = useRouter();
 	const hasUrlDates = Boolean(initialQuery?.checkIn && initialQuery?.checkOut);
 	const usingDefaults = useRef(!hasUrlDates);
@@ -87,19 +84,27 @@ const BookingSearch = ({ initialQuery, compact = false }: BookingSearchProps) =>
 		if (checkOut) params.set('checkOut', toIsoDate(checkOut));
 		params.set('rooms', String(rooms));
 		params.set('guests', String(guests));
+		if (compact) {
+			appendSearchFilterParams(params, {
+				minPrice: initialQuery?.minPrice,
+				maxPrice: initialQuery?.maxPrice,
+				sort: initialQuery?.sort,
+			});
+		}
 		router.push(`/search?${params.toString()}`);
 	};
 
 	return (
 		<div
-			className={`relative z-10 mx-auto flex w-280 max-w-full flex-col items-end rounded bg-white lg:flex-row ${
+			className={`relative z-10 mx-auto max-w-full rounded bg-white ${
 				compact
-					? 'gap-4 p-3 lg:gap-6 lg:p-4'
-					: 'gap-10 p-4 shadow-[4px_4px_16px_rgba(0,0,0,0.08)] lg:p-15'
+					? 'grid w-full grid-cols-2 items-end gap-3 p-3 lg:flex lg:flex-row lg:flex-wrap lg:gap-4 lg:p-4'
+					: 'flex w-280 flex-col items-end gap-10 p-4 shadow-[4px_4px_16px_rgba(0,0,0,0.08)] lg:flex-row lg:p-15'
 			}`}
 		>
-			<div className="flex w-full flex-col gap-6 lg:w-auto lg:flex-row lg:items-end lg:gap-10">
+			<div className={compact ? 'col-span-2 min-w-0 lg:col-auto' : 'flex w-full flex-col gap-6 lg:w-auto lg:flex-row lg:items-end lg:gap-10'}>
 				<DatePicker
+					compact={compact}
 					checkIn={checkIn}
 					checkOut={checkOut}
 					onChange={(nextCheckIn, nextCheckOut) => {
@@ -109,18 +114,33 @@ const BookingSearch = ({ initialQuery, compact = false }: BookingSearchProps) =>
 					}}
 				/>
 
+				{compact ? null : (
+					<RoomsGuestsPicker
+						rooms={rooms}
+						guests={guests}
+						onRoomsChange={setRooms}
+						onGuestsChange={setGuests}
+					/>
+				)}
+			</div>
+
+			{compact ? (
 				<RoomsGuestsPicker
 					rooms={rooms}
 					guests={guests}
 					onRoomsChange={setRooms}
 					onGuestsChange={setGuests}
 				/>
-			</div>
+			) : null}
+
+			{compact ? extraControl : null}
 
 			<button
 				type="button"
 				onClick={handleSearch}
-				className="flex h-12 w-full flex-none cursor-pointer items-center justify-center gap-2.5 rounded bg-[#C14817] px-8 py-4 [font-family:var(--font-open-sans)] text-base font-semibold text-white transition-transform duration-150 active:scale-90 lg:w-36"
+				className={`flex h-12 flex-none cursor-pointer items-center justify-center gap-2.5 rounded bg-[#C14817] px-8 py-4 [font-family:var(--font-open-sans)] text-base font-semibold text-white transition-transform duration-150 active:scale-90 ${
+					compact ? 'col-span-2 w-full lg:w-36' : 'w-full lg:w-36'
+				}`}
 			>
 				Search
 			</button>
