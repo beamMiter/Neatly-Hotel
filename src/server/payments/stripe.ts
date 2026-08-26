@@ -61,3 +61,23 @@ export function constructWebhookEvent(rawBody: string | Buffer, signature: strin
 export async function retrieveChargeWithCard(chargeId: string): Promise<Stripe.Charge> {
   return getStripe().charges.retrieve(chargeId, { expand: ["payment_method_details"] });
 }
+
+// Full refund of a succeeded payment intent — used by booking cancellation
+// when the guest cancels within the refund-eligible window (see
+// isRefundEligible in src/features/booking/date-rules.ts).
+//
+// idempotencyKey should be stable per booking (e.g. `refund_${bookingId}`):
+// if this exact call is retried at the network layer after Stripe already
+// processed it, Stripe returns the original refund instead of creating a
+// second one. The caller is still responsible for not calling this twice
+// for two genuinely different attempts — see the atomic status claim in
+// cancelBooking (bookings.query.ts).
+export async function refundPayment(
+  paymentIntentId: string,
+  idempotencyKey?: string,
+): Promise<Stripe.Refund> {
+  return getStripe().refunds.create(
+    { payment_intent: paymentIntentId },
+    idempotencyKey ? { idempotencyKey } : undefined,
+  );
+}

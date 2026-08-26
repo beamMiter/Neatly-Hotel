@@ -70,7 +70,8 @@ function asBookingStatus(value: string): BookingStatus {
     value === "confirmed" ||
     value === "checked_in" ||
     value === "completed" ||
-    value === "cancelled"
+    value === "cancelled" ||
+    value === "refunded"
   ) {
     return value;
   }

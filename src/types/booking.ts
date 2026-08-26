@@ -72,7 +72,8 @@ export type BookingStatus =
   | "confirmed"
   | "checked_in"
   | "completed"
-  | "cancelled";
+  | "cancelled"
+  | "refunded";
 export type BookingPaymentStatus = "pending" | "paid" | "failed" | "pay_at_hotel";
 
 export type BookingRecord = {
@@ -115,3 +116,39 @@ export type BookingCustomerProfile = ProfilePrefill;
 export type CreateBookingResult =
   | { ok: true; booking: BookingRecord; pricing: BookingPricing; clientSecret: string | null }
   | { ok: false; code: "SOLD_OUT" | "INVALID_PROMO" | "INVALID_DATES" | "AMOUNT_TOO_LOW"; message: string };
+
+// TODO(booking-history): overlaps with BookingRecord above (which already has
+// real payment/special-request/promo data via getBookingById) — needs
+// reconciling before this is wired to real data, not kept as-is.
+export type BookingHistoryStatus = "upcoming" | "checked_in" | "cancelled";
+
+export type BookingPayment = {
+  method: "credit_card";
+  lastDigits: string;
+};
+
+export type BookingLineItem = {
+  label: string;
+  amount: number;
+};
+
+/** Expected shape of a customer booking-history API item. */
+export type BookingHistoryItem = {
+  id: string;
+  bookingCode: string;
+  status: BookingHistoryStatus;
+  roomTypeId: string;
+  roomTypeName: string;
+  imageUrl: string;
+  guests: number;
+  nights: number;
+  bookingCreatedAt: string;
+  checkInDate: string;
+  checkOutDate: string;
+  checkedInAt: string | null;
+  cancelledAt: string | null;
+  payment: BookingPayment;
+  lineItems: BookingLineItem[];
+  totalAmount: number;
+  additionalRequest: string | null;
+};
