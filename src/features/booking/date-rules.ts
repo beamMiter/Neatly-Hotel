@@ -26,6 +26,23 @@ export function nightsBetween(checkIn: string, checkOut: string): number {
   return Math.round((end - start) / (1000 * 60 * 60 * 24));
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Refund policy: full refund only if cancelled at least 24h before check-in.
+// checkIn is a date-only string — treat it as starting at Bangkok midnight,
+// same convention nightsBetween() already uses.
+export function isRefundEligible(checkIn: string, now: Date = new Date()): boolean {
+  const checkInTime = Date.parse(`${checkIn}T00:00:00+07:00`);
+  return checkInTime - now.getTime() >= DAY_MS;
+}
+
+// Change-date policy: only allowed within 24h of when the booking was made
+// (createdAt is a full timestamp, not date-only).
+export function isChangeDateEligible(createdAt: string, now: Date = new Date()): boolean {
+  const createdTime = Date.parse(createdAt);
+  return now.getTime() - createdTime <= DAY_MS;
+}
+
 export function validateStayDates(
   checkIn: string,
   checkOut: string,
