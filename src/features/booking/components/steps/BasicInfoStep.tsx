@@ -3,6 +3,7 @@
 import { DateOfBirthField } from "@/components/ui/DateOfBirthField";
 import { ChevronDownIcon } from "@/components/icons/ChevronDownIcon";
 import { COUNTRIES } from "@/lib/countries";
+import { EmailOtpVerification } from "@/features/booking/components/EmailOtpVerification";
 import type { BasicInfoFieldErrors, BasicInfoInput } from "@/features/booking/validations";
 
 export type BasicInfoFields = {
@@ -17,6 +18,11 @@ export type BasicInfoFields = {
 type BasicInfoStepProps = {
   fields: BasicInfoFields;
   errors: BasicInfoFieldErrors;
+  requiresEmailVerification: boolean;
+  emailVerified: boolean;
+  emailVerificationError?: string;
+  onEmailVerified: (token: string, expiresAt: string) => void;
+  onClearEmailVerification: () => void;
   onChange: <K extends keyof BasicInfoFields>(field: K, value: BasicInfoFields[K]) => void;
   onBack: () => void;
   onNext: () => void;
@@ -49,10 +55,23 @@ function Field({
   );
 }
 
-export function BasicInfoStep({ fields, errors, onChange, onBack, onNext }: BasicInfoStepProps) {
+export function BasicInfoStep({
+  fields,
+  errors,
+  requiresEmailVerification,
+  emailVerified,
+  emailVerificationError,
+  onEmailVerified,
+  onClearEmailVerification,
+  onChange,
+  onBack,
+  onNext,
+}: BasicInfoStepProps) {
   function handleTextChange(field: keyof BasicInfoInput) {
     return (event: React.ChangeEvent<HTMLInputElement>) => onChange(field, event.target.value);
   }
+
+  const emailLooksValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.email.trim());
 
   return (
     <div className="flex w-full flex-col gap-10 rounded border border-[#E4E6ED] bg-white p-10">
@@ -89,6 +108,17 @@ export function BasicInfoStep({ fields, errors, onChange, onBack, onNext }: Basi
             onChange={handleTextChange("email")}
           />
         </Field>
+
+        {requiresEmailVerification && (
+          <EmailOtpVerification
+            email={fields.email.trim()}
+            emailValid={emailLooksValid}
+            verified={emailVerified}
+            error={emailVerificationError}
+            onVerified={onEmailVerified}
+            onClearVerification={onClearEmailVerification}
+          />
+        )}
 
         <Field id="phone" label="Phone number" error={errors.phone}>
           <input

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { nightsBetween } from "@/features/booking/date-rules";
@@ -35,6 +35,7 @@ type BookingWizardProps = {
   rooms: number;
   specialRequestCatalog: SpecialRequestOption[];
   prefill: ProfilePrefill | null;
+  isLoggedIn: boolean;
   checkInTimeLabel: string;
   checkOutTimeLabel: string;
 };
@@ -58,9 +59,11 @@ export function BookingWizard({
   rooms,
   specialRequestCatalog,
   prefill,
+  isLoggedIn,
   checkInTimeLabel,
   checkOutTimeLabel,
 }: BookingWizardProps) {
+  const requiresEmailVerification = !isLoggedIn;
   const router = useRouter();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [basicInfo, setBasicInfo] = useState<BasicInfoFields>(
@@ -82,6 +85,9 @@ export function BookingWizard({
   const [basicInfoErrors, setBasicInfoErrors] = useState<BasicInfoFieldErrors>(
     {},
   );
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [emailVerificationToken, setEmailVerificationToken] = useState<string | null>(null);
+  const [emailVerificationError, setEmailVerificationError] = useState<string | undefined>();
   const [standardRequests, setStandardRequests] = useState<string[]>([]);
   // code -> count. A code is absent when unselected, so the map's keys are
   // exactly the chosen add-ons. The number only means anything for per_leg
@@ -195,12 +201,29 @@ export function BookingWizard({
     value: BasicInfoFields[K],
   ) {
     setBasicInfo((prev) => ({ ...prev, [field]: value }));
+    if (field === "email") {
+      setEmailVerified(false);
+      setEmailVerificationToken(null);
+      setEmailVerificationError(undefined);
+    }
     setBasicInfoErrors((prev) =>
       prev[field as keyof BasicInfoFieldErrors]
         ? { ...prev, [field]: undefined }
         : prev,
     );
   }
+
+  const handleEmailVerified = useCallback((_token: string, _expiresAt: string) => {
+    setEmailVerified(true);
+    setEmailVerificationToken(_token);
+    setEmailVerificationError(undefined);
+  }, []);
+
+  const handleClearEmailVerification = useCallback(() => {
+    setEmailVerified(false);
+    setEmailVerificationToken(null);
+    setEmailVerificationError(undefined);
+  }, []);
 
   function handleBasicInfoNext() {
     const result = basicInfoSchema.safeParse(basicInfo);
@@ -213,7 +236,14 @@ export function BookingWizard({
       setBasicInfoErrors(fieldErrors);
       return;
     }
+
+    if (requiresEmailVerification && !emailVerified) {
+      setEmailVerificationError("Please verify your email before continuing");
+      return;
+    }
+
     setBasicInfoErrors({});
+    setEmailVerificationError(undefined);
     setStep(2);
   }
 
@@ -227,6 +257,9 @@ export function BookingWizard({
       lastName: basicInfo.lastName,
       email: basicInfo.email,
       phone: basicInfo.phone,
+      ...(requiresEmailVerification && emailVerificationToken
+        ? { emailVerificationToken: emailVerificationToken }
+        : {}),
       // The picker builds a local-midnight Date, so toISOString() would shift
       // the calendar day backwards for every UTC+ guest (Bangkok included).
       // Send the local Y/M/D instead — the API re-parses it as UTC midnight,
@@ -291,6 +324,11 @@ export function BookingWizard({
             <BasicInfoStep
               fields={basicInfo}
               errors={basicInfoErrors}
+              requiresEmailVerification={requiresEmailVerification}
+              emailVerified={emailVerified}
+              emailVerificationError={emailVerificationError}
+              onEmailVerified={handleEmailVerified}
+              onClearEmailVerification={handleClearEmailVerification}
               onChange={handleBasicInfoChange}
               onBack={() => router.back()}
               onNext={handleBasicInfoNext}

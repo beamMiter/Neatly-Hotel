@@ -68,6 +68,7 @@ export default async function BookingFlowPage({ params, searchParams }: BookingF
         rooms={rooms}
         specialRequestCatalog={specialRequestCatalog}
         prefill={prefill}
+        isLoggedIn={!!user}
         checkInTimeLabel={formatCheckTimeLabel(hotel.checkInTime)}
         checkOutTimeLabel={formatCheckTimeLabel(hotel.checkOutTime)}
       />
