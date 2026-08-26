@@ -3,10 +3,15 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { logout } from "@/features/auth/actions";
 
 const NAV_ITEMS = [
+  {
+    href: "/live-support",
+    label: "Live Support",
+    icon: SupportIcon,
+  },
   {
     href: "/customer-booking",
     label: "Customer Booking",
@@ -42,6 +47,29 @@ const NAV_ITEMS = [
 export function AdminSidebar() {
   const pathname = usePathname();
   const [pending, startTransition] = useTransition();
+  const [liveSupportCount, setLiveSupportCount] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadNotificationCount = async () => {
+      try {
+        const response = await fetch("/api/live-support/admin?notifications=true", { cache: "no-store" });
+        if (!response.ok || cancelled) return;
+        const data = await response.json() as { unreadCount?: number };
+        setLiveSupportCount(typeof data.unreadCount === "number" ? data.unreadCount : 0);
+      } catch {
+        // Keep the last known count when a polling request fails.
+      }
+    };
+
+    void loadNotificationCount();
+    const intervalId = window.setInterval(() => void loadNotificationCount(), 10_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, []);
 
   return (
     <aside className="flex h-full min-h-0 w-full flex-col bg-[#2D3E33] text-white">
@@ -81,7 +109,15 @@ export function AdminSidebar() {
               }`}
             >
               <Icon className="h-5 w-5 shrink-0" />
-              <span>{item.label}</span>
+              <span className="min-w-0 flex-1 truncate">{item.label}</span>
+              {item.href === "/live-support" && liveSupportCount > 0 ? (
+                <span
+                  className="min-w-5 rounded-full bg-[#E5484D] px-1.5 text-center text-[11px] font-semibold leading-5 text-white"
+                  aria-label={`${liveSupportCount} new customer chats`}
+                >
+                  {liveSupportCount > 99 ? "99+" : liveSupportCount}
+                </span>
+              ) : null}
             </Link>
           );
         })}
@@ -243,6 +279,25 @@ function ChatbotIcon({ className }: { className?: string }) {
         stroke="currentColor"
         strokeWidth="1.5"
         strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function SupportIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M12 4.5a6.5 6.5 0 0 0-6.5 6.5v2.2a1.8 1.8 0 0 0 1.8 1.8h1.2V10.9a.9.9 0 0 0-.9-.9H6.8A5.2 5.2 0 0 1 12 4.8a5.2 5.2 0 0 1 5.2 5.2h-.8a.9.9 0 0 0-.9.9V15h1.2a1.8 1.8 0 0 0 1.8-1.8V11a6.5 6.5 0 0 0-6.5-6.5Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M9.4 16.6c.9.9 1.9 1.4 2.8 1.4s1.9-.5 2.8-1.4"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
       />
     </svg>
   );

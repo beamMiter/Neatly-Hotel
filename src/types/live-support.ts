@@ -43,6 +43,11 @@ export type SupportCustomer = {
   country: string | null;
 };
 
+export type SupportMemberMatch = SupportCustomer & {
+  customerId: string;
+  matchedBy: "conversation" | "phone" | "email";
+};
+
 export type SupportBooking = {
   id: string;
   bookingCode: string;

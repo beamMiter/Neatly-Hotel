@@ -10,9 +10,9 @@ export async function getStaffRole(userId: string): Promise<StaffRole | null> {
     .eq("user_id", userId)
     .maybeSingle();
 
-  if (error || !data || !data.is_active) return null;
+  if (error || !data || !data.is_active || data.role !== "admin") return null;
 
-  return data.role as StaffRole;
+  return "admin";
 }
 
 export async function isStaff(userId: string): Promise<boolean> {
