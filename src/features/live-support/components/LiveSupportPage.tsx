@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
+import { EmailOtpVerification } from "@/features/booking/components/EmailOtpVerification";
 import type { SupportConversation, SupportConversationStatus, SupportCustomer, SupportMemberMatch } from "@/types/live-support";
 import { useLiveSupportAdmin } from "@/features/live-support/components/useLiveSupportAdmin";
 import { COUNTRIES } from "@/lib/countries";
@@ -199,13 +200,6 @@ const BOOKING_HISTORY = [
     price: "฿6,500",
     tone: "bg-[#f0f3f1] text-[#647a6f]",
   },
-] as const;
-
-const QUICK_ACTIONS = [
-  "Create Booking",
-  "Send Promotion",
-  "Send Receipt",
-  "Add Note",
 ] as const;
 
 export function LiveSupportPage() {
@@ -649,22 +643,15 @@ export function LiveSupportPage() {
           </PanelCard>
 
           <PanelCard title="Quick Actions">
-            <div className="grid grid-cols-2 gap-3">
-              {QUICK_ACTIONS.map((action) => (
-                <button
-                  key={action}
-                  type="button"
-                  disabled={!currentConversation}
-                  onClick={() => {
-                    if (action === "Create Booking") setIsCreateBookingOpen(true);
-                  }}
-                  className="flex h-14 items-center gap-2 rounded-[14px] border border-[#d9deea] bg-white px-4 text-left text-[14px] font-medium text-[#344054] transition-colors hover:border-[#b8c3dc] hover:bg-[#fbfcfe]"
-                >
-                  <QuickActionIcon label={action} />
-                  <span className="leading-tight">{action}</span>
-                </button>
-              ))}
-            </div>
+            <button
+              type="button"
+              disabled={!currentConversation}
+              onClick={() => setIsCreateBookingOpen(true)}
+              className="flex h-14 w-full items-center justify-center gap-2 rounded-[14px] border border-[#d9deea] bg-white px-4 text-[14px] font-medium text-[#344054] transition-colors hover:border-[#b8c3dc] hover:bg-[#fbfcfe] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <CalendarIcon className="h-4 w-4 text-[#2f6bff]" />
+              <span>Create Booking</span>
+            </button>
           </PanelCard>
 
           <PanelCard title="AI Conversation Summary">
@@ -722,6 +709,8 @@ function CreateBookingDialog({ conversation, customer, onClose, onCreated }: {
   const [country, setCountry] = useState(customer?.country ?? "Thailand");
   const [identity, setIdentity] = useState<BookingIdentity | null>(null);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(conversation.customer_id);
+  const [emailVerificationToken, setEmailVerificationToken] = useState<string | null>(null);
+  const [emailVerificationError, setEmailVerificationError] = useState<string | undefined>();
   const [isMatching, setIsMatching] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -749,6 +738,19 @@ function CreateBookingDialog({ conversation, customer, onClose, onCreated }: {
     }, 450);
     return () => { cancelled = true; window.clearTimeout(timeoutId); };
   }, [conversation.id, email, phone]);
+
+  function updateAvailabilityCriteria(update: () => void) {
+    update();
+    setAvailableRooms([]);
+    setRoomTypeId("");
+    setError("");
+  }
+
+  function updateEmail(value: string) {
+    setEmail(value);
+    setEmailVerificationToken(null);
+    setEmailVerificationError(undefined);
+  }
 
   async function findAvailableRooms() {
     if (!checkIn || !checkOut) { setError("Select check-in and check-out dates."); return; }
@@ -780,6 +782,9 @@ function CreateBookingDialog({ conversation, customer, onClose, onCreated }: {
         body: JSON.stringify({
           conversationId: conversation.id,
           selectedCustomerId,
+          ...(identity?.kind === "guest" && emailVerificationToken
+            ? { emailVerificationToken }
+            : {}),
           booking: {
             roomTypeId, checkIn, checkOut, guests, rooms, firstName, lastName, email, phone,
             dateOfBirth, country, standardRequests: [], specialRequests: [], paymentMethod: "cash",
@@ -821,10 +826,10 @@ function CreateBookingDialog({ conversation, customer, onClose, onCreated }: {
         </div>
 
         <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <BookingField label="Check-in"><input required type="date" value={checkIn} onChange={(event) => setCheckIn(event.target.value)} /></BookingField>
-          <BookingField label="Check-out"><input required type="date" value={checkOut} onChange={(event) => setCheckOut(event.target.value)} /></BookingField>
-          <BookingField label="Guests"><input required type="number" min="1" max="8" value={guests} onChange={(event) => setGuests(Number(event.target.value))} /></BookingField>
-          <BookingField label="Rooms"><input required type="number" min="1" max="3" value={rooms} onChange={(event) => setRooms(Number(event.target.value))} /></BookingField>
+          <BookingField label="Check-in"><input required type="date" value={checkIn} onChange={(event) => updateAvailabilityCriteria(() => setCheckIn(event.target.value))} /></BookingField>
+          <BookingField label="Check-out"><input required type="date" value={checkOut} onChange={(event) => updateAvailabilityCriteria(() => setCheckOut(event.target.value))} /></BookingField>
+          <BookingField label="Guests"><input required type="number" min="1" max="8" value={guests} onChange={(event) => updateAvailabilityCriteria(() => setGuests(Number(event.target.value)))} /></BookingField>
+          <BookingField label="Rooms"><input required type="number" min="1" max="3" value={rooms} onChange={(event) => updateAvailabilityCriteria(() => setRooms(Number(event.target.value)))} /></BookingField>
         </div>
         <button type="button" onClick={() => void findAvailableRooms()} disabled={isLoading} className="mt-3 rounded-lg border border-[#2f6bff] px-4 py-2 text-sm font-semibold text-[#2f6bff] disabled:opacity-50">Check availability</button>
         {availableRooms.length > 0 && <div className="mt-3"><BookingField label="Available room type"><select required value={roomTypeId} onChange={(event) => setRoomTypeId(event.target.value)}>{availableRooms.map((room) => <option key={room.id} value={room.id}>{room.name} · THB {room.discountedPrice.toLocaleString()} / night</option>)}</select></BookingField></div>}
@@ -832,14 +837,33 @@ function CreateBookingDialog({ conversation, customer, onClose, onCreated }: {
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <BookingField label="First name"><input required value={firstName} onChange={(event) => setFirstName(event.target.value)} /></BookingField>
           <BookingField label="Last name"><input required value={lastName} onChange={(event) => setLastName(event.target.value)} /></BookingField>
-          <BookingField label="Email"><input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></BookingField>
+          <BookingField label="Email"><input required type="email" value={email} onChange={(event) => updateEmail(event.target.value)} /></BookingField>
           <BookingField label="Phone"><input required type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} /></BookingField>
           <BookingField label="Date of birth"><input required type="date" value={dateOfBirth} onChange={(event) => setDateOfBirth(event.target.value)} /></BookingField>
           <BookingField label="Country"><select required value={country} onChange={(event) => setCountry(event.target.value)}>{COUNTRIES.map((item) => <option key={item} value={item}>{item}</option>)}</select></BookingField>
         </div>
 
+        {identity?.kind === "guest" && (
+          <div className="mt-5">
+            <EmailOtpVerification
+              email={email.trim()}
+              emailValid={/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())}
+              verified={Boolean(emailVerificationToken)}
+              error={emailVerificationError}
+              onVerified={(token) => {
+                setEmailVerificationToken(token);
+                setEmailVerificationError(undefined);
+              }}
+              onClearVerification={() => {
+                setEmailVerificationToken(null);
+                setEmailVerificationError(undefined);
+              }}
+            />
+          </div>
+        )}
+
         {error && <p className="mt-4 rounded-lg bg-[#fef3f2] px-4 py-3 text-sm text-[#b42318]">{error}</p>}
-        <div className="mt-6 flex justify-end gap-3"><button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-semibold text-[#475467]">Cancel</button><button disabled={isLoading || isMatching || !roomTypeId || (identity?.kind === "ambiguous" && !selectedCustomerId)} className="rounded-lg bg-[#2f6bff] px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">{isLoading ? "Creating..." : "Create booking"}</button></div>
+        <div className="mt-6 flex justify-end gap-3"><button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-semibold text-[#475467]">Cancel</button><button disabled={isLoading || isMatching || !roomTypeId || (identity?.kind === "ambiguous" && !selectedCustomerId) || (identity?.kind === "guest" && !emailVerificationToken)} className="rounded-lg bg-[#2f6bff] px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">{isLoading ? "Creating..." : "Create booking"}</button></div>
       </form>
     </div>
   );
@@ -1032,14 +1056,6 @@ function RoomSpec({
   );
 }
 
-function QuickActionIcon({ label }: { label: string }) {
-  const iconClass = "h-4 w-4 text-[#2f6bff]";
-  if (label === "Create Booking") return <CalendarIcon className={iconClass} />;
-  if (label === "Send Promotion") return <SparkleIcon className={iconClass} />;
-  if (label === "Send Receipt") return <MailIcon className={iconClass} />;
-  return <NoteIcon className={iconClass} />;
-}
-
 function SearchIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -1145,40 +1161,11 @@ function CalendarIcon({ className }: { className?: string }) {
   );
 }
 
-function SparkleIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="m12 3 1.4 4.6L18 9l-4.6 1.4L12 15l-1.4-4.6L6 9l4.6-1.4L12 3Z"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinejoin="round"
-      />
-      <path d="M5 16l.8 2.5L8.4 19l-2.6.8L5 22l-.8-2.2L1.6 19l2.6-.5L5 16Z" fill="currentColor" opacity=".65" />
-    </svg>
-  );
-}
-
 function MailIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
       <rect x="4" y="6" width="16" height="12" rx="2" stroke="currentColor" strokeWidth="1.5" />
       <path d="m5 8 7 5 7-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function NoteIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M6 4h8l4 4v12H6V4Z"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinejoin="round"
-      />
-      <path d="M14 4v4h4" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-      <path d="M8 12h8M8 15h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   );
 }

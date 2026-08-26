@@ -2,6 +2,7 @@ import "server-only";
 import { parseCreateBookingPayload } from "@/features/booking/validations";
 import { validateStayDates } from "@/features/booking/date-rules";
 import { createPendingBooking, markBookingCashConfirmed } from "@/server/queries/bookings.query";
+import { assertEmailVerificationToken } from "@/server/queries/email-otp.query";
 import {
   addSupportMessage,
   findSupportMemberMatches,
@@ -32,6 +33,7 @@ export async function getSupportBookingIdentity(conversationId: string, phone: s
 export async function createBookingForSupportConversation(input: {
   conversationId: string;
   selectedCustomerId?: string | null;
+  emailVerificationToken?: string;
   booking: unknown;
 }) {
   const conversation = await getSupportConversation(input.conversationId);
@@ -58,6 +60,10 @@ export async function createBookingForSupportConversation(input: {
     customerId = matches[0].customerId;
   } else if (!customerId && matches.length > 1) {
     throw new SupportMemberSelectionError(matches);
+  }
+
+  if (!customerId && (!input.emailVerificationToken || !assertEmailVerificationToken(data.email, input.emailVerificationToken))) {
+    throw new AdminBookingValidationError("Please verify the guest email before creating a booking");
   }
 
   const { booking } = await createPendingBooking({
