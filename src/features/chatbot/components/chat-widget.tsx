@@ -508,9 +508,9 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, suggesti
   const supportBookingId = supportConversation?.booking_id;
 
   return (
-    <aside className="fixed right-2 bottom-2 z-50 sm:right-[18px] sm:bottom-[18px]" aria-label="ผู้ช่วย Neatly Hotel">
+    <aside className="fixed right-2 bottom-[max(8px,env(safe-area-inset-bottom))] z-50 max-sm:has-[section]:inset-0 sm:right-[18px] sm:bottom-[18px]" aria-label="ผู้ช่วย Neatly Hotel">
       {isOpen && (
-        <section className="flex h-[min(1008px,calc(100dvh-16px))] w-[min(375px,calc(100vw-16px))] flex-col overflow-hidden border border-[#E4E6ED] bg-[#F7F7FB] shadow-[0_22px_70px_rgba(34,40,58,.2)]" aria-live="polite">
+        <section className="flex h-[100dvh] w-screen flex-col overflow-hidden border-0 border-[#E4E6ED] bg-[#F7F7FB] shadow-[0_22px_70px_rgba(34,40,58,.2)] sm:h-[min(1008px,calc(100dvh-36px))] sm:w-[min(375px,calc(100vw-36px))] sm:border" aria-live="polite">
           <header className="flex h-[60px] min-h-[60px] items-center justify-between border-b border-[#E4E6ED] bg-white pl-4">
             <div className="flex h-10 min-w-0 flex-1 items-center gap-2">
               <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#F1F5F3] p-1 shadow-[4px_4px_16px_rgba(0,0,0,.08)]">
@@ -740,8 +740,8 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, suggesti
           )}
 
           {view === "chat" && (
-          <form className="flex h-[67.33px] min-h-[67.33px] w-full items-center gap-2 bg-white px-4 pt-2 pb-6 shadow-[0_-8px_12px_6px_rgba(0,0,0,.05)]" onSubmit={handleSubmit}>
-            <textarea className="h-[35.33px] min-h-[35.33px] w-[311px] flex-1 resize-none rounded-[16.9952px] border-0 bg-white px-2 py-[5.665px] text-base leading-6 tracking-[-.02em] text-[#42495e] outline-none placeholder:text-[#9AA1B9]"
+          <form className="flex min-h-[67px] w-full items-center gap-2 bg-white px-4 pt-2 pb-[max(12px,env(safe-area-inset-bottom))] shadow-[0_-8px_12px_6px_rgba(0,0,0,.05)] sm:h-[67.33px] sm:min-h-[67.33px] sm:pb-6" onSubmit={handleSubmit}>
+            <textarea className="h-[35.33px] min-h-[35.33px] min-w-0 flex-1 resize-none rounded-[16.9952px] border-0 bg-white px-2 py-[5.665px] text-base leading-6 tracking-[-.02em] text-[#42495e] outline-none placeholder:text-[#9AA1B9]"
               ref={inputRef}
               value={input}
               onChange={(event) => setInput(event.target.value)}
@@ -761,7 +761,7 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, suggesti
       )}
 
       <button
-        className={`${isOpen ? "hidden" : "grid"} h-[88px] w-[88px] cursor-pointer place-items-center rounded-full border-0 bg-transparent transition-transform hover:-translate-y-1 max-sm:h-[76px] max-sm:w-[76px]`}
+        className={`${isOpen ? "hidden" : "grid"} h-[88px] w-[88px] cursor-pointer place-items-center rounded-full border-0 bg-transparent transition-transform hover:-translate-y-1 max-sm:h-16 max-sm:w-16`}
         type="button"
         onClick={() => setIsOpen((current) => !current)}
         aria-expanded={isOpen}

@@ -10,6 +10,7 @@ import { COUNTRIES } from "@/lib/countries";
 
 type SupportTab = "open" | "mine" | "resolved";
 type SupportFilter = "all" | "booking" | "room" | "payment" | "other";
+type MobilePanel = "conversations" | "chat" | "details";
 
 type Conversation = {
   id: string;
@@ -210,6 +211,7 @@ export function LiveSupportPage() {
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   const [reply, setReply] = useState("");
   const [isCreateBookingOpen, setIsCreateBookingOpen] = useState(false);
+  const [mobilePanel, setMobilePanel] = useState<MobilePanel>("conversations");
   const {
     conversations,
     supportMessages,
@@ -298,14 +300,14 @@ export function LiveSupportPage() {
         <div className="absolute right-1/3 bottom-[-6rem] h-72 w-72 rounded-full bg-[#f4f1ff]/60 blur-3xl" />
       </div>
 
-      <header className="relative z-10 flex h-[72px] shrink-0 items-center justify-between border-b border-[#e7eaf0] bg-white px-6 shadow-[0_1px_0_rgba(17,24,39,0.02)] xl:px-8">
+      <header className="relative z-10 flex h-16 shrink-0 items-center justify-between border-b border-[#e7eaf0] bg-white px-4 shadow-[0_1px_0_rgba(17,24,39,0.02)] sm:h-[72px] sm:px-6 xl:px-8">
         <div className="flex items-center gap-4">
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-[24px] font-semibold tracking-[-0.03em] text-[#111827]">
+              <h1 className="text-xl font-semibold tracking-[-0.03em] text-[#111827] sm:text-[24px]">
                 Live Support
               </h1>
-              <span className="inline-flex items-center gap-2 rounded-full border border-[#cfead8] bg-[#eefaf1] px-3 py-1 text-[13px] font-medium text-[#299b50]">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#cfead8] bg-[#eefaf1] px-2 py-1 text-xs font-medium text-[#299b50] sm:gap-2 sm:px-3 sm:text-[13px]">
                 <span className="h-2.5 w-2.5 rounded-full bg-[#24b05a]" />
                 Live
               </span>
@@ -313,12 +315,12 @@ export function LiveSupportPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-5 text-[14px] text-[#3f4a5a]">
-          <span className="inline-flex items-center gap-2">
+        <div className="flex items-center gap-3 text-[14px] text-[#3f4a5a] sm:gap-5">
+          <span className="hidden items-center gap-2 sm:inline-flex">
             <span className="h-2.5 w-2.5 rounded-full bg-[#20b15d]" />
             Online
           </span>
-          <span className="h-6 w-px bg-[#e3e8ef]" aria-hidden />
+          <span className="hidden h-6 w-px bg-[#e3e8ef] sm:block" aria-hidden />
           <button
             type="button"
             className="relative grid h-11 w-11 place-items-center rounded-full border border-[#e2e7ef] bg-white text-[#5f6b7a] transition-colors hover:bg-[#f7f9fc]"
@@ -332,8 +334,25 @@ export function LiveSupportPage() {
         </div>
       </header>
 
-      <div className="relative z-10 grid min-h-0 flex-1 gap-4 p-4 xl:grid-cols-[minmax(320px,392px)_minmax(0,1fr)_minmax(300px,354px)] xl:p-6">
-        <section className="flex min-h-0 flex-col overflow-hidden rounded-[22px] border border-[#e7ebf2] bg-white shadow-[0_14px_40px_rgba(15,23,42,0.04)]">
+      <nav className="relative z-10 grid h-12 shrink-0 grid-cols-3 border-b border-[#e7eaf0] bg-white xl:hidden" aria-label="Live support sections">
+        {([
+          ["conversations", "Conversations"],
+          ["chat", "Chat"],
+          ["details", "Details"],
+        ] as const).map(([panel, label]) => (
+          <button
+            key={panel}
+            type="button"
+            onClick={() => setMobilePanel(panel)}
+            className={`border-b-2 px-2 text-sm font-medium transition-colors ${mobilePanel === panel ? "border-[#2f6bff] text-[#2f6bff]" : "border-transparent text-[#667085]"}`}
+          >
+            {label}
+          </button>
+        ))}
+      </nav>
+
+      <div className="relative z-10 grid min-h-0 flex-1 grid-cols-1 gap-2 p-2 sm:gap-4 sm:p-4 xl:grid-cols-[minmax(320px,392px)_minmax(0,1fr)_minmax(300px,354px)] xl:p-6">
+        <section className={`${mobilePanel === "conversations" ? "flex" : "hidden"} min-h-0 flex-col overflow-hidden rounded-[16px] border border-[#e7ebf2] bg-white shadow-[0_14px_40px_rgba(15,23,42,0.04)] sm:rounded-[22px] xl:flex`}>
           <div className="border-b border-[#edf0f5] px-5 pt-5">
             <div className="flex items-center gap-8 text-[15px] font-medium text-[#667085]">
               {TABS.map((tab) => {
@@ -406,7 +425,10 @@ export function LiveSupportPage() {
                     <button
                     key={thread.id}
                     type="button"
-                    onClick={() => setSelectedThreadId(thread.id)}
+                    onClick={() => {
+                      setSelectedThreadId(thread.id);
+                      setMobilePanel("chat");
+                    }}
                     className={`flex w-full items-center gap-3 rounded-[18px] border px-4 py-4 text-left transition-all ${
                       isActive
                           ? "border-[#d8e4ff] bg-[#eff5ff] shadow-[0_8px_24px_rgba(47,107,255,0.08)]"
@@ -451,12 +473,15 @@ export function LiveSupportPage() {
           </div>
         </section>
 
-        <section className="flex min-h-0 flex-col overflow-hidden rounded-[22px] border border-[#e7ebf2] bg-white shadow-[0_14px_40px_rgba(15,23,42,0.04)]">
-          <div className="flex shrink-0 items-center justify-between gap-4 border-b border-[#edf0f5] px-5 py-4">
-            <div className="flex items-center gap-3">
+        <section className={`${mobilePanel === "chat" ? "flex" : "hidden"} min-h-0 flex-col overflow-hidden rounded-[16px] border border-[#e7ebf2] bg-white shadow-[0_14px_40px_rgba(15,23,42,0.04)] sm:rounded-[22px] xl:flex`}>
+          <div className="flex shrink-0 flex-col gap-3 border-b border-[#edf0f5] px-3 py-3 sm:px-5 sm:py-4 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <button type="button" onClick={() => setMobilePanel("conversations")} className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-[#667085] hover:bg-[#f2f4f7] xl:hidden" aria-label="Back to conversations">
+                <ChevronLeftIcon className="h-5 w-5" />
+              </button>
               <Avatar initials={currentThread?.initials ?? "SK"} accent={currentThread?.accent ?? "from-[#dbe7ff] to-[#eef4ff]"} />
-              <div>
-                <h2 className="text-[18px] font-semibold text-[#111827]">
+              <div className="min-w-0 flex-1">
+                <h2 className="truncate text-[18px] font-semibold text-[#111827]">
                   {currentThread?.name ?? "Supatcha K."}
                 </h2>
                 <p className="flex items-center gap-2 text-[13px] text-[#667085]">
@@ -464,14 +489,17 @@ export function LiveSupportPage() {
                   Online • Active now
                 </p>
               </div>
+              <button type="button" onClick={() => setMobilePanel("details")} className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#e2e7ef] text-[#667085] lg:hidden" aria-label="View customer details">
+                <InfoIcon className="h-5 w-5" />
+              </button>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 overflow-x-auto pb-0.5 scrollbar-hide sm:flex-wrap sm:gap-3 sm:overflow-visible">
               <select
                 value={currentConversation?.assigned_agent_id ?? ""}
                 onChange={(event) => void updateConversation({ assignedAgentId: event.target.value || null })}
                 disabled={!currentConversation}
-                className="h-10 max-w-40 rounded-xl border border-[#d9deea] bg-white px-3 text-[13px] font-medium text-[#344054] outline-none focus:border-[#91a6ff] disabled:opacity-50"
+                className="h-10 min-w-32 max-w-40 rounded-xl border border-[#d9deea] bg-white px-3 text-[13px] font-medium text-[#344054] outline-none focus:border-[#91a6ff] disabled:opacity-50"
                 aria-label="Assign admin"
               >
                 <option value="">Unassigned</option>
@@ -496,7 +524,7 @@ export function LiveSupportPage() {
             </div>
           </div>
 
-          <div className="scrollbar-hide min-h-0 flex-1 overflow-y-auto bg-[linear-gradient(180deg,#ffffff_0%,#ffffff_18%,#f8fbff_100%)] px-5 py-5">
+          <div className="scrollbar-hide min-h-0 flex-1 overflow-y-auto bg-[linear-gradient(180deg,#ffffff_0%,#ffffff_18%,#f8fbff_100%)] px-3 py-4 sm:px-5 sm:py-5">
             <div className="flex justify-center">
               <span className="rounded-full bg-[#f2f4f8] px-3 py-1 text-[12px] font-medium text-[#667085]">
                 Today
@@ -527,12 +555,12 @@ export function LiveSupportPage() {
                 return (
                   <div
                     key={message.id}
-                    className={`flex items-end gap-3 ${
+                    className={`flex items-end gap-2 sm:gap-3 ${
                       isAgent ? "justify-end" : "justify-start"
                     }`}
                   >
                     {!isAgent ? (
-                      <Avatar initials="SK" accent="from-[#dbe7ff] to-[#eef4ff]" />
+                      <span className="hidden sm:inline-flex"><Avatar initials="SK" accent="from-[#dbe7ff] to-[#eef4ff]" /></span>
                     ) : null}
 
                     <div className={`max-w-[min(80%,34rem)] ${isAgent ? "text-right" : "text-left"}`}>
@@ -556,7 +584,7 @@ export function LiveSupportPage() {
                     </div>
 
                     {isAgent ? null : (
-                      <Avatar initials="SK" accent="from-[#dbe7ff] to-[#eef4ff]" />
+                      <span className="hidden sm:inline-flex"><Avatar initials="SK" accent="from-[#dbe7ff] to-[#eef4ff]" /></span>
                     )}
                   </div>
                 );
@@ -564,8 +592,8 @@ export function LiveSupportPage() {
             </div>
           </div>
 
-          <form className="shrink-0 border-t border-[#edf0f5] bg-white px-4 py-4" onSubmit={sendReply}>
-            <div className="flex items-center gap-3 rounded-[18px] border border-[#d9deea] bg-[#fbfcfe] px-4 py-3 shadow-[0_10px_24px_rgba(15,23,42,0.03)]">
+          <form className="shrink-0 border-t border-[#edf0f5] bg-white px-3 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] sm:px-4 sm:py-4" onSubmit={sendReply}>
+            <div className="flex items-center gap-2 rounded-[18px] border border-[#d9deea] bg-[#fbfcfe] px-3 py-2 shadow-[0_10px_24px_rgba(15,23,42,0.03)] sm:gap-3 sm:px-4 sm:py-3">
               <input
                 type="text"
                 placeholder="Type a message..."
@@ -575,7 +603,7 @@ export function LiveSupportPage() {
                 disabled={!selectedThreadId || isSending}
               />
 
-              <div className="flex items-center gap-2 text-[#667085]">
+              <div className="hidden items-center gap-2 text-[#667085] sm:flex">
                 <IconButton ariaLabel="Attach file">
                   <PaperclipIcon className="h-5 w-5" />
                 </IconButton>
@@ -597,7 +625,7 @@ export function LiveSupportPage() {
           </form>
         </section>
 
-        <aside className="flex min-h-0 flex-col gap-4 overflow-y-auto scrollbar-hide">
+        <aside className={`${mobilePanel === "details" ? "flex" : "hidden"} min-h-0 flex-col gap-4 overflow-y-auto pb-[max(8px,env(safe-area-inset-bottom))] scrollbar-hide xl:flex`}>
           <PanelCard
             title="Customer Info"
             action={<PanelEditButton>Edit</PanelEditButton>}
@@ -825,8 +853,8 @@ function CreateBookingDialog({ conversation, customer, onClose, onCreated }: {
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-[#101828]/45 p-4" role="dialog" aria-modal="true" aria-labelledby="create-booking-title">
-      <form onSubmit={createBooking} className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[22px] bg-white p-6 shadow-2xl">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-[#101828]/45 p-2 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="create-booking-title">
+      <form onSubmit={createBooking} className="max-h-[calc(100dvh-16px)] w-full max-w-3xl overflow-y-auto rounded-[16px] bg-white p-4 pb-[max(16px,env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[92vh] sm:rounded-[22px] sm:p-6">
         <div className="flex items-start justify-between gap-4">
           <div><h2 id="create-booking-title" className="text-xl font-semibold text-[#111827]">Create Booking</h2><p className="mt-1 text-sm text-[#667085]">Customer identity is checked automatically. The customer chooses payment on the Neatly Hotel website.</p></div>
           <button type="button" onClick={onClose} className="text-2xl text-[#667085]" aria-label="Close">×</button>
@@ -883,7 +911,7 @@ function CreateBookingDialog({ conversation, customer, onClose, onCreated }: {
         )}
 
         {error && <p className="mt-4 rounded-lg bg-[#fef3f2] px-4 py-3 text-sm text-[#b42318]">{error}</p>}
-        <div className="mt-6 flex justify-end gap-3"><button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-semibold text-[#475467]">Cancel</button><button disabled={isLoading || isMatching || !roomTypeId || (identity?.kind === "ambiguous" && !selectedCustomerId) || (identity?.kind === "guest" && !emailVerificationToken)} className="rounded-lg bg-[#2f6bff] px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">{isLoading ? "Creating..." : "Create booking"}</button></div>
+        <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3"><button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-semibold text-[#475467]">Cancel</button><button disabled={isLoading || isMatching || !roomTypeId || (identity?.kind === "ambiguous" && !selectedCustomerId) || (identity?.kind === "guest" && !emailVerificationToken)} className="rounded-lg bg-[#2f6bff] px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">{isLoading ? "Creating..." : "Create booking"}</button></div>
       </form>
     </div>
   );
@@ -1112,6 +1140,23 @@ function SearchIcon({ className }: { className?: string }) {
         strokeWidth="1.5"
         strokeLinecap="round"
       />
+    </svg>
+  );
+}
+
+function ChevronLeftIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="m15 18-6-6 6-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function InfoIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M12 10.8v5M12 8h.01" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
     </svg>
   );
 }
