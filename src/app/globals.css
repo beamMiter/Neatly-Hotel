@@ -50,8 +50,16 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; min-height: 100%; }
 body { color: var(--ink); background: #edf0eb; font-family: var(--font-sans), Arial, Helvetica, sans-serif; }
-button, textarea { font: inherit; }
-input { font: inherit; }
+/* Tailwind's own Preflight (@layer base) already resets button/input/select/
+   textarea font to `inherit` — this duplicate was written unlayered, which in
+   CSS Cascade Layers always wins over ANY layered rule regardless of
+   specificity. That silently forced every <button>/<input>/<textarea> in the
+   app back to inheriting font-size (usually the 16px browser default) even
+   when a Tailwind text-* utility was applied directly to it — e.g. the navbar
+   account dropdown's "Log out" button rendered at 16px while the "My
+   Bookings" link right next to it correctly got text-sm's 14px. Removed
+   rather than re-layered since Tailwind already provides the identical reset
+   correctly. */
 
 .faq-invalid-field {
   border-color: #d8294a !important;
