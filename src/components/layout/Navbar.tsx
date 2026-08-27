@@ -35,11 +35,15 @@ const LoginLinkSpinner = () => {
 // not the bold dark chip the first pass used.
 const AccountAvatar = ({ account }: { account: AccountSummary }) =>
 	account.avatarUrl ? (
+		// unoptimized: Next 16.3.0 rejects Supabase Storage URLs at /_next/image
+		// ("url parameter is not allowed") even with a matching remotePattern —
+		// see next.config.ts. This skips that proxy entirely.
 		<Image
 			src={account.avatarUrl}
 			alt=""
 			width={40}
 			height={40}
+			unoptimized
 			className="h-10 w-10 flex-none rounded-full object-cover"
 		/>
 	) : (
@@ -91,6 +95,13 @@ const AccountMenu = ({ account, isAdmin }: { account: AccountSummary; isAdmin: b
 							role="menu"
 							className="absolute top-full right-0 z-20 mt-2 w-48 rounded border border-[#E4E6ED] bg-white py-2 shadow-[4px_4px_16px_rgba(0,0,0,0.08)]"
 						>
+							<Link
+								href="/profile"
+								onClick={() => setIsOpen(false)}
+								className="block px-4 py-2 text-sm text-[#2A2E3F] hover:bg-gray-50"
+							>
+								Profile
+							</Link>
 							<Link
 								href="/booking-history"
 								onClick={() => setIsOpen(false)}
@@ -232,6 +243,13 @@ const Navbar = ({ hideLogin = false, logoUrl, hotelName = 'Neatly Hotel', accoun
 											{account.firstName} {account.lastName}
 										</span>
 									</div>
+									<Link
+										href="/profile"
+										onClick={() => setIsMenuOpen(false)}
+										className="flex w-full items-center justify-center px-4 py-6 [font-family:var(--font-open-sans)] text-sm text-black"
+									>
+										Profile
+									</Link>
 									<Link
 										href="/booking-history"
 										onClick={() => setIsMenuOpen(false)}

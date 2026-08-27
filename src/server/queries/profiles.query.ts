@@ -2,6 +2,7 @@ import "server-only";
 import { createClient } from "@/server/db/supabase-server";
 import type { ProfilePrefill } from "@/types/booking";
 import type { AccountSummary } from "@/types/account";
+import type { OwnProfileForEdit } from "@/types/profile";
 
 type ProfileRow = {
   first_name: string;
@@ -74,4 +75,83 @@ export async function getAccountSummary(userId: string, fallbackEmail: string): 
     lastName: profile.last_name,
     avatarUrl: profile.avatar_url,
   };
+}
+
+// Everything the edit-profile page needs to prefill its form, in one query
+// — null means no profile row exists (staff/admin account that never went
+// through /register; see updateOwnProfile's NOT_FOUND for the write side).
+export async function getOwnProfileForEdit(userId: string): Promise<OwnProfileForEdit | null> {
+  const supabase = await createClient();
+
+  const { data: profile, error } = await supabase
+    .from("profiles")
+    .select("first_name, last_name, phone, date_of_birth, country, avatar_url")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[profiles] failed to fetch own profile for edit:", error);
+    return null;
+  }
+
+  if (!profile) return null;
+
+  return {
+    firstName: profile.first_name,
+    lastName: profile.last_name,
+    phone: profile.phone,
+    dateOfBirth: profile.date_of_birth,
+    country: profile.country,
+    avatarUrl: profile.avatar_url,
+  };
+}
+
+export type ProfileUpdateFields = {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  dateOfBirth: string; // YYYY-MM-DD
+  country: string;
+  avatarUrl?: string | null; // omit to leave the existing avatar untouched
+};
+
+export type UpdateOwnProfileResult = { ok: true } | { ok: false; code: "NOT_FOUND" | "DB_ERROR" };
+
+// Plain UPDATE through the RLS-bound client — relies entirely on the
+// existing "Users can update their own profile" policy (auth.uid() = id).
+// Deliberately NOT an upsert: `profiles` has no INSERT policy for
+// authenticated users (only the /register flow, via supabaseAdmin, may
+// create a row — see api/register/route.ts), so a staff/admin account with
+// no profile yet gets NOT_FOUND here rather than silently gaining one
+// through a side door with no username set (profiles.username is NOT NULL
+// + UNIQUE, and this form never collects one).
+export async function updateOwnProfile(userId: string, fields: ProfileUpdateFields): Promise<UpdateOwnProfileResult> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .update({
+      first_name: fields.firstName,
+      last_name: fields.lastName,
+      phone: fields.phone,
+      date_of_birth: fields.dateOfBirth,
+      country: fields.country,
+      ...(fields.avatarUrl !== undefined ? { avatar_url: fields.avatarUrl } : {}),
+    })
+    .eq("id", userId)
+    .select("id");
+
+  if (error) {
+    console.error("[profiles] failed to update own profile:", error);
+    return { ok: false, code: "DB_ERROR" };
+  }
+
+  // RLS silently filters out non-matching rows rather than erroring — zero
+  // rows back means either no profile exists yet, or (impossible here since
+  // we always pass the caller's own id) it belongs to someone else.
+  if (!data || data.length === 0) {
+    return { ok: false, code: "NOT_FOUND" };
+  }
+
+  return { ok: true };
 }
