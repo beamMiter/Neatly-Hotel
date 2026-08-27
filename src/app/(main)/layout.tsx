@@ -8,6 +8,8 @@ import { createClient } from '@/server/db/supabase-server';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import { loadHotelInformation } from '@/server/queries/hotel.query';
+import { getAccountSummary } from '@/server/queries/profiles.query';
+import { isStaff } from '@/server/queries/staff-members.query';
 
 const ChatWidgetWithSettings = async () => {
 	const supabase = await createClient();
@@ -20,11 +22,15 @@ const ChatWidgetWithSettings = async () => {
 };
 
 const MainLayout = async ({ children }: { children: React.ReactNode }) => {
-	const hotel = await loadHotelInformation();
+	const supabase = await createClient();
+	const [hotel, { data: { user } }] = await Promise.all([loadHotelInformation(), supabase.auth.getUser()]);
+	const [account, isAdmin] = user
+		? await Promise.all([getAccountSummary(user.id, user.email ?? ''), isStaff(user.id)])
+		: [null, false];
 
 	return (
 		<>
-			<Navbar logoUrl={hotel.logoUrl} hotelName={hotel.name} />
+			<Navbar logoUrl={hotel.logoUrl} hotelName={hotel.name} account={account} isAdmin={isAdmin} />
 			{children}
 			<Footer logoUrl={hotel.logoUrl} hotelName={hotel.name} />
 			<Suspense fallback={null}>

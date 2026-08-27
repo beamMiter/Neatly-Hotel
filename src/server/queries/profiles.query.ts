@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/server/db/supabase-server";
 import type { ProfilePrefill } from "@/types/booking";
+import type { AccountSummary } from "@/types/account";
 
 type ProfileRow = {
   first_name: string;
@@ -39,5 +40,38 @@ export async function getProfileForBookingPrefill(userId: string): Promise<Profi
     dateOfBirth: row.date_of_birth,
     country: row.country,
     email: userData.user?.email ?? "",
+  };
+}
+
+// Lightweight lookup for shared chrome (navbar) — only the two fields it
+// renders, so it doesn't pull in booking-prefill fields it never shows.
+//
+// Callers must pass the authenticated user's email as a fallback: staff/admin
+// accounts (staff_members) don't go through the customer /register flow that
+// creates a `profiles` row, so an authenticated user can have none at all.
+// Silently returning null here would make MainLayout treat a genuinely
+// logged-in staff member as logged out — never do that; always resolve to
+// *something* displayable for anyone who has a session.
+export async function getAccountSummary(userId: string, fallbackEmail: string): Promise<AccountSummary> {
+  const supabase = await createClient();
+
+  const { data: profile, error } = await supabase
+    .from("profiles")
+    .select("first_name, last_name, avatar_url")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[profiles] failed to fetch account summary:", error);
+  }
+
+  if (!profile) {
+    return { firstName: fallbackEmail.split("@")[0] || fallbackEmail, lastName: "", avatarUrl: null };
+  }
+
+  return {
+    firstName: profile.first_name,
+    lastName: profile.last_name,
+    avatarUrl: profile.avatar_url,
   };
 }
