@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { BookingPaymentView } from "@/features/booking/components/BookingPaymentView";
 import { createClient } from "@/server/db/supabase-server";
-import { getBookingById } from "@/server/queries/bookings.query";
+import { getBookingForCustomerPage } from "@/server/services/booking-access";
 
 type BookingPaymentPageProps = {
   searchParams: Promise<{ bookingId?: string }>;
@@ -15,7 +15,7 @@ export default async function BookingPaymentPage({ searchParams }: BookingPaymen
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const booking = await getBookingById(bookingId, user?.id ?? null);
+  const booking = await getBookingForCustomerPage(bookingId, user?.id ?? null);
   if (!booking) redirect("/booking/lookup");
 
   return (

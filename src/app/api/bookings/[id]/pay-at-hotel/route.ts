@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { hasDatabaseUrl } from "@/server/db";
 import { createClient } from "@/server/db/supabase-server";
 import { getBookingById, markBookingCashConfirmed } from "@/server/queries/bookings.query";
+import { bookingAccessErrorResponse } from "@/server/services/booking-access";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -17,7 +18,14 @@ export async function POST(_request: Request, { params }: RouteParams) {
   const { id } = await params;
 
   try {
-    const booking = await getBookingById(id, user?.id ?? null);
+    let booking;
+    try {
+      booking = await getBookingById(id, user?.id ?? null);
+    } catch (error) {
+      const forbidden = bookingAccessErrorResponse(error);
+      if (forbidden) return forbidden;
+      throw error;
+    }
     if (!booking) return NextResponse.json({ message: "Booking not found" }, { status: 404 });
     if (booking.status !== "pending_payment" || booking.paymentStatus !== "pending") {
       return NextResponse.json({ message: "This booking is no longer awaiting payment" }, { status: 409 });

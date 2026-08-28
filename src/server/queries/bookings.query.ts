@@ -11,9 +11,9 @@ import {
   validateStandardRequestCodes,
 } from "@/server/queries/special-requests.query";
 import {
-  BookingNotFoundError,
-  InvalidBookingTransitionError,
-} from "@/server/queries/customer-bookings.query";
+  BookingAccessDeniedError,
+  resolveBookingAccessOutcome,
+} from "@/lib/booking-access";
 import { refundPayment } from "@/server/payments/stripe";
 import type {
   BookingPricing,
@@ -21,6 +21,10 @@ import type {
   CreateBookingInput,
   SelectedSpecialRequest,
 } from "@/types/booking";
+import {
+  BookingNotFoundError,
+  InvalidBookingTransitionError,
+} from "@/server/queries/customer-bookings.query";
 
 const HOLD_MINUTES = 30;
 // Stripe enforces a per-currency minimum charge (roughly 10 THB); anything
@@ -300,10 +304,9 @@ export async function createPendingBooking(
 }
 
 export async function getBookingById(id: string, customerId: string | null): Promise<BookingRecord | null> {
-  // Access rule:
-  // - guest booking (customer_id is null): anyone with the booking UUID may read it
-  // - member booking: only the owning customer_id may read it
-  const rows = await prisma.$queryRaw<Parameters<typeof toBookingRecord>[0][]>`
+  const rows = await prisma.$queryRaw<
+    (Parameters<typeof toBookingRecord>[0] & { customer_id: string | null; card_brand: string | null; card_last4: string | null })[]
+  >`
     select b.id, b.booking_code, b.customer_id, b.check_in, b.check_out, b.guests, b.status, b.total_amount,
            b.guest_first_name, b.guest_last_name, b.guest_email, b.guest_phone,
            b.guest_date_of_birth, b.guest_country, b.standard_requests, b.special_requests,
@@ -328,17 +331,15 @@ export async function getBookingById(id: string, customerId: string | null): Pro
       order by updated_at desc limit 1
     ) p on true
     where b.id = ${id}::uuid
-      and (
-        b.customer_id is null
-        or (${customerId}::uuid is not null and b.customer_id = ${customerId}::uuid)
-      )
   `;
 
   const row = rows[0];
-  if (!row) return null;
+  const outcome = resolveBookingAccessOutcome(Boolean(row), row?.customer_id ?? null, customerId);
+  if (outcome === "not_found") return null;
+  if (outcome === "forbidden") throw new BookingAccessDeniedError();
+
   const record = toBookingRecord(row);
-  const typedRow = row as unknown as { card_brand: string | null; card_last4: string | null };
-  return { ...record, cardBrand: typedRow.card_brand, cardLast4: typedRow.card_last4 };
+  return { ...record, cardBrand: row.card_brand, cardLast4: row.card_last4 };
 }
 
 // Guest booking lookup — both booking_code and guest_email must match.
@@ -419,11 +420,17 @@ export async function markBookingCashConfirmed(bookingId: string): Promise<void>
 //     back a hold, otherwise a retry can re-claim already-sold inventory.
 export async function extendBookingHold(bookingId: string, customerId: string | null): Promise<boolean> {
   return prisma.$transaction(async (tx) => {
-      // Selected as text so the ::date casts below compare the same literal
-      // form createPendingBooking uses. A Prisma `date` comes back as a
-      // UTC-midnight Date, and timestamptz::date resolves in the session
-      // timezone — on a non-UTC connection that silently shifts the overlap
-      // window by a day.
+      const owner = await tx.$queryRaw<{ customer_id: string | null }[]>`
+        select customer_id from bookings where id = ${bookingId}::uuid
+      `;
+      const access = resolveBookingAccessOutcome(
+        owner.length > 0,
+        owner[0]?.customer_id ?? null,
+        customerId,
+      );
+      if (access === "forbidden") throw new BookingAccessDeniedError();
+      if (access === "not_found") return false;
+
       const bookings = await tx.$queryRaw<
         { check_in: string; check_out: string }[]
       >`
@@ -431,10 +438,6 @@ export async function extendBookingHold(bookingId: string, customerId: string | 
                to_char(check_out, 'YYYY-MM-DD') as check_out
         from bookings
         where id = ${bookingId}::uuid
-          and (
-            (${customerId}::uuid is null and customer_id is null)
-            or customer_id = ${customerId}::uuid
-          )
           and payment_status in ('pending', 'failed')
           and status in ('pending_payment', 'cancelled', 'canceled')
         for update

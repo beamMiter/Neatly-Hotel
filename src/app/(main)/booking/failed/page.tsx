@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/server/db/supabase-server";
-import { getBookingById } from "@/server/queries/bookings.query";
+import { getBookingForCustomerPage } from "@/server/services/booking-access";
 import { BookingFailedView } from "@/features/booking/components/BookingFailedView";
 
 type BookingFailedPageProps = {
@@ -16,7 +16,7 @@ export default async function BookingFailedPage({ searchParams }: BookingFailedP
     data: { user },
   } = await supabase.auth.getUser();
 
-  const booking = await getBookingById(bookingId, user?.id ?? null);
+  const booking = await getBookingForCustomerPage(bookingId, user?.id ?? null);
   if (!booking) redirect("/booking/lookup");
 
   return (

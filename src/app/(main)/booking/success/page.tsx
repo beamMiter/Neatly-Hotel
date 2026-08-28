@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/server/db/supabase-server";
-import { getBookingById } from "@/server/queries/bookings.query";
+import { getBookingForCustomerPage } from "@/server/services/booking-access";
 import { loadHotelInformation } from "@/server/queries/hotel.query";
 import { formatCheckTimeLabel } from "@/types/hotel";
 import { BookingSuccessView } from "@/features/booking/components/BookingSuccessView";
@@ -19,7 +19,7 @@ export default async function BookingSuccessPage({ searchParams }: BookingSucces
   } = await supabase.auth.getUser();
 
   const [booking, hotel] = await Promise.all([
-    getBookingById(bookingId, user?.id ?? null),
+    getBookingForCustomerPage(bookingId, user?.id ?? null),
     loadHotelInformation(),
   ]);
   if (!booking) redirect("/booking/lookup");

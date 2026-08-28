@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/server/db/supabase-server";
-import { getBookingById } from "@/server/queries/bookings.query";
+import { getBookingForCustomerPage } from "@/server/services/booking-access";
 import CancelBookingReceiptView from "@/app/cancel-booking/CancelBookingReceiptView";
 
 type CancelBookingPageProps = {
@@ -19,7 +19,7 @@ export default async function CancelBookingPage({ searchParams }: CancelBookingP
 
   let booking;
   try {
-    booking = await getBookingById(bookingId, user?.id ?? null);
+    booking = await getBookingForCustomerPage(bookingId, user?.id ?? null);
   } catch (error) {
     console.error("[cancel-booking] Failed to load booking:", error);
     redirect("/booking-history");

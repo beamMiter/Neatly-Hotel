@@ -7,6 +7,7 @@ import {
   InvalidBookingTransitionError,
 } from "@/server/queries/customer-bookings.query";
 import { BookingConflictError, changeBookingDates } from "@/server/queries/bookings.query";
+import { bookingAccessErrorResponse } from "@/server/services/booking-access";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -32,6 +33,8 @@ export async function POST(request: Request, { params }: RouteParams) {
     const booking = await changeBookingDates(id, user?.id ?? null, checkIn, checkOut);
     return NextResponse.json({ message: "Dates updated", booking });
   } catch (error) {
+    const forbidden = bookingAccessErrorResponse(error);
+    if (forbidden) return forbidden;
     if (error instanceof BookingNotFoundError) {
       return NextResponse.json({ message: error.message }, { status: 404 });
     }

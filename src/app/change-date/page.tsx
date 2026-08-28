@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/server/db/supabase-server";
-import { getBookingById } from "@/server/queries/bookings.query";
+import { getBookingForCustomerPage } from "@/server/services/booking-access";
 import { getGuestRoomTypeById } from "@/server/queries/booking-search.query";
 import ChangeDateView from "@/app/change-date/ChangeDateView";
 
@@ -20,7 +20,7 @@ export default async function ChangeDatePage({ searchParams }: ChangeDatePagePro
 
   let booking;
   try {
-    booking = await getBookingById(bookingId, user?.id ?? null);
+    booking = await getBookingForCustomerPage(bookingId, user?.id ?? null);
   } catch (error) {
     console.error("[change-date] Failed to load booking:", error);
     redirect("/booking-history");
