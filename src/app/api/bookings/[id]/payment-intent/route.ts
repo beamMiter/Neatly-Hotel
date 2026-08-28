@@ -12,6 +12,7 @@ import {
   retrievePaymentIntent,
 } from "@/server/payments/stripe";
 import { supabaseAdmin } from "@/server/db/supabase-admin";
+import { bookingAccessErrorResponse } from "@/server/services/booking-access";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -75,7 +76,14 @@ export async function POST(request: Request, { params }: RouteParams) {
   }
 
   const viewerId = user?.id ?? null;
-  const extended = await extendBookingHold(id, viewerId);
+  let extended: boolean;
+  try {
+    extended = await extendBookingHold(id, viewerId);
+  } catch (error) {
+    const forbidden = bookingAccessErrorResponse(error);
+    if (forbidden) return forbidden;
+    throw error;
+  }
   if (!extended) {
     return NextResponse.json(
       { message: "This booking can no longer be retried — please start a new booking" },
@@ -83,7 +91,14 @@ export async function POST(request: Request, { params }: RouteParams) {
     );
   }
 
-  const booking = await getBookingById(id, viewerId);
+  let booking;
+  try {
+    booking = await getBookingById(id, viewerId);
+  } catch (error) {
+    const forbidden = bookingAccessErrorResponse(error);
+    if (forbidden) return forbidden;
+    throw error;
+  }
   if (!booking) {
     return NextResponse.json({ message: "Booking not found" }, { status: 404 });
   }

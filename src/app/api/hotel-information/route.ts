@@ -8,6 +8,10 @@ import {
   updateHotelInformation,
 } from "@/server/queries/hotel.query";
 import {
+  authorizationErrorResponse,
+  requireStaff,
+} from "@/server/services/authorization";
+import {
   DEFAULT_HOTEL_INFORMATION,
   type HotelInformation,
 } from "@/types/hotel";
@@ -25,31 +29,15 @@ function fallbackHotel(): HotelInformation {
   return { ...DEFAULT_HOTEL_INFORMATION };
 }
 
-export async function GET() {
-  try {
-    if (!hasDatabaseUrl()) {
-      return NextResponse.json({
-        source: "mock",
-        data: fallbackHotel(),
-      });
-    }
-
-    const hotel = await getHotelInformation();
-    return NextResponse.json({ source: "database", data: hotel });
-  } catch (error) {
-    console.error("[api/hotel-information] GET failed:", error);
-    return NextResponse.json(
-      {
-        source: "mock",
-        error: "Failed to fetch hotel information",
-        data: fallbackHotel(),
-      },
-      { status: 500 },
-    );
-  }
-}
-
 export async function PUT(request: Request) {
+  try {
+    await requireStaff();
+  } catch (error) {
+    const response = authorizationErrorResponse(error);
+    if (response) return response;
+    throw error;
+  }
+
   try {
     const form = await request.formData();
     const name = String(form.get("name") ?? "").trim();

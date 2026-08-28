@@ -2,7 +2,10 @@ import { z } from "zod";
 import { hasDatabaseUrl } from "@/server/db";
 import { searchRoomTypes } from "@/server/queries/booking-search.query";
 import { BookingConflictError, InvalidGuestsError, RoomTypeNotFoundError } from "@/server/queries/bookings.query";
-import { getActiveAdminUser } from "@/server/services/admin-auth";
+import {
+  authorizationErrorResponse,
+  requireStaff,
+} from "@/server/services/authorization";
 import {
   AdminBookingValidationError,
   createBookingForSupportConversation,
@@ -17,8 +20,19 @@ const availabilitySchema = z.object({
   rooms: z.coerce.number().int().min(1).max(3),
 });
 
+async function authorizeStaff() {
+  try {
+    return await requireStaff();
+  } catch (error) {
+    const response = authorizationErrorResponse(error);
+    if (response) return response;
+    throw error;
+  }
+}
+
 export async function GET(request: Request) {
-  if (!await getActiveAdminUser()) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await authorizeStaff();
+  if (auth instanceof Response) return auth;
   const params = new URL(request.url).searchParams;
   const conversationId = params.get("conversationId");
 
@@ -39,7 +53,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  if (!await getActiveAdminUser()) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await authorizeStaff();
+  if (auth instanceof Response) return auth;
   if (!hasDatabaseUrl()) return Response.json({ error: "Database is not configured" }, { status: 503 });
   const body = await request.json().catch(() => null);
   const parsed = z.object({

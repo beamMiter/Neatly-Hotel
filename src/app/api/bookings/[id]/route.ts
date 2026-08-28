@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { hasDatabaseUrl } from "@/server/db";
 import { createClient } from "@/server/db/supabase-server";
 import { getBookingById } from "@/server/queries/bookings.query";
+import { bookingAccessErrorResponse } from "@/server/services/booking-access";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -27,6 +28,8 @@ export async function GET(_request: Request, { params }: RouteParams) {
     }
     return NextResponse.json({ booking });
   } catch (error) {
+    const forbidden = bookingAccessErrorResponse(error);
+    if (forbidden) return forbidden;
     console.error("[api/bookings/:id] GET failed:", error);
     return NextResponse.json({ message: "Failed to load booking" }, { status: 500 });
   }

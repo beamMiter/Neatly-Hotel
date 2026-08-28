@@ -1,5 +1,9 @@
- import { z } from "zod";
-import { getActiveAdminUser } from "@/server/services/admin-auth";
+import { z } from "zod";
+import {
+  authorizationErrorResponse,
+  requireStaff,
+  type StaffAuthContext,
+} from "@/server/services/authorization";
 import {
   createChatbotSuggestion,
   deleteChatbotSuggestion,
@@ -30,17 +34,19 @@ function validationMessage(error: z.ZodError) {
     .join("; ");
 }
 
-function unauthorized() {
-  return Response.json({ error: "Unauthorized" }, { status: 401 });
-}
-
-async function requireAdmin() {
-  return getActiveAdminUser();
+async function authorizeStaff(): Promise<StaffAuthContext | Response> {
+  try {
+    return await requireStaff();
+  } catch (error) {
+    const response = authorizationErrorResponse(error);
+    if (response) return response;
+    throw error;
+  }
 }
 
 export async function PATCH(request: Request) {
-  const admin = await requireAdmin();
-  if (!admin) return unauthorized();
+  const admin = await authorizeStaff();
+  if (admin instanceof Response) return admin;
   const body = await request.json() as unknown;
   if (!body || typeof body !== "object") return Response.json({ error: "Invalid request" }, { status: 400 });
   const record = body as Record<string, unknown>;
@@ -49,7 +55,7 @@ export async function PATCH(request: Request) {
     if (record.resource === "settings") {
       const parsed = settingsSchema.safeParse(record.data);
       if (!parsed.success) return Response.json({ error: "Invalid settings" }, { status: 400 });
-      console.info("[chatbot-admin-audit]", { actorId: admin.id, action: "update_settings" });
+      console.info("[chatbot-admin-audit]", { actorId: admin.userId, action: "update_settings" });
       return Response.json({ settings: await updateChatbotSettings(parsed.data) });
     }
     if (record.resource === "suggestion") {
@@ -63,7 +69,7 @@ export async function PATCH(request: Request) {
       const parsed = suggestionSchema.partial().omit({ id: true }).safeParse(suggestionData);
       if (!id.success) return Response.json({ error: `Invalid suggestion: ${validationMessage(id.error)}` }, { status: 400 });
       if (!parsed.success) return Response.json({ error: `Invalid suggestion: ${validationMessage(parsed.error)}` }, { status: 400 });
-      console.info("[chatbot-admin-audit]", { actorId: admin.id, action: "update_suggestion", resourceId: id.data });
+      console.info("[chatbot-admin-audit]", { actorId: admin.userId, action: "update_suggestion", resourceId: id.data });
       return Response.json({ suggestion: await updateChatbotSuggestion(id.data, parsed.data) });
     }
     return Response.json({ error: "Unknown resource" }, { status: 400 });
@@ -73,8 +79,8 @@ export async function PATCH(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const admin = await requireAdmin();
-  if (!admin) return unauthorized();
+  const admin = await authorizeStaff();
+  if (admin instanceof Response) return admin;
   const body = await request.json() as unknown;
   if (!body || typeof body !== "object") return Response.json({ error: "Invalid request" }, { status: 400 });
   const record = body as Record<string, unknown>;
@@ -82,7 +88,7 @@ export async function POST(request: Request) {
   const parsed = suggestionSchema.safeParse(record.data);
   if (!parsed.success) return Response.json({ error: `Invalid suggestion: ${validationMessage(parsed.error)}` }, { status: 400 });
   try {
-    console.info("[chatbot-admin-audit]", { actorId: admin.id, action: "create_suggestion", resourceId: parsed.data.id });
+    console.info("[chatbot-admin-audit]", { actorId: admin.userId, action: "create_suggestion", resourceId: parsed.data.id });
     return Response.json({ suggestion: await createChatbotSuggestion(parsed.data) }, { status: 201 });
   } catch {
     return Response.json({ error: "Unable to create chatbot suggestion" }, { status: 500 });
@@ -90,12 +96,12 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const admin = await requireAdmin();
-  if (!admin) return unauthorized();
+  const admin = await authorizeStaff();
+  if (admin instanceof Response) return admin;
   const parsed = z.object({ resource: z.literal("suggestion"), id: z.string().trim().min(1).max(100) }).strict().safeParse(await request.json());
   if (!parsed.success) return Response.json({ error: "Invalid suggestion" }, { status: 400 });
   try {
-    console.info("[chatbot-admin-audit]", { actorId: admin.id, action: "delete_suggestion", resourceId: parsed.data.id });
+    console.info("[chatbot-admin-audit]", { actorId: admin.userId, action: "delete_suggestion", resourceId: parsed.data.id });
     await deleteChatbotSuggestion(parsed.data.id);
     return new Response(null, { status: 204 });
   } catch {

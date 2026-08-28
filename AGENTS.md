@@ -84,6 +84,38 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ใช้ Prisma ได้กับงานที่ตั้งใจให้เห็นข้อมูลทั้งหมด เช่น admin dashboard, report, seed
 
+## Authorization (Auth vs Authz)
+
+**Authentication** = login สำเร็จหรือไม่ (`supabase.auth.getUser()`)
+
+**Authorization** = ทำ action นี้ได้หรือไม่ — ห้ามใช้ "login แล้ว" แทน "มีสิทธิ์"
+
+| Actor | ตรวจที่ไหน | กติกา |
+|---|---|---|
+| **Admin / staff** | `staff_members` (role `admin`, `is_active`) | `requireStaff()` ใน admin API — 401 ไม่ login, 403 login แต่ไม่ใช่ staff |
+| **Customer (member booking)** | `bookings.customer_id` | เจ้าของเท่านั้น — API คืน **403** ถ้า login แล้วแต่ไม่ใช่เจ้าของ, **404** ถ้าไม่ login หรือไม่มี booking |
+| **Guest booking** | booking UUID หรือ lookup `code + email` | `customer_id` เป็น null — ใครมี UUID / รู้ code+email อ่านได้ |
+
+### จุดเช็คกลาง (ใช้ตัวนี้ อย่า copy logic กระจาย)
+
+| งาน | ไฟล์ |
+|---|---|
+| Staff admin API | `src/server/services/authorization.ts` → `requireStaff()` |
+| Customer booking access (pure rules) | `src/lib/booking-access.ts` |
+| Customer booking API 403 | `src/server/services/booking-access.ts` → `bookingAccessErrorResponse()` |
+| อ่าน booking ฝั่ง server page | `getBookingForCustomerPage()` (403 → redirect เหมือน not found) |
+| Query layer | `getBookingById(id, viewerId)` ใน `bookings.query.ts` |
+
+Admin layout ใช้ `getActiveAdminUser()` (wrapper บน `getStaffAuthContext()`)
+
+### Offline test
+
+```bash
+npm run security:check-authorization
+```
+
+ครอบคลุม matrix 401/403/404 สำหรับ staff + customer booking access (ไม่ต้องต่อ DB)
+
 ## Database schema — กำลังย้ายมาที่ Prisma
 
 `prisma/schema.prisma` คือแหล่งความจริงที่กำลังจะเป็นตัวหลัก แต่**ตอนนี้ยังไม่ครบ** ระวังก่อนแก้อะไร:

@@ -9,11 +9,25 @@ import {
   updateSupportConversation,
 } from "@/server/queries/live-support.query";
 import { generateLiveSupportSummary } from "@/server/queries/live-support-summary.query";
-import { getActiveAdminUser } from "@/server/services/admin-auth";
+import {
+  authorizationErrorResponse,
+  requireStaff,
+} from "@/server/services/authorization";
+import { createClient } from "@/server/db/supabase-server";
+
+async function authorizeStaff() {
+  try {
+    return await requireStaff();
+  } catch (error) {
+    const response = authorizationErrorResponse(error);
+    if (response) return response;
+    throw error;
+  }
+}
 
 export async function GET(request: Request) {
-  const user = await getActiveAdminUser();
-  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await authorizeStaff();
+  if (auth instanceof Response) return auth;
 
   try {
     const searchParams = new URL(request.url).searchParams;
@@ -40,7 +54,7 @@ export async function GET(request: Request) {
     return Response.json({
       conversations,
       agents,
-      currentAdminId: user.id,
+      currentAdminId: auth.userId,
       selectedConversationId,
       messages,
       customer,
@@ -53,8 +67,8 @@ export async function GET(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const user = await getActiveAdminUser();
-  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await authorizeStaff();
+  if (auth instanceof Response) return auth;
 
   const body = (await request.json().catch(() => null)) as {
     conversationId?: unknown;
@@ -90,8 +104,13 @@ export async function PATCH(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const user = await getActiveAdminUser();
-  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await authorizeStaff();
+  if (auth instanceof Response) return auth;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   const body = (await request.json().catch(() => null)) as {
     conversationId?: unknown;
@@ -103,7 +122,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const message = await addSupportMessage(body.conversationId, "agent", content, user.email ?? "Admin");
+    const message = await addSupportMessage(body.conversationId, "agent", content, user?.email ?? "Admin");
     return Response.json({ message }, { status: 201 });
   } catch (error) {
     console.error("Live support admin write failed:", error);

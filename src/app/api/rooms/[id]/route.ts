@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { hasDatabaseUrl } from "@/server/db";
 import { deleteRoom, updateRoomStatus } from "@/server/queries/rooms.query";
+import {
+  authorizationErrorResponse,
+  requireStaff,
+} from "@/server/services/authorization";
 import { ROOM_STATUSES, type RoomStatus } from "@/types/rooms";
 
 type RouteContext = {
@@ -25,6 +29,14 @@ export async function PATCH(request: Request, context: RouteContext) {
 
   if (!hasDatabaseUrl()) {
     return databaseUnavailableResponse();
+  }
+
+  try {
+    await requireStaff();
+  } catch (error) {
+    const response = authorizationErrorResponse(error);
+    if (response) return response;
+    throw error;
   }
 
   try {
@@ -61,6 +73,14 @@ export async function DELETE(_request: Request, context: RouteContext) {
 
   if (!hasDatabaseUrl()) {
     return databaseUnavailableResponse();
+  }
+
+  try {
+    await requireStaff();
+  } catch (error) {
+    const response = authorizationErrorResponse(error);
+    if (response) return response;
+    throw error;
   }
 
   try {

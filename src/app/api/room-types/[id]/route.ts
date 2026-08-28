@@ -1,12 +1,24 @@
 import { NextResponse } from "next/server";
 import { parseUpdateRoomFormData } from "@/features/rooms/validations";
 import { deleteRoomType, updateRoomType } from "@/server/queries/room-types.query";
+import {
+  authorizationErrorResponse,
+  requireStaff,
+} from "@/server/services/authorization";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
 export async function PATCH(request: Request, context: RouteContext) {
+  try {
+    await requireStaff();
+  } catch (error) {
+    const response = authorizationErrorResponse(error);
+    if (response) return response;
+    throw error;
+  }
+
   const { id } = await context.params;
 
   const formData = await request.formData().catch(() => null);
@@ -28,6 +40,14 @@ export async function PATCH(request: Request, context: RouteContext) {
 }
 
 export async function DELETE(_request: Request, context: RouteContext) {
+  try {
+    await requireStaff();
+  } catch (error) {
+    const response = authorizationErrorResponse(error);
+    if (response) return response;
+    throw error;
+  }
+
   const { id } = await context.params;
 
   const result = await deleteRoomType(id);
