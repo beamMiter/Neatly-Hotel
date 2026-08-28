@@ -208,14 +208,19 @@ const Navbar = ({ hideLogin = false, logoUrl, hotelName = 'Neatly Hotel', accoun
 					onClick={() => setIsMenuOpen((prev) => !prev)}
 					aria-label={isMenuOpen ? 'Close menu' : 'Open menu'}
 					aria-expanded={isMenuOpen}
-					className="ml-auto flex h-6 w-6 flex-none flex-col items-center justify-center gap-1.75 md:hidden"
+					className="ml-auto flex h-6 w-6 flex-none flex-col items-center justify-center gap-1.5 md:hidden"
 				>
+					{/* h-0.5 (2px) + gap-1.5 (6px) keeps every line's Y position on a
+					    whole pixel (2/6/2/6/2 = 18px, centered in the 24px box with an
+					    exact 3px above/below) — the old 1.5px lines + 7px gap landed on
+					    fractional Y offsets, so the three lines anti-aliased differently
+					    and visibly looked uneven even though their CSS was identical. */}
 					<span
-						className={`h-[1.5px] w-4 bg-[#646D89] transition-transform duration-150 ${isMenuOpen ? 'translate-y-[8.5px] rotate-45' : ''}`}
+						className={`h-0.5 w-4 bg-[#646D89] transition-transform duration-150 ${isMenuOpen ? 'translate-y-2 rotate-45' : ''}`}
 					/>
-					<span className={`h-[1.5px] w-4 bg-[#646D89] transition-opacity duration-150 ${isMenuOpen ? 'opacity-0' : ''}`} />
+					<span className={`h-0.5 w-4 bg-[#646D89] transition-opacity duration-150 ${isMenuOpen ? 'opacity-0' : ''}`} />
 					<span
-						className={`h-[1.5px] w-4 bg-[#646D89] transition-transform duration-150 ${isMenuOpen ? 'translate-y-[8.5px] -rotate-45' : ''}`}
+						className={`h-0.5 w-4 bg-[#646D89] transition-transform duration-150 ${isMenuOpen ? '-translate-y-2 -rotate-45' : ''}`}
 					/>
 				</button>
 			</nav>
@@ -239,7 +244,7 @@ const Navbar = ({ hideLogin = false, logoUrl, hotelName = 'Neatly Hotel', accoun
 
 							{account ? (
 								<>
-									<div className="flex w-full items-center gap-2 px-4 py-3">
+									<div className="flex w-full items-center justify-center gap-2 px-4 py-3">
 										<AccountAvatar account={account} />
 										<span className="text-sm font-semibold text-[#2A2E3F]">
 											{account.firstName} {account.lastName}
