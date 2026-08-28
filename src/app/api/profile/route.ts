@@ -48,7 +48,15 @@ export async function PATCH(request: Request) {
       console.error("[profile] avatar upload failed:", uploadError);
       return NextResponse.json({ message: "Failed to upload photo. Please try again." }, { status: 500 });
     }
-    avatarUrl = supabaseAdmin.storage.from("avatars").getPublicUrl(path).data.publicUrl;
+    // Cache-busting query param — the object storage response for this
+    // bucket sends `cache-control: max-age=3600` (see supabase/migrations/
+    // 0001_profiles.sql), and the path is the same every time (upsert
+    // overwrites in place). Without this, a browser that already cached the
+    // old avatar at this exact URL keeps showing it for up to an hour after
+    // a new upload replaces the underlying file — confirmed reproducible:
+    // re-uploading a photo with the same extension as a previous one showed
+    // the *previous* photo, not the new one, until the cache expired.
+    avatarUrl = `${supabaseAdmin.storage.from("avatars").getPublicUrl(path).data.publicUrl}?v=${Date.now()}`;
   } else if (removeAvatar) {
     avatarUrl = null;
   }
