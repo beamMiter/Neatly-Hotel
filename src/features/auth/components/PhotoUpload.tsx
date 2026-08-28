@@ -91,10 +91,21 @@ export function PhotoUpload({ id, name, file, onChange, existingUrl = null, onRe
 
   if (previewUrl) {
     // A newly-picked, not-yet-saved file takes priority over whatever avatar
-    // is already on file — removing it here just cancels the pick.
+    // is already on file. Clicking the preview re-opens the picker to swap
+    // it for a different one — same as the existingUrl case below — rather
+    // than forcing a cancel-then-repick round trip; the X button is the only
+    // way back to no pick (or the existing avatar) at all.
     box = (
       <div className="relative h-[167px] w-[167px]">
-        <Image src={previewUrl} alt="Profile preview" fill unoptimized className="rounded object-cover" />
+        <label htmlFor={id} className="group block h-full w-full cursor-pointer">
+          <div className="relative h-full w-full">
+            <Image src={previewUrl} alt="Profile preview" fill unoptimized className="rounded object-cover" />
+            <span className="absolute inset-0 flex items-center justify-center rounded bg-black/0 text-sm font-medium text-transparent transition-colors group-hover:bg-black/40 group-hover:text-white">
+              Change
+            </span>
+          </div>
+          {fileInput}
+        </label>
         <button type="button" onClick={handleCancelPick} aria-label="Cancel photo" className={DELETE_BUTTON_CLASSNAME}>
           <CloseIcon className="h-3.5 w-3.5" />
         </button>
