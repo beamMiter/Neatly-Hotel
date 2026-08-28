@@ -2,9 +2,8 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/server/db/supabase-server";
 import { getOwnProfileForEdit } from "@/server/queries/profiles.query";
-import { isStaff, getOwnStaffProfileForEdit } from "@/server/queries/staff-members.query";
+import { isStaff } from "@/server/queries/staff-members.query";
 import { EditProfileForm } from "@/features/profile/components/EditProfileForm";
-import { EditStaffProfileForm } from "@/features/profile/components/EditStaffProfileForm";
 
 export const metadata: Metadata = {
   title: "My Profile | Neatly Hotel",
@@ -18,20 +17,18 @@ export default async function ProfilePage() {
 
   if (!user) redirect("/login");
 
-  // Staff/admin accounts edit their own row in staff_members (separate table,
-  // separate form — no dateOfBirth/country), customers edit `profiles`.
+  // Staff/admin accounts don't get a self-edit UI here — per the team's
+  // call, an admin's own name/phone/avatar (staff_members) is edited
+  // directly in Supabase, not through the website. The navbar hides the
+  // "Profile" link for admins; this message only shows if one navigates
+  // here directly (e.g. an old bookmark).
   const staff = await isStaff(user.id);
-  const [profile, staffProfile] = await Promise.all([
-    staff ? null : getOwnProfileForEdit(user.id),
-    staff ? getOwnStaffProfileForEdit(user.id) : null,
-  ]);
+  const profile = staff ? null : await getOwnProfileForEdit(user.id);
 
   return (
     <div className="w-full flex-1 bg-[#F7F7FB]">
       <div className="mx-auto max-w-[930px] px-4 py-10 lg:py-20">
-        {staffProfile ? (
-          <EditStaffProfileForm email={user.email ?? ""} initialValues={staffProfile} />
-        ) : profile ? (
+        {profile ? (
           <EditProfileForm email={user.email ?? ""} initialValues={profile} />
         ) : (
           <div>
@@ -39,7 +36,9 @@ export default async function ProfilePage() {
               Profile
             </h1>
             <p className="mt-6 text-sm text-brand-body">
-              This account doesn&apos;t have a profile to edit — please contact support.
+              {staff
+                ? "Staff/admin accounts are managed directly in Supabase, not through this page."
+                : "This account doesn't have a profile to edit — please contact support."}
             </p>
           </div>
         )}

@@ -12,15 +12,3 @@ export type OwnProfileForEdit = {
   country: string;
   avatarUrl: string | null;
 };
-
-// Editable identity for a staff/admin account — separate table
-// (staff_members, see 202608270001_staff_members_profile_fields.sql), kept
-// apart from customer `profiles` per the team's call: staff_members sees
-// little traffic, so its own columns are low-risk to extend. No
-// dateOfBirth/country — nothing in the product reads those for staff.
-export type StaffProfileForEdit = {
-  firstName: string;
-  lastName: string;
-  phone: string;
-  avatarUrl: string | null;
-};

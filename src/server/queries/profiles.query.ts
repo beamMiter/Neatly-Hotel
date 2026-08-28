@@ -47,13 +47,11 @@ export async function getProfileForBookingPrefill(userId: string): Promise<Profi
 // Lightweight lookup for shared chrome (navbar) — only the two fields it
 // renders, so it doesn't pull in booking-prefill fields it never shows.
 //
-// A staff/admin account has no `profiles` row (never goes through the
-// customer /register flow) — its name/avatar live in staff_members instead
-// (see getOwnStaffProfileForEdit), so this falls back there before finally
-// falling back to the email. Callers must still pass the email: a staff
-// account that hasn't edited its profile yet has nothing in either table.
+// Callers must pass the authenticated user's email as a fallback: staff/admin
+// accounts (staff_members) don't go through the customer /register flow that
+// creates a `profiles` row, so an authenticated user can have none at all.
 // Silently returning null here would make MainLayout treat a genuinely
-// logged-in user as logged out — never do that; always resolve to
+// logged-in staff member as logged out — never do that; always resolve to
 // *something* displayable for anyone who has a session.
 export async function getAccountSummary(userId: string, fallbackEmail: string): Promise<AccountSummary> {
   const supabase = await createClient();
@@ -68,35 +66,20 @@ export async function getAccountSummary(userId: string, fallbackEmail: string): 
     console.error("[profiles] failed to fetch account summary:", error);
   }
 
-  if (profile) {
-    return {
-      firstName: profile.first_name,
-      lastName: profile.last_name,
-      avatarUrl: profile.avatar_url,
-    };
+  if (!profile) {
+    return { firstName: fallbackEmail.split("@")[0] || fallbackEmail, lastName: "", avatarUrl: null };
   }
 
-  const { data: staffMember, error: staffError } = await supabase
-    .from("staff_members")
-    .select("first_name, last_name, avatar_url")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (staffError) {
-    console.error("[staff-members] failed to fetch account summary:", staffError);
-  }
-
-  if (staffMember?.first_name) {
-    return { firstName: staffMember.first_name, lastName: staffMember.last_name ?? "", avatarUrl: staffMember.avatar_url };
-  }
-
-  return { firstName: fallbackEmail.split("@")[0] || fallbackEmail, lastName: "", avatarUrl: null };
+  return {
+    firstName: profile.first_name,
+    lastName: profile.last_name,
+    avatarUrl: profile.avatar_url,
+  };
 }
 
 // Everything the edit-profile page needs to prefill its form, in one query
-// — null means no profile row exists (a staff/admin account, which never
-// goes through /register; it edits its own identity via staff-members.query.ts
-// instead — see getOwnStaffProfileForEdit).
+// — null means no profile row exists (staff/admin account that never went
+// through /register; see updateOwnProfile's NOT_FOUND for the write side).
 export async function getOwnProfileForEdit(userId: string): Promise<OwnProfileForEdit | null> {
   const supabase = await createClient();
 
