@@ -99,7 +99,7 @@ const BookingSearch = ({ initialQuery, compact = false, extraControl }: BookingS
 			className={`relative z-10 mx-auto max-w-full rounded bg-white ${
 				compact
 					? 'grid w-full grid-cols-2 items-end gap-3 p-3 lg:flex lg:flex-row lg:flex-wrap lg:gap-4 lg:p-4'
-					: 'flex w-280 flex-col items-end gap-10 p-4 shadow-[4px_4px_16px_rgba(0,0,0,0.08)] lg:flex-row lg:p-15'
+					: 'flex w-280 flex-col items-end gap-10 p-3 shadow-[4px_4px_16px_rgba(0,0,0,0.08)] lg:flex-row lg:p-15'
 			}`}
 		>
 			<div className={compact ? 'col-span-2 min-w-0 lg:col-auto' : 'flex w-full flex-col gap-6 lg:w-auto lg:flex-row lg:items-end lg:gap-10'}>

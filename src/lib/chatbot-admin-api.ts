@@ -11,7 +11,7 @@ async function call<T>(method: "POST" | "PATCH" | "DELETE", body: unknown): Prom
   return data;
 }
 
-export function saveChatbotSettings(data: Pick<ChatbotSettings, "greeting_message" | "auto_reply_message">) {
+export function saveChatbotSettings(data: Pick<ChatbotSettings, "greeting_message" | "auto_reply_message" | "greeting_message_th" | "greeting_message_en" | "auto_reply_message_th" | "auto_reply_message_en">) {
   return call<{ settings: ChatbotSettings }>("PATCH", { resource: "settings", data });
 }
 

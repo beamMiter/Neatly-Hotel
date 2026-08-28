@@ -31,6 +31,34 @@ export async function getChatbotRoomInformation(roomName: string): Promise<Chatb
   return room ? toChatbotRoomResult(room) : null;
 }
 
+/** Returns the configured room types that are available for a guest's selected stay. */
+export async function getChatbotSuggestionRooms(
+  roomNames: string[],
+  search: Pick<ChatbotSearchState, "checkIn" | "checkOut" | "guests" | "budget">,
+): Promise<ChatbotRoomResult[]> {
+  if (!search.checkIn || !search.checkOut || !search.guests) {
+    return (await Promise.all(roomNames.map(getChatbotRoomInformation))).filter(
+      (room): room is ChatbotRoomResult => room !== null,
+    );
+  }
+
+  const allowedNames = new Set(roomNames.map((name) => name.trim().toLowerCase()));
+  const availableRooms = await searchRoomTypes({
+    checkIn: search.checkIn,
+    checkOut: search.checkOut,
+    rooms: 1,
+    guests: search.guests,
+  });
+
+  return availableRooms
+    .filter(
+      (room) =>
+        allowedNames.has(room.name.trim().toLowerCase()) &&
+        (search.budget === null || room.discountedPrice <= search.budget),
+    )
+    .map(toChatbotRoomResult);
+}
+
 export async function searchAvailableChatbotRooms(search: ChatbotSearchState): Promise<ChatbotRoomResult[]> {
   const { checkIn, checkOut, guests, budget } = search;
   if (!checkIn || !checkOut || !guests || !budget) return [];

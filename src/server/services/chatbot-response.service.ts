@@ -2,7 +2,7 @@ import { logApiFailure } from "@/server/services/api-security";
 import { recordChatbotEvent } from "@/server/queries/chatbot-events.query";
 import type { ChatbotIntent, HandoffReason } from "@/server/services/chatbot-intent.service";
 
-type ResponseMode = "managed_suggestion" | "managed_faq" | "room_information" | "gemini" | "gemini_fallback" | "demo";
+type ResponseMode = "managed_suggestion" | "room_information" | "gemini" | "gemini_fallback" | "demo";
 
 export async function buildChatbotResponse(payload: Record<string, unknown>, event: { requestId: string; intent: ChatbotIntent; mode: ResponseMode; fallbackReason?: string | null; handoffReason?: HandoffReason | null }) {
   try {

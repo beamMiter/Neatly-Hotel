@@ -5,8 +5,10 @@ import {
   createOrReopenVisitorConversation,
   findVisitorConversation,
   listConversationMessages,
+  listSupportBookings,
   SupportMessageLimitError,
 } from "@/server/queries/live-support.query";
+import { getSpecialRequestCatalogForDisplay } from "@/server/queries/special-requests.query";
 import {
   checkRateLimits,
   hasOversizedBody,
@@ -77,9 +79,20 @@ export async function GET(request: Request) {
       );
     }
 
-    const messages = await listConversationMessages(conversation.id);
+    const [messages, bookings] = await Promise.all([
+      listConversationMessages(conversation.id),
+      listSupportBookings(conversation),
+    ]);
+    const booking = bookings[0] ?? null;
+    const allowsSpecialRequests = Boolean(booking && messages.some((message) =>
+      message.sender === "system" &&
+      message.content.startsWith(`Booking ${booking.bookingCode} is ready for confirmation with special requests.`),
+    ));
+    const specialRequestOptions = allowsSpecialRequests
+      ? (await getSpecialRequestCatalogForDisplay()).filter((option) => option.category === "special")
+      : [];
     return Response.json(
-      { conversation, messages },
+      { conversation, messages, booking, specialRequestOptions },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {

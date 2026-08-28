@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { EmailOtpVerification } from "@/features/booking/components/EmailOtpVerification";
 import type { SupportBooking, SupportConversation, SupportConversationStatus, SupportCustomer, SupportMemberMatch, SupportMessage } from "@/types/live-support";
 import { useLiveSupportAdmin } from "@/features/live-support/components/useLiveSupportAdmin";
@@ -19,7 +19,7 @@ type Conversation = {
   preview: string;
   time: string;
   tags: string[];
-  unread?: number;
+  unread?: boolean;
   active?: boolean;
   initials: string;
   accent: string;
@@ -60,7 +60,7 @@ const CONVERSATIONS: Conversation[] = [
     preview: "ขอบคุณมากค่ะ 🙏",
     time: "10:24",
     tags: ["booking", "vip"],
-    unread: 2,
+    unread: true,
     active: true,
     initials: "SK",
     accent: "from-[#dbe7ff] to-[#eef4ff]",
@@ -212,6 +212,10 @@ export function LiveSupportPage() {
   const [reply, setReply] = useState("");
   const [isCreateBookingOpen, setIsCreateBookingOpen] = useState(false);
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>("conversations");
+  const [isChatAtBottom, setIsChatAtBottom] = useState(true);
+  const [hasNewMessagesBelow, setHasNewMessagesBelow] = useState(false);
+  const chatViewportRef = useRef<HTMLDivElement>(null);
+  const previousLastMessageIdRef = useRef<string | null>(null);
   const {
     conversations,
     supportMessages,
@@ -220,6 +224,7 @@ export function LiveSupportPage() {
     customer,
     bookings,
     isSending,
+    isConversationLoading,
     sendReply: sendSupportReply,
     updateConversation: updateSupportConversation,
     appendSupportMessage,
@@ -237,6 +242,10 @@ export function LiveSupportPage() {
     preview: "Live support request",
     time: new Intl.DateTimeFormat("th-TH", { hour: "2-digit", minute: "2-digit" }).format(new Date(conversation.last_message_at)),
     tags: [conversation.topic],
+    unread: Boolean(
+      conversation.latest_visitor_message_at
+      && (!conversation.last_read_at || new Date(conversation.latest_visitor_message_at).getTime() > new Date(conversation.last_read_at).getTime())
+    ),
     initials: (conversation.customer_name ?? "Guest").slice(0, 2).toUpperCase(),
     accent: "from-[#dbe7ff] to-[#eef4ff]",
   })), [conversations, currentAdminId]);
@@ -259,20 +268,49 @@ export function LiveSupportPage() {
     });
   }, [activeFilter, activeTab, search, threads]);
 
-  const currentThread =
-    visibleThreads.find((thread) => thread.id === selectedThreadId) ??
-    visibleThreads.find((thread) => thread.active) ??
-    visibleThreads[0] ??
-    null;
+  // The open chat must always come from the same id used by the message API.
+  // Filters only affect the list; they must never silently swap the chat pane
+  // to another customer while selectedThreadId still points at the old one.
+  const currentThread = threads.find((thread) => thread.id === selectedThreadId) ?? null;
   const currentConversation = conversations.find((conversation) => conversation.id === currentThread?.id) ?? null;
+  const isCurrentConversationResolved = currentConversation?.status === "resolved";
+  const lastSupportMessageId = supportMessages.at(-1)?.id ?? null;
+
+  function scrollChatToBottom(behavior: ScrollBehavior = "smooth") {
+    const viewport = chatViewportRef.current;
+    if (!viewport) return;
+    viewport.scrollTo({ top: viewport.scrollHeight, behavior });
+    setIsChatAtBottom(true);
+    setHasNewMessagesBelow(false);
+  }
+
+  useEffect(() => {
+    previousLastMessageIdRef.current = null;
+    setHasNewMessagesBelow(false);
+    setIsChatAtBottom(true);
+    window.requestAnimationFrame(() => scrollChatToBottom("auto"));
+  }, [selectedThreadId]);
+
+  useEffect(() => {
+    if (!lastSupportMessageId || lastSupportMessageId === previousLastMessageIdRef.current) return;
+    const isFirstMessageForSelection = previousLastMessageIdRef.current === null;
+    previousLastMessageIdRef.current = lastSupportMessageId;
+
+    if (isFirstMessageForSelection || isChatAtBottom) {
+      window.requestAnimationFrame(() => scrollChatToBottom(isFirstMessageForSelection ? "auto" : "smooth"));
+      return;
+    }
+    setHasNewMessagesBelow(true);
+  }, [isChatAtBottom, lastSupportMessageId]);
 
   async function sendReply(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const content = reply.trim();
-    if (!content || !selectedThreadId || isSending) return;
+    if (!content || !currentConversation || isConversationLoading || isCurrentConversationResolved || isSending) return;
 
-    if (await sendSupportReply(selectedThreadId, content)) {
+    if (await sendSupportReply(currentConversation.id, content)) {
       setReply("");
+      window.requestAnimationFrame(() => scrollChatToBottom());
     }
   }
 
@@ -458,12 +496,7 @@ export function LiveSupportPage() {
                       </div>
 
                       <div className="flex flex-col items-end gap-2">
-                        {thread.unread ? (
-                          <span className="grid h-6 min-w-6 place-items-center rounded-full bg-[#2f6bff] px-2 text-[12px] font-semibold text-white">
-                            {thread.unread}
-                          </span>
-                        ) : null}
-                        <span className="h-2 w-2 rounded-full bg-[#f04438]" />
+                        {thread.unread && thread.id !== selectedThreadId ? <span className="h-2 w-2 rounded-full bg-[#f04438]" aria-label="Unread visitor message" /> : null}
                       </div>
                     </button>
                   );
@@ -474,7 +507,7 @@ export function LiveSupportPage() {
         </section>
 
         <section className={`${mobilePanel === "chat" ? "flex" : "hidden"} min-h-0 flex-col overflow-hidden rounded-[16px] border border-[#e7ebf2] bg-white shadow-[0_14px_40px_rgba(15,23,42,0.04)] sm:rounded-[22px] xl:flex`}>
-          <div className="flex shrink-0 flex-col gap-3 border-b border-[#edf0f5] px-3 py-3 sm:px-5 sm:py-4 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
+          <div className="flex shrink-0 flex-col gap-3 border-b border-[#edf0f5] px-3 py-3 sm:px-5">
             <div className="flex min-w-0 items-center gap-3">
               <button type="button" onClick={() => setMobilePanel("conversations")} className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-[#667085] hover:bg-[#f2f4f7] xl:hidden" aria-label="Back to conversations">
                 <ChevronLeftIcon className="h-5 w-5" />
@@ -494,12 +527,12 @@ export function LiveSupportPage() {
               </button>
             </div>
 
-            <div className="flex items-center gap-2 overflow-x-auto pb-0.5 scrollbar-hide sm:flex-wrap sm:gap-3 sm:overflow-visible">
+            <div className="flex w-full flex-nowrap items-center gap-2 overflow-x-auto pb-0.5 scrollbar-hide sm:gap-3">
               <select
                 value={currentConversation?.assigned_agent_id ?? ""}
                 onChange={(event) => void updateConversation({ assignedAgentId: event.target.value || null })}
                 disabled={!currentConversation}
-                className="h-10 min-w-32 max-w-40 rounded-xl border border-[#d9deea] bg-white px-3 text-[13px] font-medium text-[#344054] outline-none focus:border-[#91a6ff] disabled:opacity-50"
+                className="h-10 min-w-48 max-w-56 rounded-xl border border-[#d9deea] bg-white px-3 text-[13px] font-medium text-[#344054] outline-none focus:border-[#91a6ff] disabled:opacity-50"
                 aria-label="Assign admin"
               >
                 <option value="">Unassigned</option>
@@ -524,7 +557,16 @@ export function LiveSupportPage() {
             </div>
           </div>
 
-          <div className="scrollbar-hide min-h-0 flex-1 overflow-y-auto bg-[linear-gradient(180deg,#ffffff_0%,#ffffff_18%,#f8fbff_100%)] px-3 py-4 sm:px-5 sm:py-5">
+          <div
+            ref={chatViewportRef}
+            onScroll={(event) => {
+              const viewport = event.currentTarget;
+              const atBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 80;
+              setIsChatAtBottom(atBottom);
+              if (atBottom) setHasNewMessagesBelow(false);
+            }}
+            className="scrollbar-hide min-h-0 flex-1 overflow-y-auto bg-[linear-gradient(180deg,#ffffff_0%,#ffffff_18%,#f8fbff_100%)] px-3 py-4 sm:px-5 sm:py-5"
+          >
             <div className="flex justify-center">
               <span className="rounded-full bg-[#f2f4f8] px-3 py-1 text-[12px] font-medium text-[#667085]">
                 Today
@@ -532,6 +574,13 @@ export function LiveSupportPage() {
             </div>
 
             <div className="mt-5 grid gap-5">
+              {isConversationLoading ? (
+                <div className="grid gap-3" aria-label="Loading conversation">
+                  <div className="h-16 w-3/4 animate-pulse rounded-[18px] bg-[#eef2f7]" />
+                  <div className="ml-auto h-14 w-2/3 animate-pulse rounded-[18px] bg-[#e8efff]" />
+                  <div className="h-20 w-4/5 animate-pulse rounded-[18px] bg-[#eef2f7]" />
+                </div>
+              ) : null}
               {supportMessages.map((message) => {
                 const isAgent = message.sender === "agent";
                 const isSystem = message.sender === "system";
@@ -547,7 +596,13 @@ export function LiveSupportPage() {
                       <div className="max-w-[min(92%,36rem)] rounded-xl border border-[#b9e7c9] bg-[#effaf2] px-4 py-3 text-center text-[13px] leading-5 text-[#176b3a]">
                         {message.content}
                       </div>
-                      {booking ? <ConversationBookingCard booking={booking} /> : null}
+                      {booking && /ready for confirmation/i.test(message.content) ? (
+                        <ConversationBookingCard
+                          booking={booking}
+                          conversationId={message.conversation_id}
+                          onCancelled={() => void refresh()}
+                        />
+                      ) : null}
                     </div>
                   );
                 }
@@ -582,16 +637,38 @@ export function LiveSupportPage() {
                         {isAgent ? " ✓✓" : null}
                       </div>
                     </div>
-
-                    {isAgent ? null : (
-                      <span className="hidden sm:inline-flex"><Avatar initials="SK" accent="from-[#dbe7ff] to-[#eef4ff]" /></span>
-                    )}
                   </div>
                 );
               })}
             </div>
+            {hasNewMessagesBelow ? (
+              <div className="sticky bottom-2 z-10 mt-4 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => scrollChatToBottom()}
+                  className="rounded-full border border-[#cfd9ee] bg-white px-4 py-2 text-[13px] font-semibold text-[#2f6bff] shadow-[0_8px_20px_rgba(15,23,42,0.14)] hover:bg-[#f7f9ff]"
+                >
+                  New messages ↓
+                </button>
+              </div>
+            ) : null}
           </div>
 
+          {isCurrentConversationResolved && !isConversationLoading ? (
+            <div className="flex shrink-0 flex-col gap-3 border-t border-[#edf0f5] bg-[#fbfcfe] px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-[14px] font-semibold text-[#344054]">This conversation is resolved</p>
+                <p className="mt-0.5 text-[12px] text-[#667085]">Reopen it before sending another message.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void updateConversation({ status: "active" })}
+                className="h-10 rounded-xl bg-[#2f6bff] px-4 text-[13px] font-semibold text-white hover:bg-[#2458d8]"
+              >
+                Reopen conversation
+              </button>
+            </div>
+          ) : (
           <form className="shrink-0 border-t border-[#edf0f5] bg-white px-3 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] sm:px-4 sm:py-4" onSubmit={sendReply}>
             <div className="flex items-center gap-2 rounded-[18px] border border-[#d9deea] bg-[#fbfcfe] px-3 py-2 shadow-[0_10px_24px_rgba(15,23,42,0.03)] sm:gap-3 sm:px-4 sm:py-3">
               <input
@@ -600,7 +677,7 @@ export function LiveSupportPage() {
                 className="min-w-0 flex-1 bg-transparent text-[15px] text-[#344054] outline-none placeholder:text-[#98A2B3]"
                 value={reply}
                 onChange={(event) => setReply(event.target.value)}
-                disabled={!selectedThreadId || isSending}
+                disabled={!currentConversation || isConversationLoading || isSending}
               />
 
               <div className="hidden items-center gap-2 text-[#667085] sm:flex">
@@ -616,13 +693,14 @@ export function LiveSupportPage() {
               </div>
               <button
                 type="submit"
-                disabled={!reply.trim() || !selectedThreadId || isSending}
+                disabled={!reply.trim() || !currentConversation || isConversationLoading || isSending}
                 className="rounded-xl bg-[#2f6bff] px-4 py-2 text-[14px] font-semibold text-white transition-colors hover:bg-[#2458d8] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Send
               </button>
             </div>
           </form>
+          )}
         </section>
 
         <aside className={`${mobilePanel === "details" ? "flex" : "hidden"} min-h-0 flex-col gap-4 overflow-y-auto pb-[max(8px,env(safe-area-inset-bottom))] scrollbar-hide xl:flex`}>
@@ -759,6 +837,7 @@ function CreateBookingDialog({ conversation, customer, onClose, onCreated }: {
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(conversation.customer_id);
   const [emailVerificationToken, setEmailVerificationToken] = useState<string | null>(null);
   const [emailVerificationError, setEmailVerificationError] = useState<string | undefined>();
+  const [allowSpecialRequests, setAllowSpecialRequests] = useState(false);
   const [isMatching, setIsMatching] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -830,6 +909,7 @@ function CreateBookingDialog({ conversation, customer, onClose, onCreated }: {
         body: JSON.stringify({
           conversationId: conversation.id,
           selectedCustomerId,
+          allowSpecialRequests,
           ...(identity?.kind === "guest" && emailVerificationToken
             ? { emailVerificationToken }
             : {}),
@@ -910,6 +990,19 @@ function CreateBookingDialog({ conversation, customer, onClose, onCreated }: {
           </div>
         )}
 
+        <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-xl border border-[#d9e4fb] bg-[#f7f9ff] p-4">
+          <input
+            type="checkbox"
+            checked={allowSpecialRequests}
+            onChange={(event) => setAllowSpecialRequests(event.target.checked)}
+            className="mt-0.5 h-4 w-4 accent-[#2f6bff]"
+          />
+          <span>
+            <span className="block text-sm font-semibold text-[#344054]">Allow customer to choose special requests</span>
+            <span className="mt-1 block text-xs leading-5 text-[#667085]">The customer will choose optional add-ons and see the updated total before confirming the booking.</span>
+          </span>
+        </label>
+
         {error && <p className="mt-4 rounded-lg bg-[#fef3f2] px-4 py-3 text-sm text-[#b42318]">{error}</p>}
         <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3"><button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-semibold text-[#475467]">Cancel</button><button disabled={isLoading || isMatching || !roomTypeId || (identity?.kind === "ambiguous" && !selectedCustomerId) || (identity?.kind === "guest" && !emailVerificationToken)} className="rounded-lg bg-[#2f6bff] px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">{isLoading ? "Creating..." : "Create booking"}</button></div>
       </form>
@@ -921,7 +1014,42 @@ function BookingField({ label, children }: { label: string; children: React.Reac
   return <label className="grid gap-1 text-sm font-medium text-[#344054]"><span>{label}</span><span className="[&_input]:h-10 [&_input]:w-full [&_input]:rounded-lg [&_input]:border [&_input]:border-[#d0d5dd] [&_input]:px-3 [&_select]:h-10 [&_select]:w-full [&_select]:rounded-lg [&_select]:border [&_select]:border-[#d0d5dd] [&_select]:bg-white [&_select]:px-3">{children}</span></label>;
 }
 
-function ConversationBookingCard({ booking }: { booking: SupportBooking }) {
+function ConversationBookingCard({
+  booking,
+  conversationId,
+  onCancelled,
+}: {
+  booking: SupportBooking;
+  conversationId: string;
+  onCancelled: () => void;
+}) {
+  const [isConfirmingCancellation, setIsConfirmingCancellation] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState("");
+  const canCancel = booking.status === "pending_payment" || booking.status === "confirmed";
+  const isCancelled = booking.status === "cancelled" || booking.status === "refunded";
+
+  async function cancelBooking() {
+    if (isCancelling) return;
+    setIsCancelling(true);
+    setCancelError("");
+    try {
+      const response = await fetch("/api/live-support/admin/booking", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversationId, bookingId: booking.id }),
+      });
+      const data = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(data.error ?? "Unable to cancel booking");
+      setIsConfirmingCancellation(false);
+      onCancelled();
+    } catch (error) {
+      setCancelError(error instanceof Error ? error.message : "Unable to cancel booking");
+    } finally {
+      setIsCancelling(false);
+    }
+  }
+
   return (
     <article className="w-full max-w-[28rem] rounded-[16px] border border-[#d9e4fb] bg-white p-4 shadow-[0_8px_20px_rgba(15,23,42,0.06)]">
       <div className="flex items-start justify-between gap-4">
@@ -929,7 +1057,7 @@ function ConversationBookingCard({ booking }: { booking: SupportBooking }) {
           <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#526aa8]">Booking created</p>
           <h3 className="mt-1 text-[16px] font-semibold text-[#111827]">{booking.roomType}</h3>
         </div>
-        <span className="rounded-full bg-[#fff1dc] px-2.5 py-1 text-[12px] font-semibold capitalize text-[#9a6617]">
+        <span className={`rounded-full px-2.5 py-1 text-[12px] font-semibold capitalize ${isCancelled ? "bg-[#fef3f2] text-[#b42318]" : "bg-[#fff1dc] text-[#9a6617]"}`}>
           {booking.status.replaceAll("_", " ")}
         </span>
       </div>
@@ -939,10 +1067,32 @@ function ConversationBookingCard({ booking }: { booking: SupportBooking }) {
       </div>
       <div className="mt-3 flex items-center justify-between gap-3 border-t border-[#edf0f5] pt-3">
         <span className="text-[12px] text-[#667085]">#{booking.bookingCode}</span>
-        <Link href={`/customer-booking/${booking.id}`} className="text-[13px] font-semibold text-[#2f6bff] hover:text-[#1f54e8]">
-          View booking
-        </Link>
+        <div className="flex items-center gap-3">
+          {canCancel ? (
+            <button
+              type="button"
+              onClick={() => { setIsConfirmingCancellation(true); setCancelError(""); }}
+              className="text-[13px] font-semibold text-[#b42318] hover:text-[#912018]"
+            >
+              Cancel booking
+            </button>
+          ) : null}
+          <Link href={`/customer-booking/${booking.id}`} className="text-[13px] font-semibold text-[#2f6bff] hover:text-[#1f54e8]">
+            View booking
+          </Link>
+        </div>
       </div>
+      {isConfirmingCancellation ? (
+        <div className="mt-3 rounded-xl border border-[#fecdca] bg-[#fffbfa] p-3">
+          <p className="text-[13px] font-semibold text-[#912018]">Cancel this booking?</p>
+          <p className="mt-1 text-[12px] leading-5 text-[#667085]">The guest will be notified in this conversation. An eligible paid booking will use the existing refund flow.</p>
+          {cancelError ? <p className="mt-2 text-[12px] text-[#b42318]">{cancelError}</p> : null}
+          <div className="mt-3 flex justify-end gap-2">
+            <button type="button" disabled={isCancelling} onClick={() => setIsConfirmingCancellation(false)} className="rounded-lg px-3 py-2 text-[12px] font-semibold text-[#475467] disabled:opacity-50">Keep booking</button>
+            <button type="button" disabled={isCancelling} onClick={() => void cancelBooking()} className="rounded-lg bg-[#b42318] px-3 py-2 text-[12px] font-semibold text-white disabled:opacity-50">{isCancelling ? "Cancelling..." : "Yes, cancel booking"}</button>
+          </div>
+        </div>
+      ) : null}
     </article>
   );
 }

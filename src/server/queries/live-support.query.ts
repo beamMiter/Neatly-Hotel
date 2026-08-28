@@ -111,14 +111,42 @@ export async function addVisitorSupportMessage(
   return data as SupportMessage;
 }
 
-export async function listSupportConversations() {
-  const { data, error } = await supabaseAdmin
-    .from("support_conversations")
-    .select("*")
-    .order("last_message_at", { ascending: false });
+export async function listSupportConversations(adminId: string) {
+  const [{ data: conversations, error: conversationsError }, { data: visitorMessages, error: messagesError }, { data: readReceipts, error: receiptsError }] = await Promise.all([
+    supabaseAdmin.from("support_conversations").select("*").order("last_message_at", { ascending: false }),
+    supabaseAdmin.from("support_messages").select("conversation_id, created_at").eq("sender", "visitor"),
+    supabaseAdmin.from("support_conversation_read_receipts").select("conversation_id, last_read_at").eq("admin_id", adminId),
+  ]);
+
+  if (conversationsError) throw new Error(conversationsError.message);
+  if (messagesError) throw new Error(messagesError.message);
+  if (receiptsError) throw new Error(receiptsError.message);
+
+  const latestVisitorMessageByConversation = new Map<string, string>();
+  for (const message of visitorMessages ?? []) {
+    const latest = latestVisitorMessageByConversation.get(message.conversation_id);
+    if (!latest || new Date(message.created_at).getTime() > new Date(latest).getTime()) {
+      latestVisitorMessageByConversation.set(message.conversation_id, message.created_at);
+    }
+  }
+  const readAtByConversation = new Map((readReceipts ?? []).map((receipt) => [receipt.conversation_id, receipt.last_read_at]));
+
+  return (conversations ?? []).map((conversation) => ({
+    ...conversation,
+    latest_visitor_message_at: latestVisitorMessageByConversation.get(conversation.id) ?? null,
+    last_read_at: readAtByConversation.get(conversation.id) ?? null,
+  })) as SupportConversation[];
+}
+
+export async function markSupportConversationRead(conversationId: string, adminId: string) {
+  const { error } = await supabaseAdmin
+    .from("support_conversation_read_receipts")
+    .upsert(
+      { conversation_id: conversationId, admin_id: adminId, last_read_at: new Date().toISOString() },
+      { onConflict: "conversation_id,admin_id" },
+    );
 
   if (error) throw new Error(error.message);
-  return (data ?? []) as SupportConversation[];
 }
 
 export async function countWaitingSupportConversations() {
@@ -297,13 +325,15 @@ type SupportBookingRow = {
   check_out: string;
   status: string;
   total_amount: number | string;
+  addons_total: number | string;
+  special_requests: { code: string; label: string; price: number; quantity?: number }[] | null;
   booking_rooms: { rooms: { room_type: string } | null }[] | null;
 };
 
 export async function listSupportBookings(conversation: SupportConversation): Promise<SupportBooking[]> {
   let request = supabaseAdmin
     .from("bookings")
-    .select("id, booking_code, check_in, check_out, status, total_amount, booking_rooms(rooms(room_type))")
+    .select("id, booking_code, check_in, check_out, status, total_amount, addons_total, special_requests, booking_rooms(rooms(room_type))")
     .order("created_at", { ascending: false })
     .limit(3);
 
@@ -322,5 +352,7 @@ export async function listSupportBookings(conversation: SupportConversation): Pr
     checkOut: booking.check_out,
     status: booking.status,
     totalAmount: Number(booking.total_amount),
+    addonsTotal: Number(booking.addons_total),
+    specialRequests: (booking.special_requests ?? []).map((item) => ({ ...item, quantity: item.quantity ?? 1 })),
   }));
 }

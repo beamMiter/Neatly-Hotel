@@ -6,6 +6,7 @@ export type FaqTopic = "check_in" | "facilities" | "location" | "contact" | "oth
 export type ChatbotAnalysis = {
   intent: ChatbotIntent;
   faqTopic: FaqTopic;
+  confidence: number;
   checkIn: string | null;
   checkOut: string | null;
   guests: number | null;
@@ -14,17 +15,27 @@ export type ChatbotAnalysis = {
 export type HandoffReason = "explicit_agent_request" | "sensitive_request" | "repeated_question" | "unanswered";
 
 export function normalizeIntentText(value: string) {
-  return value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  return value.toLowerCase().replace(/[^\p{L}\p{M}\p{N}]+/gu, " ").trim();
 }
 
-export function findHandoffReason(message: string, messages: ChatMessage[]): HandoffReason | null {
+export function detectExplicitFaqTopic(message: string): FaqTopic {
+  const text = normalizeIntentText(message);
+  if (["เช็กอิน", "เช็คอิน", "check in", "checkin", "เช็กเอาต์", "เช็คเอาต์", "check out", "checkout"]
+    .some((word) => text.includes(word))) return "check_in";
+  if (["wifi", "wi fi", "อาหารเช้า", "ที่จอดรถ", "สิ่งอำนวยความสะดวก"]
+    .some((word) => text.includes(word))) return "facilities";
+  if (["ที่อยู่", "แผนที่", "เดินทาง", "location", "address"]
+    .some((word) => text.includes(word))) return "location";
+  if (["ติดต่อ", "โทร", "เบอร์", "contact", "phone number"]
+    .some((word) => text.includes(word))) return "contact";
+  return "other";
+}
+
+export function findHandoffReason(message: string, _messages: ChatMessage[]): HandoffReason | null {
   const normalized = normalizeIntentText(message);
   if (["คุยกับเจ้าหน้าที่", "ติดต่อเจ้าหน้าที่", "ขอเจ้าหน้าที่", "เจ้าหน้าที่ช่วย", "human agent", "talk to an agent", "speak to staff"]
     .some((phrase) => normalized.includes(normalizeIntentText(phrase)))) return "explicit_agent_request";
-  if (["ชำระเงิน", "จ่ายเงิน", "payment", "refund", "ยกเลิก", "cancel", "ร้องเรียน", "complaint", "complain"]
-    .some((phrase) => normalized.includes(normalizeIntentText(phrase)))) return "sensitive_request";
-  const previousUserMessages = messages.slice(0, -1).filter((item) => item.role === "user").map((item) => normalizeIntentText(item.content));
-  return normalized.length > 0 && previousUserMessages.includes(normalized) ? "repeated_question" : null;
+  return null;
 }
 
 export function analyzeLocally(message: string, hasSearchState: boolean): ChatbotAnalysis {
@@ -37,15 +48,14 @@ export function analyzeLocally(message: string, hasSearchState: boolean): Chatbo
   });
   const guestMatch = text.match(/(\d+)\s*(คน|ท่าน|guest)/);
   const budgetMatch = text.match(/(?:งบ|ไม่เกิน|budget)\s*(?:ประมาณ)?\s*([\d,]+)/);
-  const searchWords = ["หาห้อง", "ค้นหาห้อง", "ห้องว่าง", "จอง", "เข้าพัก", "งบ", "พักวันที่"];
-  let faqTopic: FaqTopic = "other";
-  if (text.includes("เช็กอิน") || text.includes("check-in")) faqTopic = "check_in";
-  else if (["wifi", "อาหารเช้า", "ที่จอดรถ", "สิ่งอำนวย"].some((word) => text.includes(word))) faqTopic = "facilities";
-  else if (["ที่อยู่", "แผนที่", "เดินทาง"].some((word) => text.includes(word))) faqTopic = "location";
-  else if (["ติดต่อ", "โทร", "เบอร์"].some((word) => text.includes(word))) faqTopic = "contact";
-  const isSearch = searchWords.some((word) => text.includes(word)) || allDates.length > 0 || Boolean(guestMatch) || Boolean(budgetMatch) || (hasSearchState && faqTopic === "other");
-  const isFaq = faqTopic !== "other" || ["โรงแรม", "บริการ"].some((word) => text.includes(word));
-  return { intent: isSearch ? "search_room" : isFaq ? "faq" : "unknown", faqTopic, checkIn: allDates[0] ?? null, checkOut: allDates[1] ?? null, guests: guestMatch ? Number(guestMatch[1]) : null, budget: budgetMatch ? Number(budgetMatch[1].replaceAll(",", "")) : null };
+  const explicitSearchWords = ["หาห้อง", "ค้นหาห้อง", "ห้องว่าง", "จองห้อง", "จองที่พัก", "งบ", "พักวันที่", "find a room", "book a room"];
+  const faqTopic = detectExplicitFaqTopic(message);
+  const suppliesSearchData = allDates.length > 0 || Boolean(guestMatch) || Boolean(budgetMatch);
+  const isSearch = explicitSearchWords.some((word) => text.includes(word)) || suppliesSearchData;
+  const isFaq = faqTopic !== "other";
+  const intent: ChatbotIntent = isSearch ? "search_room" : isFaq ? "faq" : "unknown";
+  const confidence = intent === "unknown" ? 0 : hasSearchState && suppliesSearchData ? 1 : 0.95;
+  return { intent, faqTopic, confidence, checkIn: allDates[0] ?? null, checkOut: allDates[1] ?? null, guests: guestMatch ? Number(guestMatch[1]) : null, budget: budgetMatch ? Number(budgetMatch[1].replaceAll(",", "")) : null };
 }
 
 export function normalizeSearchState(value: unknown): ChatbotSearchState {
