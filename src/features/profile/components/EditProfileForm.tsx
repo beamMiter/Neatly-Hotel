@@ -139,7 +139,7 @@ export function EditProfileForm({
 
   return (
     <form
-      className="flex flex-col items-end gap-[60px]"
+      className="flex flex-col items-end gap-6 lg:gap-[60px]"
       noValidate
       onSubmit={handleSubmit}
     >
@@ -147,10 +147,13 @@ export function EditProfileForm({
         <h1 className="flex-1 [font-family:var(--font-noto-serif)] font-stretch-semi-condensed text-[44px] leading-[125%] font-medium tracking-[-0.02em] text-[#2F3E35] lg:text-[68px]">
           Profile
         </h1>
+        {/* Desktop only — mobile Figma spec puts the submit button at the
+            bottom of the page instead (see the full-width one after
+            Profile Picture below), not inline with the heading. */}
         <button
           type="submit"
           disabled={isSubmitting}
-          className="flex h-12 shrink-0 cursor-pointer items-center justify-center rounded bg-[#C14817] px-8 py-4 [font-family:var(--font-open-sans)] text-base font-semibold text-white hover:bg-[#A93F13] disabled:cursor-not-allowed disabled:opacity-70"
+          className="hidden h-12 shrink-0 cursor-pointer items-center justify-center rounded bg-[#C14817] px-8 py-4 [font-family:var(--font-open-sans)] text-base font-semibold text-white hover:bg-[#A93F13] disabled:cursor-not-allowed disabled:opacity-70 lg:flex"
         >
           {isSubmitting ? "Saving..." : "Update Profile"}
         </button>
@@ -169,7 +172,7 @@ export function EditProfileForm({
         </p>
       )}
 
-      <div className="flex w-full flex-col gap-10">
+      <div className="flex w-full flex-col gap-6 lg:gap-10">
         <h2 className="text-xl leading-[150%] font-semibold tracking-[-0.02em] text-[#9AA1B9]">
           Basic Information
         </h2>
@@ -257,6 +260,17 @@ export function EditProfileForm({
           onRemoveExisting={handleRemoveAvatar}
         />
       </div>
+
+      {/* Mobile only — the desktop button lives inline with the heading
+          above (hidden here via lg:hidden). Full-width per the mobile
+          Figma spec, since there's no room next to the 44px heading there. */}
+      <button
+        type="submit"
+        disabled={isSubmitting}
+        className="flex h-12 w-full cursor-pointer items-center justify-center rounded bg-[#C14817] px-8 py-4 [font-family:var(--font-open-sans)] text-base font-semibold text-white hover:bg-[#A93F13] disabled:cursor-not-allowed disabled:opacity-70 lg:hidden"
+      >
+        {isSubmitting ? "Saving..." : "Update Profile"}
+      </button>
     </form>
   );
 }
