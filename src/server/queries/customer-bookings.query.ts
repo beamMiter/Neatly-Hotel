@@ -11,6 +11,18 @@ export const CUSTOMER_BOOKINGS_PAGE_SIZE = 10;
 const BOOKING_SELECT =
   "id, booking_code, customer_id, check_in, check_out, guests, status, payment_status, total_amount, created_at, guest_first_name, guest_last_name, guest_email, booking_rooms(price_per_night, rooms(room_no, room_type, bed_type))";
 
+// PostgREST's .or() takes a raw filter-string DSL (column.operator.value,
+// comma-separated conditions) — splicing user input into it unescaped lets
+// `,` or `.` in a search term break out of the intended condition and
+// inject additional ones (e.g. an `ilike.%` clause that matches every row,
+// bypassing the filter entirely). Wrapping the value in double quotes is
+// PostgREST's documented escape hatch: reserved characters inside a quoted
+// value are treated as literal text, not DSL syntax. Internal double
+// quotes are escaped by doubling, per the same spec.
+function toPostgrestFilterValue(value: string): string {
+  return `"${value.replace(/"/g, '""')}"`;
+}
+
 // Detail-only: the list view has no use for the itemized breakdown, so it
 // stays on the lighter BOOKING_SELECT above.
 const BOOKING_DETAIL_SELECT = `${BOOKING_SELECT}, standard_requests, special_requests, additional_request, promo_code, discount_amount, payment_method`;
@@ -227,16 +239,18 @@ export async function getCustomerBookings({
   if (query) {
     let profileQuery = supabase.from("profiles").select("id");
     for (const word of query.split(/\s+/).filter(Boolean)) {
-      profileQuery = profileQuery.or(`first_name.ilike.%${word}%,last_name.ilike.%${word}%`);
+      const pattern = toPostgrestFilterValue(`%${word}%`);
+      profileQuery = profileQuery.or(`first_name.ilike.${pattern},last_name.ilike.${pattern}`);
     }
     const { data: matchedProfiles } = await profileQuery;
     const matchingCustomerIds = (matchedProfiles ?? []).map((profile) => profile.id as string);
 
+    const queryPattern = toPostgrestFilterValue(`%${query}%`);
     const filters = [
-      `booking_code.ilike.%${query}%`,
-      `guest_first_name.ilike.%${query}%`,
-      `guest_last_name.ilike.%${query}%`,
-      `guest_email.ilike.%${query}%`,
+      `booking_code.ilike.${queryPattern}`,
+      `guest_first_name.ilike.${queryPattern}`,
+      `guest_last_name.ilike.${queryPattern}`,
+      `guest_email.ilike.${queryPattern}`,
     ];
     if (matchingCustomerIds.length > 0) {
       filters.push(`customer_id.in.(${matchingCustomerIds.join(",")})`);
