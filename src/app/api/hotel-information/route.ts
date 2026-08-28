@@ -29,30 +29,6 @@ function fallbackHotel(): HotelInformation {
   return { ...DEFAULT_HOTEL_INFORMATION };
 }
 
-export async function GET() {
-  try {
-    if (!hasDatabaseUrl()) {
-      return NextResponse.json({
-        source: "mock",
-        data: fallbackHotel(),
-      });
-    }
-
-    const hotel = await getHotelInformation();
-    return NextResponse.json({ source: "database", data: hotel });
-  } catch (error) {
-    console.error("[api/hotel-information] GET failed:", error);
-    return NextResponse.json(
-      {
-        source: "mock",
-        error: "Failed to fetch hotel information",
-        data: fallbackHotel(),
-      },
-      { status: 500 },
-    );
-  }
-}
-
 export async function PUT(request: Request) {
   try {
     await requireStaff();
