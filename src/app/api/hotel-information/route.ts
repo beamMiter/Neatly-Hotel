@@ -8,6 +8,10 @@ import {
   updateHotelInformation,
 } from "@/server/queries/hotel.query";
 import {
+  authorizationErrorResponse,
+  requireStaff,
+} from "@/server/services/authorization";
+import {
   DEFAULT_HOTEL_INFORMATION,
   type HotelInformation,
 } from "@/types/hotel";
@@ -50,6 +54,14 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
+  try {
+    await requireStaff();
+  } catch (error) {
+    const response = authorizationErrorResponse(error);
+    if (response) return response;
+    throw error;
+  }
+
   try {
     const form = await request.formData();
     const name = String(form.get("name") ?? "").trim();

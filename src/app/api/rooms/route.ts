@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { createPhysicalRoomSchema } from "@/features/room-management/validations";
 import { hasDatabaseUrl } from "@/server/db";
 import { createRoom, getRooms } from "@/server/queries/rooms.query";
+import {
+  authorizationErrorResponse,
+  requireStaff,
+} from "@/server/services/authorization";
 
 function databaseUnavailableResponse() {
   return NextResponse.json(
@@ -13,6 +17,14 @@ function databaseUnavailableResponse() {
 export async function GET() {
   if (!hasDatabaseUrl()) {
     return databaseUnavailableResponse();
+  }
+
+  try {
+    await requireStaff();
+  } catch (error) {
+    const response = authorizationErrorResponse(error);
+    if (response) return response;
+    throw error;
   }
 
   try {
@@ -33,6 +45,14 @@ export async function GET() {
 export async function POST(request: Request) {
   if (!hasDatabaseUrl()) {
     return databaseUnavailableResponse();
+  }
+
+  try {
+    await requireStaff();
+  } catch (error) {
+    const response = authorizationErrorResponse(error);
+    if (response) return response;
+    throw error;
   }
 
   try {

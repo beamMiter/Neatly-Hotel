@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { hasDatabaseUrl } from "@/server/db";
-import { createClient } from "@/server/db/supabase-server";
-import { getStaffRole } from "@/server/queries/staff-members.query";
+import {
+  authorizationErrorResponse,
+  requireStaff,
+} from "@/server/services/authorization";
 import {
   BookingNotFoundError,
   InvalidBookingTransitionError,
@@ -20,18 +22,12 @@ export async function POST(_request: Request, context: RouteContext) {
     );
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-  }
-
-  const role = await getStaffRole(user.id);
-  if (!role) {
-    return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+  try {
+    await requireStaff();
+  } catch (error) {
+    const response = authorizationErrorResponse(error);
+    if (response) return response;
+    throw error;
   }
 
   const { id } = await context.params;
