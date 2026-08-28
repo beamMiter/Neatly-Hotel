@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { differenceInYears } from "date-fns";
 import { COUNTRIES } from "@/lib/countries";
-import { NAME_PATTERN, PHONE_PATTERN } from "@/lib/validation-patterns";
+import { NAME_PATTERN, PHONE_PATTERN, ALLOWED_AVATAR_IMAGE_TYPES, MAX_AVATAR_SIZE_BYTES } from "@/lib/validation-patterns";
 
 // Same bounds as registerSchema (src/features/auth/validations.ts) — a
 // profile edit shouldn't be able to reach a date the register form itself
@@ -68,7 +68,6 @@ function parseProfileUpdatePayload(body: Record<string, unknown>): ParseProfileU
 }
 
 const PROFILE_TEXT_FIELDS = ["firstName", "lastName", "phone", "dateOfBirth", "country"] as const;
-const MAX_PHOTO_SIZE_BYTES = 5 * 1024 * 1024;
 
 export type ParseProfileUpdateFormDataResult =
   | { success: true; data: ProfileUpdateInput; photo: File | null; removeAvatar: boolean }
@@ -90,8 +89,8 @@ export function parseProfileUpdateFormData(formData: FormData): ParseProfileUpda
   const isValidPhoto =
     photoEntry instanceof File &&
     photoEntry.size > 0 &&
-    photoEntry.size <= MAX_PHOTO_SIZE_BYTES &&
-    photoEntry.type.startsWith("image/");
+    photoEntry.size <= MAX_AVATAR_SIZE_BYTES &&
+    (ALLOWED_AVATAR_IMAGE_TYPES as readonly string[]).includes(photoEntry.type);
   const photo = isValidPhoto ? (photoEntry as File) : null;
 
   // A fresh pick always wins over "remove" — the form only ever sends both

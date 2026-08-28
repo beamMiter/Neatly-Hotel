@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { differenceInYears } from "date-fns";
 import { COUNTRIES } from "@/lib/countries";
-import { NAME_PATTERN, PHONE_PATTERN } from "@/lib/validation-patterns";
+import { NAME_PATTERN, PHONE_PATTERN, ALLOWED_AVATAR_IMAGE_TYPES, MAX_AVATAR_SIZE_BYTES } from "@/lib/validation-patterns";
 
 // Mirrors DateOfBirthField's calendar startMonth (today - 120y) so a
 // direct API call can't submit a birth date the UI would never let a
@@ -134,8 +134,6 @@ const REGISTER_TEXT_FIELDS = [
   "country",
 ] as const;
 
-const MAX_PHOTO_SIZE_BYTES = 5 * 1024 * 1024;
-
 export type ParseRegisterFormDataResult =
   | { success: true; data: RegisterInput; photo: File | null }
   | { success: false; fieldErrors: RegisterFieldErrors };
@@ -159,8 +157,8 @@ export function parseRegisterFormData(formData: FormData): ParseRegisterFormData
   const isValidPhoto =
     photoEntry instanceof File &&
     photoEntry.size > 0 &&
-    photoEntry.size <= MAX_PHOTO_SIZE_BYTES &&
-    photoEntry.type.startsWith("image/");
+    photoEntry.size <= MAX_AVATAR_SIZE_BYTES &&
+    (ALLOWED_AVATAR_IMAGE_TYPES as readonly string[]).includes(photoEntry.type);
 
   return { success: true, data: parsed.data, photo: isValidPhoto ? (photoEntry as File) : null };
 }

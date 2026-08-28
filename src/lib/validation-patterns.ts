@@ -14,3 +14,13 @@ export const PHONE_PATTERN = /^0[0-9]{8,9}$/;
 // UUIDs like `a1000000-0000-0000-0000-000000000001` that Postgres accepts
 // fine as `uuid` but `.uuid()` rejects, failing validation for real rows.
 export const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Avatar/profile-picture uploads only (register + profile edit, both via
+// PhotoUpload) — deliberately excludes GIF: animated, larger for no benefit
+// on a static avatar, and a common vector for disguised file-type abuse.
+export const ALLOWED_AVATAR_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+
+// Shared by PhotoUpload (client-side check, immediate feedback) and both
+// parseRegisterFormData/parseProfileUpdateFormData (server-side enforcement
+// — the client check is only UX, never trust it alone).
+export const MAX_AVATAR_SIZE_BYTES = 5 * 1024 * 1024;

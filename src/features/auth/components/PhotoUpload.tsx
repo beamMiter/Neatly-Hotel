@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { PlusIcon } from "@/components/icons/PlusIcon";
 import { CloseIcon } from "@/components/icons/CloseIcon";
+import { ALLOWED_AVATAR_IMAGE_TYPES, MAX_AVATAR_SIZE_BYTES } from "@/lib/validation-patterns";
 
 type PhotoUploadProps = {
   id: string;
@@ -26,6 +27,13 @@ const DELETE_BUTTON_CLASSNAME =
 export function PhotoUpload({ id, name, file, onChange, existingUrl = null, onRemoveExisting }: PhotoUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const previewUrl = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
+  // Client-side only, for immediate feedback — an invalid pick never reaches
+  // `onChange`/the parent form's state at all, so this is the only place it's
+  // surfaced. The server re-checks the same rules regardless (never trust this).
+  // Plain inline text for now (matches TextField's error styling) — worth
+  // upgrading to a Toast/global notification later, but this is enough to
+  // stop the file being silently dropped with no feedback at all.
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     return () => {
@@ -38,22 +46,53 @@ export function PhotoUpload({ id, name, file, onChange, existingUrl = null, onRe
     if (inputRef.current) inputRef.current.value = "";
   }
 
+  function handleFileSelect(selected: File | null) {
+    if (!selected) {
+      setError(null);
+      onChange(null);
+      return;
+    }
+
+    if (!(ALLOWED_AVATAR_IMAGE_TYPES as readonly string[]).includes(selected.type)) {
+      setError("Please upload a JPG, PNG, or WEBP image.");
+      onChange(null);
+      if (inputRef.current) inputRef.current.value = "";
+      return;
+    }
+
+    if (selected.size > MAX_AVATAR_SIZE_BYTES) {
+      setError("Image must be 5MB or smaller.");
+      onChange(null);
+      if (inputRef.current) inputRef.current.value = "";
+      return;
+    }
+
+    setError(null);
+    onChange(selected);
+  }
+
   const fileInput = (
     <input
       ref={inputRef}
       id={id}
       name={name}
       type="file"
-      accept="image/*"
+      // Matches ALLOWED_AVATAR_IMAGE_TYPES — no GIF. This only steers the OS
+      // file picker; the real enforcement is handleFileSelect above (and,
+      // regardless, server-side too) since accept is trivially bypassed
+      // (drag-drop, "all files", a renamed extension).
+      accept="image/jpeg,image/png,image/webp"
       className="hidden"
-      onChange={(event) => onChange(event.target.files?.[0] ?? null)}
+      onChange={(event) => handleFileSelect(event.target.files?.[0] ?? null)}
     />
   );
 
-  // A newly-picked, not-yet-saved file takes priority over whatever avatar
-  // is already on file — removing it here just cancels the pick.
+  let box: React.ReactNode;
+
   if (previewUrl) {
-    return (
+    // A newly-picked, not-yet-saved file takes priority over whatever avatar
+    // is already on file — removing it here just cancels the pick.
+    box = (
       <div className="relative h-[167px] w-[167px]">
         <Image src={previewUrl} alt="Profile preview" fill unoptimized className="rounded object-cover" />
         <button type="button" onClick={handleCancelPick} aria-label="Cancel photo" className={DELETE_BUTTON_CLASSNAME}>
@@ -61,13 +100,11 @@ export function PhotoUpload({ id, name, file, onChange, existingUrl = null, onRe
         </button>
       </div>
     );
-  }
-
-  // No newly-picked file, but an existing avatar to show — clicking the
-  // photo opens the same file picker as the empty state (to replace it);
-  // the delete button clears it entirely.
-  if (existingUrl) {
-    return (
+  } else if (existingUrl) {
+    // No newly-picked file, but an existing avatar to show — clicking the
+    // photo opens the same file picker as the empty state (to replace it);
+    // the delete button clears it entirely.
+    box = (
       <div className="relative h-[167px] w-[167px]">
         <label htmlFor={id} className="group block h-full w-full cursor-pointer">
           <div className="relative h-full w-full">
@@ -96,16 +133,23 @@ export function PhotoUpload({ id, name, file, onChange, existingUrl = null, onRe
         )}
       </div>
     );
+  } else {
+    box = (
+      <label
+        htmlFor={id}
+        className="flex h-[167px] w-[167px] cursor-pointer flex-col items-center justify-center gap-1 rounded bg-[#F1F2F6] text-brand-primary transition-colors hover:bg-brand-border"
+      >
+        <PlusIcon className="h-5 w-5" />
+        <span className="text-sm font-medium">Upload photo</span>
+        {fileInput}
+      </label>
+    );
   }
 
   return (
-    <label
-      htmlFor={id}
-      className="flex h-[167px] w-[167px] cursor-pointer flex-col items-center justify-center gap-1 rounded bg-[#F1F2F6] text-brand-primary transition-colors hover:bg-brand-border"
-    >
-      <PlusIcon className="h-5 w-5" />
-      <span className="text-sm font-medium">Upload photo</span>
-      {fileInput}
-    </label>
+    <div className="flex flex-col gap-1.5">
+      {box}
+      {error && <p className="text-xs text-red-600">{error}</p>}
+    </div>
   );
 }
