@@ -3,14 +3,22 @@
 import { useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from "recharts";
 import type { BookingTrendDay } from "@/types/analytics";
-import { PeriodDropdown, type OverviewPeriodKey } from "@/features/analytics/components/PeriodDropdown";
+import { PeriodDropdown } from "@/features/analytics/components/PeriodDropdown";
+
+type BookingTrendsPeriodKey = "month" | "last_month" | "last_2_months";
+
+const PERIOD_OPTIONS: { key: BookingTrendsPeriodKey; label: string }[] = [
+  { key: "month", label: "This month" },
+  { key: "last_month", label: "Last month" },
+  { key: "last_2_months", label: "Last 2 months" },
+];
 
 export function BookingTrendsCard({ initialData }: { initialData: BookingTrendDay[] }) {
-  const [period, setPeriod] = useState<OverviewPeriodKey>("month");
+  const [period, setPeriod] = useState<BookingTrendsPeriodKey>("month");
   const [data, setData] = useState(initialData);
   const [isLoading, setIsLoading] = useState(false);
 
-  async function handlePeriodChange(nextPeriod: OverviewPeriodKey) {
+  async function handlePeriodChange(nextPeriod: BookingTrendsPeriodKey) {
     setPeriod(nextPeriod);
     setIsLoading(true);
     try {
@@ -26,7 +34,7 @@ export function BookingTrendsCard({ initialData }: { initialData: BookingTrendDa
     <div className="flex flex-col gap-4 rounded-lg border border-brand-border bg-white p-5">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-brand-primary">Booking Trends by Day</h2>
-        <PeriodDropdown value={period} onChange={handlePeriodChange} />
+        <PeriodDropdown value={period} options={PERIOD_OPTIONS} onChange={handlePeriodChange} />
       </div>
 
       <div className={`h-52 w-full transition-opacity ${isLoading ? "opacity-50" : ""}`}>

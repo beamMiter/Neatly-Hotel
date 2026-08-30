@@ -109,6 +109,24 @@ export function overviewRangeFor(key: OverviewPeriodKey): DateRange {
   }
 }
 
+export type BookingTrendsPeriodKey = "month" | "last_month" | "last_2_months";
+
+// "month" mirrors overviewRangeFor("month") (this calendar month to date).
+// "last_month"/"last_2_months" are the previous 1-2 FULL calendar months,
+// excluding the current still-in-progress one, so the weekday mix reflects
+// completed months rather than a partial one skewing the percentages.
+export function bookingTrendsRangeFor(key: BookingTrendsPeriodKey): DateRange {
+  const now = new Date();
+  switch (key) {
+    case "month":
+      return overviewRangeFor("month");
+    case "last_month":
+      return { from: startOfMonth(subMonths(now, 1)), to: endOfMonth(subMonths(now, 1)) };
+    case "last_2_months":
+      return { from: startOfMonth(subMonths(now, 2)), to: endOfMonth(subMonths(now, 1)) };
+  }
+}
+
 // A room is "Occupied" if a guest is physically in it right now (room
 // status), "Booked" if it isn't occupied but has a non-cancelled
 // reservation overlapping the range (reserved, guest hasn't arrived), and

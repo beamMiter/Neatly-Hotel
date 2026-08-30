@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
-import { getBookingTrendsByDay, overviewRangeFor, type OverviewPeriodKey } from "@/server/queries/analytics.query";
+import { getBookingTrendsByDay, bookingTrendsRangeFor, type BookingTrendsPeriodKey } from "@/server/queries/analytics.query";
 
-const VALID_PERIODS: OverviewPeriodKey[] = ["month", "week", "today"];
+const VALID_PERIODS: BookingTrendsPeriodKey[] = ["month", "last_month", "last_2_months"];
 
 export async function GET(request: Request) {
   const periodParam = new URL(request.url).searchParams.get("period");
-  const period: OverviewPeriodKey = VALID_PERIODS.includes(periodParam as OverviewPeriodKey)
-    ? (periodParam as OverviewPeriodKey)
+  const period: BookingTrendsPeriodKey = VALID_PERIODS.includes(periodParam as BookingTrendsPeriodKey)
+    ? (periodParam as BookingTrendsPeriodKey)
     : "month";
 
-  const data = await getBookingTrendsByDay(overviewRangeFor(period));
+  const data = await getBookingTrendsByDay(bookingTrendsRangeFor(period));
   return NextResponse.json({ data });
 }

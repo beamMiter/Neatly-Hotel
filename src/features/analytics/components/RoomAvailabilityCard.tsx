@@ -3,13 +3,21 @@
 import { useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import type { RoomAvailabilityBreakdown } from "@/types/analytics";
-import { PeriodDropdown, type OverviewPeriodKey } from "@/features/analytics/components/PeriodDropdown";
+import { PeriodDropdown } from "@/features/analytics/components/PeriodDropdown";
 
 const COLORS = {
   occupied: "#bd5b28",
   booked: "#33413a",
   available: "#c9cfd6",
 };
+
+type OverviewPeriodKey = "month" | "week" | "today";
+
+const PERIOD_OPTIONS: { key: OverviewPeriodKey; label: string }[] = [
+  { key: "month", label: "This month" },
+  { key: "week", label: "This week" },
+  { key: "today", label: "Today" },
+];
 
 export function RoomAvailabilityCard({ initialData }: { initialData: RoomAvailabilityBreakdown }) {
   const [period, setPeriod] = useState<OverviewPeriodKey>("month");
@@ -39,7 +47,7 @@ export function RoomAvailabilityCard({ initialData }: { initialData: RoomAvailab
     <div className="flex flex-col gap-4 rounded-lg border border-brand-border bg-white p-5">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-brand-primary">Room Availability</h2>
-        <PeriodDropdown value={period} onChange={handlePeriodChange} />
+        <PeriodDropdown value={period} options={PERIOD_OPTIONS} onChange={handlePeriodChange} />
       </div>
 
       <div className={`flex items-center gap-6 transition-opacity ${isLoading ? "opacity-50" : ""}`}>
