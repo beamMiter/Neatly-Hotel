@@ -8,6 +8,7 @@ import {
   differenceInCalendarDays,
   startOfDay,
   endOfDay,
+  startOfWeek,
   subDays,
   startOfHour,
 } from "date-fns";
@@ -88,6 +89,24 @@ export async function getDashboardKpis(): Promise<DashboardKpis> {
     totalBookingUsers: toMetric(current.users, previous.users),
     totalSiteVisitors: toMetric(visitorsInRange(currentStart, currentEnd), visitorsInRange(previousStart, previousEnd)),
   };
+}
+
+export type OverviewPeriodKey = "month" | "week" | "today";
+
+// Shared by Room Availability and Booking Trends' period dropdown. Always
+// anchored to "now" as the upper bound (not the end of the calendar
+// month/week) — matches this dashboard's original "this month" default.
+// Monday-start week to match Booking Trends' Mon..Sun bar order.
+export function overviewRangeFor(key: OverviewPeriodKey): DateRange {
+  const now = new Date();
+  switch (key) {
+    case "today":
+      return { from: startOfDay(now), to: endOfDay(now) };
+    case "week":
+      return { from: startOfWeek(now, { weekStartsOn: 1 }), to: endOfDay(now) };
+    case "month":
+      return { from: startOfMonth(now), to: endOfDay(now) };
+  }
 }
 
 // A room is "Occupied" if a guest is physically in it right now (room

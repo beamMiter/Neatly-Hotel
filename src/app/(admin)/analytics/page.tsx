@@ -10,6 +10,7 @@ import {
   getPaymentMethodBreakdown,
   getCheckInOutAverages,
   getWebsiteTraffic,
+  overviewRangeFor,
 } from "@/server/queries/analytics.query";
 import { AnalyticsDashboardView } from "@/features/analytics/components/AnalyticsDashboardView";
 
@@ -19,7 +20,7 @@ export const metadata: Metadata = {
 
 export default async function AnalyticsPage() {
   const now = new Date();
-  const thisMonth = { from: startOfMonth(now), to: endOfDay(now) };
+  const thisMonth = overviewRangeFor("month");
   // Revenue/Occupancy default to the last 6 months, matching the mockup.
   const defaultFrom = startOfMonth(subMonths(now, 5));
   const defaultTo = endOfDay(now);
