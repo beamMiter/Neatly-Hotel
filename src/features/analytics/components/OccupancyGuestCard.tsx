@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { format } from "date-fns";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, ResponsiveContainer, Tooltip } from "recharts";
 import type { OccupancyPoint, OccupancyByRoomTypeSeries, GuestVisitBreakdown, PaymentMethodBreakdown } from "@/types/analytics";
 import { DateField } from "@/features/analytics/components/DateField";
 import { PeriodDropdown } from "@/features/analytics/components/PeriodDropdown";
+import { ExportButton } from "@/features/analytics/components/ExportButton";
+import { CreditCardIcon } from "@/components/icons/CreditCardIcon";
+import { CashIcon } from "@/components/icons/CashIcon";
 
 function toDateInputValue(date: Date) {
   return format(date, "yyyy-MM-dd");
@@ -29,18 +32,37 @@ const VIEW_BY_OPTIONS: { key: ViewByKey; label: string }[] = [
   { key: "room_types", label: "Room types" },
 ];
 
-function ShareBar({ label, value, total, color }: { label: string; value: number; total: number; color: string }) {
+function ShareBar({
+  label,
+  value,
+  total,
+  color,
+  icon,
+}: {
+  label: string;
+  value: number;
+  total: number;
+  color: string;
+  icon?: ReactNode;
+}) {
   const pct = total === 0 ? 0 : Math.round((value / total) * 100);
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-center justify-between text-xs text-brand-body">
-        <span>
-          {label} <span className="text-brand-muted">{value.toLocaleString("en-US")} people</span>
+    <div className="flex items-start gap-3">
+      {icon && (
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-surface-alt text-brand-primary">
+          {icon}
         </span>
-        <span className="font-medium">{pct}%</span>
-      </div>
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-brand-surface-alt">
-        <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
+      )}
+      <div className="flex flex-1 flex-col gap-1.5">
+        <div className="flex items-center justify-between text-xs text-brand-body">
+          <span>
+            {label} <span className="text-brand-muted">{value.toLocaleString("en-US")} people</span>
+          </span>
+          <span className="font-medium">{pct}%</span>
+        </div>
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-brand-surface-alt">
+          <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
+        </div>
       </div>
     </div>
   );
@@ -102,12 +124,10 @@ export function OccupancyGuestCard({ initialData, initialFrom, initialTo }: { in
               refetch(from, date);
             }}
           />
-          <a
+          <ExportButton
             href={`/api/analytics/occupancy/export?from=${toDateInputValue(from)}&to=${toDateInputValue(to)}`}
-            className="rounded-md bg-brand-primary px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-brand-primary-hover"
-          >
-            Export
-          </a>
+            fileName="occupancy-trend.csv"
+          />
         </div>
       </div>
 
@@ -158,8 +178,20 @@ export function OccupancyGuestCard({ initialData, initialFrom, initialTo }: { in
 
         <div className="flex flex-col gap-3">
           <h3 className="text-xs font-medium text-brand-muted">Payment Method</h3>
-          <ShareBar label="Credit card" value={data.paymentMethod.creditCard} total={totalPayments} color="#bd5b28" />
-          <ShareBar label="Cash" value={data.paymentMethod.cash} total={totalPayments} color="#33413a" />
+          <ShareBar
+            label="Credit card"
+            value={data.paymentMethod.creditCard}
+            total={totalPayments}
+            color="#bd5b28"
+            icon={<CreditCardIcon className="h-4 w-4" />}
+          />
+          <ShareBar
+            label="Cash"
+            value={data.paymentMethod.cash}
+            total={totalPayments}
+            color="#33413a"
+            icon={<CashIcon className="h-4 w-4" />}
+          />
         </div>
       </div>
     </div>

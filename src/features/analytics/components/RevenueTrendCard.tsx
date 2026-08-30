@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from "recharts";
 import type { RevenuePoint } from "@/types/analytics";
 import { DateField } from "@/features/analytics/components/DateField";
+import { ExportButton } from "@/features/analytics/components/ExportButton";
 
 function formatThb(amount: number) {
   return `฿${amount.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
@@ -51,12 +52,10 @@ export function RevenueTrendCard({ initialData, initialFrom, initialTo }: { init
         <div className="flex flex-wrap items-center gap-2">
           <DateField label="From" value={from} max={to} onChange={handleFromChange} />
           <DateField label="To" value={to} min={from} onChange={handleToChange} />
-          <a
+          <ExportButton
             href={`/api/analytics/revenue-trend/export?from=${toDateInputValue(from)}&to=${toDateInputValue(to)}`}
-            className="rounded-md bg-brand-primary px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-brand-primary-hover"
-          >
-            Export
-          </a>
+            fileName="revenue-trend.csv"
+          />
         </div>
       </div>
 
