@@ -37,8 +37,8 @@ export function AnalyticsDashboardView({ data }: { data: AnalyticsDashboardData 
       <KpiCards kpis={data.kpis} />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <RoomAvailabilityCard data={data.roomAvailability} />
-        <BookingTrendsCard data={data.bookingTrends} />
+        <RoomAvailabilityCard initialData={data.roomAvailability} />
+        <BookingTrendsCard initialData={data.bookingTrends} />
       </div>
 
       <RevenueTrendCard initialData={data.revenueTrend} initialFrom={data.defaultFrom} initialTo={data.defaultTo} />

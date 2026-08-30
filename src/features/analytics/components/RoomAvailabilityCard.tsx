@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import type { RoomAvailabilityBreakdown } from "@/types/analytics";
+import { PeriodDropdown, type OverviewPeriodKey } from "@/features/analytics/components/PeriodDropdown";
 
 const COLORS = {
   occupied: "#bd5b28",
@@ -9,7 +11,23 @@ const COLORS = {
   available: "#c9cfd6",
 };
 
-export function RoomAvailabilityCard({ data }: { data: RoomAvailabilityBreakdown }) {
+export function RoomAvailabilityCard({ initialData }: { initialData: RoomAvailabilityBreakdown }) {
+  const [period, setPeriod] = useState<OverviewPeriodKey>("month");
+  const [data, setData] = useState(initialData);
+  const [isLoading, setIsLoading] = useState(false);
+
+  async function handlePeriodChange(nextPeriod: OverviewPeriodKey) {
+    setPeriod(nextPeriod);
+    setIsLoading(true);
+    try {
+      const response = await fetch(`/api/analytics/room-availability?period=${nextPeriod}`);
+      const json = await response.json();
+      setData(json.data);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   const total = data.occupied + data.booked + data.available;
   const segments = [
     { key: "occupied", label: "Occupied", value: data.occupied, color: COLORS.occupied },
@@ -19,9 +37,12 @@ export function RoomAvailabilityCard({ data }: { data: RoomAvailabilityBreakdown
 
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-brand-border bg-white p-5">
-      <h2 className="text-sm font-semibold text-brand-primary">Room Availability</h2>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-sm font-semibold text-brand-primary">Room Availability</h2>
+        <PeriodDropdown value={period} onChange={handlePeriodChange} />
+      </div>
 
-      <div className="flex items-center gap-6">
+      <div className={`flex items-center gap-6 transition-opacity ${isLoading ? "opacity-50" : ""}`}>
         <div className="h-40 w-40 shrink-0">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
