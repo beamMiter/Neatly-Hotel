@@ -4,9 +4,12 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import Image from 'next/image';
 import Link, { useLinkStatus } from 'next/link';
+import { logout } from '@/features/auth/actions';
+import { UserIcon } from '@/components/icons/UserIcon';
+import type { AccountSummary } from '@/types/account';
 
 // ── Types ──────────────────────────────────────────────────────
 type NavLink = {
@@ -27,6 +30,115 @@ const LoginLinkSpinner = () => {
 	);
 };
 
+// Figma spec (navbar, logged-in state): 40px avatar, gray/100 (#F1F2F6)
+// fallback fill, name in Open Sans 14px/16px regular gray/700 (#646D89) —
+// not the bold dark chip the first pass used.
+const AccountAvatar = ({ account }: { account: AccountSummary }) =>
+	account.avatarUrl ? (
+		// unoptimized: Next 16.3.0 rejects Supabase Storage URLs at /_next/image
+		// ("url parameter is not allowed") even with a matching remotePattern —
+		// see next.config.ts. This skips that proxy entirely.
+		<Image
+			src={account.avatarUrl}
+			alt=""
+			width={40}
+			height={40}
+			unoptimized
+			className="h-10 w-10 flex-none rounded-full object-cover"
+		/>
+	) : (
+		<span className="flex h-10 w-10 flex-none items-center justify-center rounded-full bg-[#F1F2F6]">
+			<UserIcon className="h-5 w-5 text-[#9AA1B9]" />
+		</span>
+	);
+
+// Desktop-only: notification bell (gray/100 circle, no backend yet — see
+// note where this is rendered) + account chip with dropdown (My Bookings /
+// Log out). Sits where the "Log in" link used to, reusing the same
+// logout() server action the admin sidebar already uses.
+const AccountMenu = ({ account, isAdmin }: { account: AccountSummary; isAdmin: boolean }) => {
+	const [isOpen, setIsOpen] = useState(false);
+	const [isPending, startTransition] = useTransition();
+	const fullName = `${account.firstName} ${account.lastName}`.trim();
+
+	return (
+		<div className="ml-auto hidden items-center gap-4 md:flex">
+			{/* No notification feature exists yet — rendered per the Figma spec
+			    but inert (disabled) rather than a dead-looking live button. */}
+			<button
+				type="button"
+				disabled
+				aria-label="Notifications"
+				className="flex h-10 w-10 flex-none cursor-default items-center justify-center rounded-full bg-[#F6F7FC]"
+			>
+				<Image src="/icons/icon/notification.svg" alt="" width={19} height={20} />
+			</button>
+
+			<div className="relative">
+				<button
+					type="button"
+					onClick={() => setIsOpen((prev) => !prev)}
+					aria-haspopup="menu"
+					aria-expanded={isOpen}
+					className="flex h-10 flex-none items-center gap-2 rounded"
+				>
+					<AccountAvatar account={account} />
+					<span className="whitespace-nowrap [font-family:var(--font-open-sans)] text-sm text-[#646D89]">
+						{fullName}
+					</span>
+				</button>
+
+				{isOpen && (
+					<>
+						<div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+						<div
+							role="menu"
+							className="absolute top-full right-0 z-20 mt-2 w-48 rounded border border-[#E4E6ED] bg-white py-2 shadow-[4px_4px_16px_rgba(0,0,0,0.08)]"
+						>
+							{!isAdmin && (
+								<Link
+									href="/profile"
+									onClick={() => setIsOpen(false)}
+									className="block px-4 py-2 text-sm text-[#2A2E3F] hover:bg-gray-50"
+								>
+									Profile
+								</Link>
+							)}
+							<Link
+								href="/booking-history"
+								onClick={() => setIsOpen(false)}
+								className="block px-4 py-2 text-sm text-[#2A2E3F] hover:bg-gray-50"
+							>
+								My Bookings
+							</Link>
+							{isAdmin && (
+								<>
+									<div className="my-2 h-px w-full bg-[#E4E6ED]" />
+									<Link
+										href="/live-support"
+										onClick={() => setIsOpen(false)}
+										className="block px-4 py-2 text-sm text-[#2A2E3F] hover:bg-gray-50"
+									>
+										Admin Dashboard
+									</Link>
+								</>
+							)}
+							<button
+								type="button"
+								disabled={isPending}
+								onClick={() => startTransition(() => logout())}
+								className="block w-full cursor-pointer px-4 py-2 text-left text-sm text-[#C14817] hover:bg-gray-50 disabled:opacity-60"
+							>
+								{isPending ? 'Logging out...' : 'Log out'}
+							</button>
+						</div>
+					</>
+				)}
+			</div>
+		</div>
+	);
+};
+
 // ── Data ───────────────────────────────────────────────────────
 const NAV_LINKS: NavLink[] = [
 	{ label: 'About Neatly', href: '/#about' },
@@ -39,13 +151,16 @@ type NavbarProps = {
 	hideLogin?: boolean;
 	logoUrl?: string | null;
 	hotelName?: string;
+	account?: AccountSummary | null;
+	isAdmin?: boolean;
 };
 
 const DEFAULT_LOGO = '/images/icon/logo-gereen.svg';
 
 // ── Component ──────────────────────────────────────────────────
-const Navbar = ({ hideLogin = false, logoUrl, hotelName = 'Neatly Hotel' }: NavbarProps) => {
+const Navbar = ({ hideLogin = false, logoUrl, hotelName = 'Neatly Hotel', account = null, isAdmin = false }: NavbarProps) => {
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
+	const [isMobileLogoutPending, startMobileLogout] = useTransition();
 
 	return (
 		<header className="relative w-full h-12 lg:h-25 bg-white border-b border-[#E4E6ED]">
@@ -74,30 +189,38 @@ const Navbar = ({ hideLogin = false, logoUrl, hotelName = 'Neatly Hotel' }: Navb
 					))}
 				</ul>
 
-				{!hideLogin && (
-					<Link
-						href="/login"
-						className="group relative hidden md:flex flex-none items-center justify-center overflow-hidden rounded h-10 border border-white px-6 ml-auto text-sm font-semibold text-[#C14817] whitespace-nowrap"
-					>
-						<span className="absolute inset-0 -translate-x-full bg-[#C14817] transition-transform duration-300 ease-out group-hover:translate-x-0" />
-						<span className="relative z-10 transition-colors duration-300 group-hover:text-white">Log in</span>
-						<LoginLinkSpinner />
-					</Link>
-				)}
+				{!hideLogin &&
+					(account ? (
+						<AccountMenu account={account} isAdmin={isAdmin} />
+					) : (
+						<Link
+							href="/login"
+							className="group relative hidden md:flex flex-none items-center justify-center overflow-hidden rounded h-10 border border-white px-6 ml-auto text-sm font-semibold text-[#C14817] whitespace-nowrap"
+						>
+							<span className="absolute inset-0 -translate-x-full bg-[#C14817] transition-transform duration-300 ease-out group-hover:translate-x-0" />
+							<span className="relative z-10 transition-colors duration-300 group-hover:text-white">Log in</span>
+							<LoginLinkSpinner />
+						</Link>
+					))}
 
 				<button
 					type="button"
 					onClick={() => setIsMenuOpen((prev) => !prev)}
 					aria-label={isMenuOpen ? 'Close menu' : 'Open menu'}
 					aria-expanded={isMenuOpen}
-					className="ml-auto flex h-6 w-6 flex-none flex-col items-center justify-center gap-1.75 md:hidden"
+					className="ml-auto flex h-6 w-6 flex-none flex-col items-center justify-center gap-1.5 md:hidden"
 				>
+					{/* h-0.5 (2px) + gap-1.5 (6px) keeps every line's Y position on a
+					    whole pixel (2/6/2/6/2 = 18px, centered in the 24px box with an
+					    exact 3px above/below) — the old 1.5px lines + 7px gap landed on
+					    fractional Y offsets, so the three lines anti-aliased differently
+					    and visibly looked uneven even though their CSS was identical. */}
 					<span
-						className={`h-[1.5px] w-4 bg-[#646D89] transition-transform duration-150 ${isMenuOpen ? 'translate-y-[8.5px] rotate-45' : ''}`}
+						className={`h-0.5 w-4 bg-[#646D89] transition-transform duration-150 ${isMenuOpen ? 'translate-y-2 rotate-45' : ''}`}
 					/>
-					<span className={`h-[1.5px] w-4 bg-[#646D89] transition-opacity duration-150 ${isMenuOpen ? 'opacity-0' : ''}`} />
+					<span className={`h-0.5 w-4 bg-[#646D89] transition-opacity duration-150 ${isMenuOpen ? 'opacity-0' : ''}`} />
 					<span
-						className={`h-[1.5px] w-4 bg-[#646D89] transition-transform duration-150 ${isMenuOpen ? 'translate-y-[8.5px] -rotate-45' : ''}`}
+						className={`h-0.5 w-4 bg-[#646D89] transition-transform duration-150 ${isMenuOpen ? '-translate-y-2 -rotate-45' : ''}`}
 					/>
 				</button>
 			</nav>
@@ -119,13 +242,60 @@ const Navbar = ({ hideLogin = false, logoUrl, hotelName = 'Neatly Hotel' }: Navb
 						<>
 							<div className="my-2 h-px w-full bg-[#E4E6ED]" />
 
-							<Link
-								href="/login"
-								onClick={() => setIsMenuOpen(false)}
-								className="flex w-full items-center justify-center px-4 py-6 [font-family:var(--font-open-sans)] text-sm font-semibold text-[#E76B39]"
-							>
-								Log in
-							</Link>
+							{account ? (
+								<>
+									<div className="flex w-full items-center justify-center gap-2 px-4 py-3">
+										<AccountAvatar account={account} />
+										<span className="text-sm font-semibold text-[#2A2E3F]">
+											{account.firstName} {account.lastName}
+										</span>
+									</div>
+									{!isAdmin && (
+										<Link
+											href="/profile"
+											onClick={() => setIsMenuOpen(false)}
+											className="flex w-full items-center justify-center px-4 py-6 [font-family:var(--font-open-sans)] text-sm text-black"
+										>
+											Profile
+										</Link>
+									)}
+									<Link
+										href="/booking-history"
+										onClick={() => setIsMenuOpen(false)}
+										className="flex w-full items-center justify-center px-4 py-6 [font-family:var(--font-open-sans)] text-sm text-black"
+									>
+										My Bookings
+									</Link>
+									{isAdmin && (
+										<Link
+											href="/live-support"
+											onClick={() => setIsMenuOpen(false)}
+											className="flex w-full items-center justify-center px-4 py-6 [font-family:var(--font-open-sans)] text-sm text-black"
+										>
+											Admin Dashboard
+										</Link>
+									)}
+									<button
+										type="button"
+										disabled={isMobileLogoutPending}
+										onClick={() => {
+											setIsMenuOpen(false);
+											startMobileLogout(() => logout());
+										}}
+										className="flex w-full cursor-pointer items-center justify-center px-4 py-6 [font-family:var(--font-open-sans)] text-sm text-[#E76B39] disabled:opacity-60"
+									>
+										{isMobileLogoutPending ? 'Logging out...' : 'Log out'}
+									</button>
+								</>
+							) : (
+								<Link
+									href="/login"
+									onClick={() => setIsMenuOpen(false)}
+									className="flex w-full items-center justify-center px-4 py-6 [font-family:var(--font-open-sans)] text-sm font-semibold text-[#E76B39]"
+								>
+									Log in
+								</Link>
+							)}
 						</>
 					)}
 				</div>
