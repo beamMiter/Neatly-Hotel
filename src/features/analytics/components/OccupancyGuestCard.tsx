@@ -4,6 +4,7 @@ import { useState } from "react";
 import { format } from "date-fns";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from "recharts";
 import type { OccupancyPoint, GuestVisitBreakdown, PaymentMethodBreakdown } from "@/types/analytics";
+import { DateField } from "@/features/analytics/components/DateField";
 
 function toDateInputValue(date: Date) {
   return format(date, "yyyy-MM-dd");
@@ -34,14 +35,16 @@ type OccupancyGuestData = {
 
 export function OccupancyGuestCard({ initialData, initialFrom, initialTo }: { initialData: OccupancyGuestData; initialFrom: Date; initialTo: Date }) {
   const [data, setData] = useState(initialData);
-  const [from, setFrom] = useState(toDateInputValue(initialFrom));
-  const [to, setTo] = useState(toDateInputValue(initialTo));
+  const [from, setFrom] = useState(initialFrom);
+  const [to, setTo] = useState(initialTo);
   const [isLoading, setIsLoading] = useState(false);
 
-  async function refetch(nextFrom: string, nextTo: string) {
+  async function refetch(nextFrom: Date, nextTo: Date) {
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/analytics/occupancy?from=${nextFrom}&to=${nextTo}`);
+      const response = await fetch(
+        `/api/analytics/occupancy?from=${toDateInputValue(nextFrom)}&to=${toDateInputValue(nextTo)}`,
+      );
       setData(await response.json());
     } finally {
       setIsLoading(false);
@@ -57,34 +60,26 @@ export function OccupancyGuestCard({ initialData, initialFrom, initialTo }: { in
         <h2 className="text-sm font-semibold text-brand-primary">Occupancy & Guest</h2>
 
         <div className="flex flex-wrap items-center gap-2">
-          <label className="flex items-center gap-1.5 text-xs text-brand-muted">
-            From
-            <input
-              type="date"
-              value={from}
-              max={to}
-              onChange={(event) => {
-                setFrom(event.target.value);
-                refetch(event.target.value, to);
-              }}
-              className="rounded-md border border-brand-border px-2 py-1 text-xs text-brand-body"
-            />
-          </label>
-          <label className="flex items-center gap-1.5 text-xs text-brand-muted">
-            To
-            <input
-              type="date"
-              value={to}
-              min={from}
-              onChange={(event) => {
-                setTo(event.target.value);
-                refetch(from, event.target.value);
-              }}
-              className="rounded-md border border-brand-border px-2 py-1 text-xs text-brand-body"
-            />
-          </label>
+          <DateField
+            label="From"
+            value={from}
+            max={to}
+            onChange={(date) => {
+              setFrom(date);
+              refetch(date, to);
+            }}
+          />
+          <DateField
+            label="To"
+            value={to}
+            min={from}
+            onChange={(date) => {
+              setTo(date);
+              refetch(from, date);
+            }}
+          />
           <a
-            href={`/api/analytics/occupancy/export?from=${from}&to=${to}`}
+            href={`/api/analytics/occupancy/export?from=${toDateInputValue(from)}&to=${toDateInputValue(to)}`}
             className="rounded-md bg-brand-primary px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-brand-primary-hover"
           >
             Export

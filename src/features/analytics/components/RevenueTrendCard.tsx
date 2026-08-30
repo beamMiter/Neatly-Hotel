@@ -4,6 +4,7 @@ import { useState } from "react";
 import { format } from "date-fns";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from "recharts";
 import type { RevenuePoint } from "@/types/analytics";
+import { DateField } from "@/features/analytics/components/DateField";
 
 function formatThb(amount: number) {
   return `฿${amount.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
@@ -15,14 +16,16 @@ function toDateInputValue(date: Date) {
 
 export function RevenueTrendCard({ initialData, initialFrom, initialTo }: { initialData: RevenuePoint[]; initialFrom: Date; initialTo: Date }) {
   const [data, setData] = useState(initialData);
-  const [from, setFrom] = useState(toDateInputValue(initialFrom));
-  const [to, setTo] = useState(toDateInputValue(initialTo));
+  const [from, setFrom] = useState(initialFrom);
+  const [to, setTo] = useState(initialTo);
   const [isLoading, setIsLoading] = useState(false);
 
-  async function refetch(nextFrom: string, nextTo: string) {
+  async function refetch(nextFrom: Date, nextTo: Date) {
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/analytics/revenue-trend?from=${nextFrom}&to=${nextTo}`);
+      const response = await fetch(
+        `/api/analytics/revenue-trend?from=${toDateInputValue(nextFrom)}&to=${toDateInputValue(nextTo)}`,
+      );
       const json = await response.json();
       setData(json.data);
     } finally {
@@ -30,14 +33,14 @@ export function RevenueTrendCard({ initialData, initialFrom, initialTo }: { init
     }
   }
 
-  function handleFromChange(value: string) {
-    setFrom(value);
-    refetch(value, to);
+  function handleFromChange(date: Date) {
+    setFrom(date);
+    refetch(date, to);
   }
 
-  function handleToChange(value: string) {
-    setTo(value);
-    refetch(from, value);
+  function handleToChange(date: Date) {
+    setTo(date);
+    refetch(from, date);
   }
 
   return (
@@ -46,28 +49,10 @@ export function RevenueTrendCard({ initialData, initialFrom, initialTo }: { init
         <h2 className="text-sm font-semibold text-brand-primary">Revenue Trend</h2>
 
         <div className="flex flex-wrap items-center gap-2">
-          <label className="flex items-center gap-1.5 text-xs text-brand-muted">
-            From
-            <input
-              type="date"
-              value={from}
-              max={to}
-              onChange={(event) => handleFromChange(event.target.value)}
-              className="rounded-md border border-brand-border px-2 py-1 text-xs text-brand-body"
-            />
-          </label>
-          <label className="flex items-center gap-1.5 text-xs text-brand-muted">
-            To
-            <input
-              type="date"
-              value={to}
-              min={from}
-              onChange={(event) => handleToChange(event.target.value)}
-              className="rounded-md border border-brand-border px-2 py-1 text-xs text-brand-body"
-            />
-          </label>
+          <DateField label="From" value={from} max={to} onChange={handleFromChange} />
+          <DateField label="To" value={to} min={from} onChange={handleToChange} />
           <a
-            href={`/api/analytics/revenue-trend/export?from=${from}&to=${to}`}
+            href={`/api/analytics/revenue-trend/export?from=${toDateInputValue(from)}&to=${toDateInputValue(to)}`}
             className="rounded-md bg-brand-primary px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-brand-primary-hover"
           >
             Export
