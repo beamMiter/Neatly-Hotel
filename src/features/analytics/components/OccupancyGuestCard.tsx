@@ -2,13 +2,32 @@
 
 import { useState } from "react";
 import { format } from "date-fns";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from "recharts";
-import type { OccupancyPoint, GuestVisitBreakdown, PaymentMethodBreakdown } from "@/types/analytics";
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, ResponsiveContainer, Tooltip } from "recharts";
+import type { OccupancyPoint, OccupancyByRoomTypeSeries, GuestVisitBreakdown, PaymentMethodBreakdown } from "@/types/analytics";
 import { DateField } from "@/features/analytics/components/DateField";
+import { PeriodDropdown } from "@/features/analytics/components/PeriodDropdown";
 
 function toDateInputValue(date: Date) {
   return format(date, "yyyy-MM-dd");
 }
+
+// Validated 8-hue categorical palette (dataviz skill's documented default —
+// see references/palette.md), fixed order, never cycled. Room types beyond
+// the 8th fold into a single "Other" series (see getOccupancyTrendByRoomType)
+// rendered in this muted gray instead of a 9th generated hue.
+const ROOM_TYPE_PALETTE = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"];
+const OTHER_COLOR = "#898781";
+
+function colorForRoomType(name: string, index: number) {
+  return name === "Other" ? OTHER_COLOR : ROOM_TYPE_PALETTE[index % ROOM_TYPE_PALETTE.length];
+}
+
+type ViewByKey = "overall" | "room_types";
+
+const VIEW_BY_OPTIONS: { key: ViewByKey; label: string }[] = [
+  { key: "overall", label: "Overall" },
+  { key: "room_types", label: "Room types" },
+];
 
 function ShareBar({ label, value, total, color }: { label: string; value: number; total: number; color: string }) {
   const pct = total === 0 ? 0 : Math.round((value / total) * 100);
@@ -29,6 +48,7 @@ function ShareBar({ label, value, total, color }: { label: string; value: number
 
 type OccupancyGuestData = {
   occupancyTrend: OccupancyPoint[];
+  occupancyByRoomType: OccupancyByRoomTypeSeries;
   guestVisit: GuestVisitBreakdown;
   paymentMethod: PaymentMethodBreakdown;
 };
@@ -37,6 +57,7 @@ export function OccupancyGuestCard({ initialData, initialFrom, initialTo }: { in
   const [data, setData] = useState(initialData);
   const [from, setFrom] = useState(initialFrom);
   const [to, setTo] = useState(initialTo);
+  const [viewBy, setViewBy] = useState<ViewByKey>("overall");
   const [isLoading, setIsLoading] = useState(false);
 
   async function refetch(nextFrom: Date, nextTo: Date) {
@@ -53,6 +74,7 @@ export function OccupancyGuestCard({ initialData, initialFrom, initialTo }: { in
 
   const totalGuests = data.guestVisit.newGuests + data.guestVisit.returningGuests;
   const totalPayments = data.paymentMethod.creditCard + data.paymentMethod.cash;
+  const roomTypeChartData = data.occupancyByRoomType.points.map((point) => ({ month: point.month, ...point.rates }));
 
   return (
     <div className="flex flex-col gap-5 rounded-lg border border-brand-border bg-white p-5">
@@ -60,6 +82,8 @@ export function OccupancyGuestCard({ initialData, initialFrom, initialTo }: { in
         <h2 className="text-sm font-semibold text-brand-primary">Occupancy & Guest</h2>
 
         <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-brand-muted">View by</span>
+          <PeriodDropdown value={viewBy} options={VIEW_BY_OPTIONS} onChange={setViewBy} />
           <DateField
             label="From"
             value={from}
@@ -87,22 +111,41 @@ export function OccupancyGuestCard({ initialData, initialFrom, initialTo }: { in
         </div>
       </div>
 
-      <div className={`h-52 w-full transition-opacity ${isLoading ? "opacity-50" : ""}`}>
+      <div className={`h-60 w-full transition-opacity ${isLoading ? "opacity-50" : ""}`}>
         <p className="mb-1 text-xs text-brand-muted">Occupancy Rate</p>
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data.occupancyTrend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-            <CartesianGrid vertical={false} stroke="#e1e3ea" />
-            <XAxis dataKey="month" tickLine={false} axisLine={false} tick={{ fill: "#8a93a3", fontSize: 12 }} />
-            <YAxis
-              tickLine={false}
-              axisLine={false}
-              tick={{ fill: "#8a93a3", fontSize: 12 }}
-              tickFormatter={(value: number) => `${value}%`}
-              domain={[0, 100]}
-            />
-            <Tooltip formatter={(value) => [`${value}%`, "Occupancy"]} />
-            <Line type="monotone" dataKey="ratePct" stroke="#bd5b28" strokeWidth={2} dot={{ r: 3 }} />
-          </LineChart>
+          {viewBy === "overall" ? (
+            <LineChart data={data.occupancyTrend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+              <CartesianGrid vertical={false} stroke="#e1e3ea" />
+              <XAxis dataKey="month" tickLine={false} axisLine={false} tick={{ fill: "#8a93a3", fontSize: 12 }} />
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                tick={{ fill: "#8a93a3", fontSize: 12 }}
+                tickFormatter={(value: number) => `${value}%`}
+                domain={[0, 100]}
+              />
+              <Tooltip formatter={(value) => [`${value}%`, "Occupancy"]} />
+              <Line type="monotone" dataKey="ratePct" stroke="#bd5b28" strokeWidth={2} dot={{ r: 3 }} />
+            </LineChart>
+          ) : (
+            <BarChart data={roomTypeChartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barGap={2} barCategoryGap="20%">
+              <CartesianGrid vertical={false} stroke="#e1e3ea" />
+              <XAxis dataKey="month" tickLine={false} axisLine={false} tick={{ fill: "#8a93a3", fontSize: 12 }} />
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                tick={{ fill: "#8a93a3", fontSize: 12 }}
+                tickFormatter={(value: number) => `${value}%`}
+                domain={[0, 100]}
+              />
+              <Tooltip formatter={(value) => [`${value}%`, undefined]} />
+              <Legend verticalAlign="top" align="right" height={28} wrapperStyle={{ fontSize: 12 }} />
+              {data.occupancyByRoomType.seriesNames.map((name, index) => (
+                <Bar key={name} dataKey={name} fill={colorForRoomType(name, index)} radius={[4, 4, 0, 0]} maxBarSize={16} />
+              ))}
+            </BarChart>
+          )}
         </ResponsiveContainer>
       </div>
 

@@ -20,6 +20,7 @@ import type {
   BookingTrendDay,
   RevenuePoint,
   OccupancyPoint,
+  OccupancyByRoomTypeSeries,
   GuestVisitBreakdown,
   PaymentMethodBreakdown,
   CheckInOutAverages,
@@ -222,6 +223,81 @@ export async function getOccupancyTrend(range: DateRange): Promise<OccupancyPoin
       ratePct: totalRoomNights === 0 ? 0 : Math.round((occupied / totalRoomNights) * 1000) / 10,
     };
   });
+}
+
+// The "Room types" view of Occupancy Rate. Same room-nights math as
+// getOccupancyTrend, split per room type instead of pooled across the whole
+// hotel. Capped at MAX_ROOM_TYPE_SERIES series (matching the categorical
+// palette's 8 fixed hue slots) — a real hotel can have far more room types
+// than that, and a 9th+ generated color isn't distinguishable, so the
+// smallest room types by occupied room-nights fold into a trailing "Other".
+const MAX_ROOM_TYPE_SERIES = 8;
+
+export async function getOccupancyTrendByRoomType(range: DateRange): Promise<OccupancyByRoomTypeSeries> {
+  const bookings = getMockBookings();
+  const roomTypeById = new Map(MOCK_ROOMS.map((room) => [room.id, room.roomType]));
+
+  const sellableRoomsByType = new Map<string, number>();
+  for (const room of MOCK_ROOMS) {
+    if (room.status === "Out of Service") continue;
+    sellableRoomsByType.set(room.roomType, (sellableRoomsByType.get(room.roomType) ?? 0) + 1);
+  }
+
+  const nightsByMonthAndType = new Map<string, Map<string, number>>();
+  const totalNightsByType = new Map<string, number>();
+
+  for (const b of bookings) {
+    if (isCancelled(b)) continue;
+    if (b.checkIn >= range.to || b.checkOut <= range.from) continue;
+
+    for (let t = b.checkIn.getTime(); t < b.checkOut.getTime(); t += DAY_MS) {
+      const night = new Date(t);
+      if (night < range.from || night > range.to) continue;
+      const monthKey = format(night, "yyyy-MM");
+      const byType = nightsByMonthAndType.get(monthKey) ?? new Map<string, number>();
+      nightsByMonthAndType.set(monthKey, byType);
+
+      for (const roomId of b.roomIds) {
+        const roomType = roomTypeById.get(roomId);
+        if (!roomType) continue;
+        byType.set(roomType, (byType.get(roomType) ?? 0) + 1);
+        totalNightsByType.set(roomType, (totalNightsByType.get(roomType) ?? 0) + 1);
+      }
+    }
+  }
+
+  const rankedTypes = [...totalNightsByType.entries()].sort((a, b) => b[1] - a[1]).map(([type]) => type);
+  const hasOverflow = rankedTypes.length > MAX_ROOM_TYPE_SERIES;
+  const topTypes = hasOverflow ? rankedTypes.slice(0, MAX_ROOM_TYPE_SERIES - 1) : rankedTypes;
+  const foldedTypes = new Set(hasOverflow ? rankedTypes.slice(MAX_ROOM_TYPE_SERIES - 1) : []);
+  const seriesNames = hasOverflow ? [...topTypes, "Other"] : topTypes;
+
+  const points = eachMonthOfInterval({ start: range.from, end: range.to }).map((month) => {
+    const monthKey = format(month, "yyyy-MM");
+    const daysInMonth = differenceInCalendarDays(endOfMonth(month), startOfMonth(month)) + 1;
+    const byType = nightsByMonthAndType.get(monthKey) ?? new Map<string, number>();
+
+    const rates: Record<string, number> = {};
+    for (const type of topTypes) {
+      const sellable = sellableRoomsByType.get(type) ?? 0;
+      const occupied = byType.get(type) ?? 0;
+      rates[type] = sellable === 0 ? 0 : Math.round((occupied / (sellable * daysInMonth)) * 1000) / 10;
+    }
+
+    if (hasOverflow) {
+      let otherSellable = 0;
+      let otherOccupied = 0;
+      for (const type of foldedTypes) {
+        otherSellable += sellableRoomsByType.get(type) ?? 0;
+        otherOccupied += byType.get(type) ?? 0;
+      }
+      rates.Other = otherSellable === 0 ? 0 : Math.round((otherOccupied / (otherSellable * daysInMonth)) * 1000) / 10;
+    }
+
+    return { month: format(month, "MMMM"), rates };
+  });
+
+  return { seriesNames, points };
 }
 
 // "New" = this is the first booking this customer has ever made, and it

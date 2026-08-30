@@ -33,6 +33,16 @@ export type OccupancyPoint = {
   ratePct: number;
 };
 
+// One bar-group per month, one value per room type (occupancy rate pct).
+// `seriesNames` is capped at 8 (the categorical palette's fixed hue count) —
+// beyond that, the smallest room types by occupied room-nights are folded
+// into a trailing "Other" entry so the chart doesn't need a 9th generated
+// color. `rates` is keyed by the entries in `seriesNames`.
+export type OccupancyByRoomTypeSeries = {
+  seriesNames: string[];
+  points: { month: string; rates: Record<string, number> }[];
+};
+
 export type GuestVisitBreakdown = {
   newGuests: number;
   returningGuests: number;

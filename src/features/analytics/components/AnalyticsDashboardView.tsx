@@ -11,6 +11,7 @@ import type {
   BookingTrendDay,
   RevenuePoint,
   OccupancyPoint,
+  OccupancyByRoomTypeSeries,
   GuestVisitBreakdown,
   PaymentMethodBreakdown,
   CheckInOutAverages,
@@ -23,6 +24,7 @@ export type AnalyticsDashboardData = {
   bookingTrends: BookingTrendDay[];
   revenueTrend: RevenuePoint[];
   occupancyTrend: OccupancyPoint[];
+  occupancyByRoomType: OccupancyByRoomTypeSeries;
   guestVisit: GuestVisitBreakdown;
   paymentMethod: PaymentMethodBreakdown;
   checkInOutAverages: CheckInOutAverages;
@@ -44,7 +46,12 @@ export function AnalyticsDashboardView({ data }: { data: AnalyticsDashboardData 
       <RevenueTrendCard initialData={data.revenueTrend} initialFrom={data.defaultFrom} initialTo={data.defaultTo} />
 
       <OccupancyGuestCard
-        initialData={{ occupancyTrend: data.occupancyTrend, guestVisit: data.guestVisit, paymentMethod: data.paymentMethod }}
+        initialData={{
+          occupancyTrend: data.occupancyTrend,
+          occupancyByRoomType: data.occupancyByRoomType,
+          guestVisit: data.guestVisit,
+          paymentMethod: data.paymentMethod,
+        }}
         initialFrom={data.defaultFrom}
         initialTo={data.defaultTo}
       />
