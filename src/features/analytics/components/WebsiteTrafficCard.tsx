@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from "recharts";
 import type { TrafficPoint } from "@/types/analytics";
+import { PeriodDropdown } from "@/features/analytics/components/PeriodDropdown";
 
 const RANGE_OPTIONS: { key: string; label: string }[] = [
   { key: "realtime", label: "Real-time" },
@@ -11,16 +12,24 @@ const RANGE_OPTIONS: { key: string; label: string }[] = [
   { key: "30d", label: "Last 30 days" },
 ];
 
-export function WebsiteTrafficCard({ initialData }: { initialData: TrafficPoint[] }) {
+export function WebsiteTrafficCard({
+  initialData,
+  pageOptions,
+}: {
+  initialData: TrafficPoint[];
+  pageOptions: { key: string; label: string }[];
+}) {
   const [range, setRange] = useState("realtime");
+  const [page, setPage] = useState("all");
   const [data, setData] = useState(initialData);
   const [isLoading, setIsLoading] = useState(false);
 
-  async function handleRangeChange(nextRange: string) {
-    setRange(nextRange);
+  async function refetch(nextRange: string, nextPage: string) {
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/analytics/website-traffic?range=${nextRange}`);
+      const response = await fetch(
+        `/api/analytics/website-traffic?range=${nextRange}&page=${encodeURIComponent(nextPage)}`,
+      );
       const json = await response.json();
       setData(json.data);
     } finally {
@@ -28,12 +37,23 @@ export function WebsiteTrafficCard({ initialData }: { initialData: TrafficPoint[
     }
   }
 
+  function handleRangeChange(nextRange: string) {
+    setRange(nextRange);
+    refetch(nextRange, page);
+  }
+
+  function handlePageChange(nextPage: string) {
+    setPage(nextPage);
+    refetch(range, nextPage);
+  }
+
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-brand-border bg-white p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-brand-primary">Website traffic</h2>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <PeriodDropdown value={page} options={pageOptions} onChange={handlePageChange} />
           {RANGE_OPTIONS.map((option) => (
             <button
               key={option.key}

@@ -11,6 +11,7 @@ import {
   getPaymentMethodBreakdown,
   getCheckInOutAverages,
   getWebsiteTraffic,
+  getWebsiteTrafficPages,
   overviewRangeFor,
 } from "@/server/queries/analytics.query";
 import { AnalyticsDashboardView } from "@/features/analytics/components/AnalyticsDashboardView";
@@ -40,6 +41,7 @@ export default async function AnalyticsPage() {
     paymentMethod,
     checkInOutAverages,
     websiteTraffic,
+    websiteTrafficPages,
     hotel,
   ] = await Promise.all([
     getDashboardKpis(),
@@ -52,6 +54,7 @@ export default async function AnalyticsPage() {
     getPaymentMethodBreakdown(defaultRange),
     getCheckInOutAverages(),
     getWebsiteTraffic("realtime"),
+    getWebsiteTrafficPages(),
     loadHotelInformation(),
   ]);
 
@@ -74,6 +77,7 @@ export default async function AnalyticsPage() {
             paymentMethod,
             checkInOutAverages,
             websiteTraffic,
+            websiteTrafficPages,
             checkInTimeLabel: formatCheckTimeLabel(hotel.checkInTime),
             checkOutTimeLabel: formatCheckTimeLabel(hotel.checkOutTime),
             defaultFrom,

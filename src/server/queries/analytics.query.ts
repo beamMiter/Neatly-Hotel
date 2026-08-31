@@ -376,6 +376,48 @@ export async function getCheckInOutAverages(): Promise<CheckInOutAverages> {
   };
 }
 
+export type WebsiteTrafficPageOption = { key: string; label: string };
+
+// The mock dataset only tracks aggregate per-hour view counts, not which
+// page each view landed on (see mock-data.ts — raw events were never kept,
+// only bucketed counts). So a per-page breakdown is simulated by splitting
+// each bucket's total by a fixed weight per page, rather than filtering
+// real per-page rows — Home gets a flat share, and each room type's share
+// is proportional to how many rooms of that type exist (a stand-in for
+// "more inventory of a type tends to draw more browsing").
+const HOME_TRAFFIC_WEIGHT = 0.3;
+
+function roomTypePageWeights(): Map<string, number> {
+  const countByType = new Map<string, number>();
+  for (const room of MOCK_ROOMS) {
+    countByType.set(room.roomType, (countByType.get(room.roomType) ?? 0) + 1);
+  }
+  const totalRooms = MOCK_ROOMS.length;
+  const remainingWeight = 1 - HOME_TRAFFIC_WEIGHT;
+
+  const weights = new Map<string, number>();
+  for (const [roomType, count] of countByType) {
+    weights.set(roomType, (count / totalRooms) * remainingWeight);
+  }
+  return weights;
+}
+
+export async function getWebsiteTrafficPages(): Promise<WebsiteTrafficPageOption[]> {
+  const weights = roomTypePageWeights();
+  const roomTypesByWeightDesc = [...weights.entries()].sort((a, b) => b[1] - a[1]).map(([roomType]) => roomType);
+
+  return [
+    { key: "all", label: "All pages" },
+    { key: "home", label: "Home" },
+    ...roomTypesByWeightDesc.map((roomType) => ({ key: roomType, label: roomType })),
+  ];
+}
+
+function pageTrafficWeight(pageKey: string): number {
+  if (pageKey === "home") return HOME_TRAFFIC_WEIGHT;
+  return roomTypePageWeights().get(pageKey) ?? 0;
+}
+
 export type TrafficRangeKey = "realtime" | "yesterday" | "7d" | "30d";
 
 function trafficRangeFor(key: TrafficRangeKey): { from: Date; bucket: "hour" | "day"; labelFormat: string } {
@@ -392,10 +434,11 @@ function trafficRangeFor(key: TrafficRangeKey): { from: Date; bucket: "hour" | "
   }
 }
 
-export async function getWebsiteTraffic(rangeKey: TrafficRangeKey): Promise<TrafficPoint[]> {
+export async function getWebsiteTraffic(rangeKey: TrafficRangeKey, pageKey: string = "all"): Promise<TrafficPoint[]> {
   const trafficBuckets = getMockTrafficBuckets();
   const { from, bucket, labelFormat } = trafficRangeFor(rangeKey);
   const to = endOfDay(new Date());
+  const weight = pageKey === "all" ? 1 : pageTrafficWeight(pageKey);
 
   // Keyed by "yyyy-MM-dd|hour" — already the bucket's own granularity, so
   // no re-bucketing needed, just a lookup.
@@ -419,7 +462,7 @@ export async function getWebsiteTraffic(rangeKey: TrafficRangeKey): Promise<Traf
     } else {
       for (let hour = 0; hour < 24; hour++) count += viewsByKey.get(`${dateKey}|${hour}`) ?? 0;
     }
-    points.push({ label: format(bucketDate, labelFormat), count });
+    points.push({ label: format(bucketDate, labelFormat), count: weight === 1 ? count : Math.round(count * weight) });
   }
   return points;
 }
