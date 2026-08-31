@@ -2,10 +2,14 @@ import { z } from "zod";
 import { hasDatabaseUrl } from "@/server/db";
 import { searchRoomTypes } from "@/server/queries/booking-search.query";
 import { BookingConflictError, InvalidGuestsError, RoomTypeNotFoundError } from "@/server/queries/bookings.query";
-  import {
-    authorizationErrorResponse,
-    requireStaff,
-  } from "@/server/services/authorization";
+import {
+  BookingNotFoundError,
+  InvalidBookingTransitionError,
+} from "@/server/queries/customer-bookings.query";
+import {
+  authorizationErrorResponse,
+  requireStaff,
+} from "@/server/services/authorization";
 import {
   AdminBookingValidationError,
   cancelSupportBookingForAdmin,
@@ -85,7 +89,8 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  if (!await getActiveAdminUser()) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  const auth = await authorizeStaff();
+  if (auth instanceof Response) return auth;
   const body = await request.json().catch(() => null);
   const parsed = z.object({
     conversationId: z.string().uuid(),
