@@ -743,7 +743,7 @@ export async function cancelBooking(
 
   let paymentIntentId: string | null = null;
 
-  if (isRefundEligible(booking.checkIn) && booking.paymentMethod === "credit_card" && booking.paymentStatus === "paid") {
+  if (isRefundEligible(booking.createdAt) && booking.paymentMethod === "credit_card" && booking.paymentStatus === "paid") {
     const { data: payment, error } = await supabaseAdmin
       .from("payments")
       .select("stripe_payment_intent_id")
