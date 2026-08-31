@@ -80,10 +80,10 @@ const AccountMenu = ({ account, isAdmin }: { account: AccountSummary; isAdmin: b
 
 				{isNotifOpen && (
 					<>
-						<div className="fixed inset-0 z-10" onClick={() => setIsNotifOpen(false)} />
+						<div className="fixed inset-0 z-35" onClick={() => setIsNotifOpen(false)} />
 						<div
 							role="menu"
-							className="absolute top-full right-0 z-20 mt-2 w-64 origin-top-right animate-[dropdown-in_150ms_ease-out] rounded border border-[#E4E6ED] bg-white py-6 text-center shadow-[4px_4px_16px_rgba(0,0,0,0.08)]"
+							className="absolute top-full right-0 z-40 mt-2 w-64 origin-top-right animate-[dropdown-in_150ms_ease-out] rounded border border-[#E4E6ED] bg-white py-6 text-center shadow-[4px_4px_16px_rgba(0,0,0,0.08)]"
 						>
 							<p className="[font-family:var(--font-inter)] text-sm text-[#9AA1B9]">No notifications yet</p>
 						</div>
@@ -107,10 +107,10 @@ const AccountMenu = ({ account, isAdmin }: { account: AccountSummary; isAdmin: b
 
 				{isOpen && (
 					<>
-						<div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+						<div className="fixed inset-0 z-35" onClick={() => setIsOpen(false)} />
 						<div
 							role="menu"
-							className="absolute top-full right-0 z-20 mt-2 w-48 origin-top-right animate-[dropdown-in_150ms_ease-out] rounded border border-[#E4E6ED] bg-white py-2 shadow-[4px_4px_16px_rgba(0,0,0,0.08)]"
+							className="absolute top-full right-0 z-40 mt-2 w-48 origin-top-right animate-[dropdown-in_150ms_ease-out] rounded border border-[#E4E6ED] bg-white py-2 shadow-[4px_4px_16px_rgba(0,0,0,0.08)]"
 						>
 							{!isAdmin && (
 								<Link
@@ -243,7 +243,7 @@ const Navbar = ({ hideLogin = false, logoUrl, hotelName = 'Neatly Hotel', accoun
 			</nav>
 
 			{isMenuOpen && (
-				<div className="absolute top-full left-0 z-30 flex w-full flex-col items-start bg-white p-4 shadow-[4px_4px_16px_rgba(0,0,0,0.08)] md:hidden">
+				<div className="absolute top-full left-0 z-40 flex w-full flex-col items-start bg-white p-4 shadow-[4px_4px_16px_rgba(0,0,0,0.08)] md:hidden">
 					{NAV_LINKS.map((link) => (
 						<Link
 							key={link.href}
