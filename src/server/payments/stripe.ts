@@ -40,12 +40,16 @@ export async function cancelPaymentIntent(intentId: string): Promise<void> {
 export async function createBookingPaymentIntent(input: {
   bookingId: string;
   amountThb: number;
+  paymentKind?: "top_up";
 }): Promise<Stripe.PaymentIntent> {
   return getStripe().paymentIntents.create({
     // THB has no Stripe zero-decimal exception — still multiply by 100.
     amount: Math.round(input.amountThb * 100),
     currency: "thb",
-    metadata: { bookingId: input.bookingId },
+    metadata: {
+      bookingId: input.bookingId,
+      ...(input.paymentKind ? { paymentKind: input.paymentKind } : {}),
+    },
     automatic_payment_methods: { enabled: true },
   });
 }

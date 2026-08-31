@@ -14,7 +14,12 @@ import {
   BookingAccessDeniedError,
   resolveBookingAccessOutcome,
 } from "@/lib/booking-access";
-import { refundPayment } from "@/server/payments/stripe";
+import {
+  cancelPaymentIntent,
+  createBookingPaymentIntent,
+  refundPayment,
+  retrievePaymentIntent,
+} from "@/server/payments/stripe";
 import type {
   BookingPricing,
   BookingRecord,
@@ -31,7 +36,7 @@ const HOLD_MINUTES = 30;
 // Stripe enforces a per-currency minimum charge (roughly 10 THB); anything
 // below that after a discount is applied should fail cleanly at our layer
 // instead of surfacing as an opaque Stripe error.
-const MIN_CHARGE_THB = 10;
+export const MIN_CHARGE_THB = 10;
 const UNAVAILABLE_ROOM_STATUSES = ["Out of Order", "Out of Service", "Out of Inventory"];
 const NON_BLOCKING_BOOKING_STATUSES = ["cancelled", "canceled", "completed", "refunded"];
 const BOOKING_CODE_CHARSET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/I/1
@@ -434,6 +439,183 @@ export async function lookupBookingByCodeAndEmail(
   const record = toBookingRecord(row);
   const typedRow = row as unknown as { card_brand: string | null; card_last4: string | null };
   return { ...record, cardBrand: typedRow.card_brand, cardLast4: typedRow.card_last4 };
+}
+
+export type BookingPaymentBalance = {
+  totalAmount: number;
+  paidAmount: number;
+  amountDue: number;
+  cardBrand: string | null;
+  cardLast4: string | null;
+};
+
+export async function getBookingPaymentBalance(bookingId: string): Promise<BookingPaymentBalance> {
+  const bookingRows = await prisma.$queryRaw<{ total_amount: number }[]>`
+    select total_amount from bookings where id = ${bookingId}::uuid
+  `;
+  if (bookingRows.length === 0) {
+    throw new BookingNotFoundError();
+  }
+
+  const totalAmount = Number(bookingRows[0].total_amount);
+  const { data, error } = await supabaseAdmin
+    .from("payments")
+    .select("amount, card_brand, card_last4, status, updated_at")
+    .eq("booking_id", bookingId)
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    console.error("[bookings] failed to fetch payment balance:", error);
+    return {
+      totalAmount,
+      paidAmount: 0,
+      amountDue: totalAmount,
+      cardBrand: null,
+      cardLast4: null,
+    };
+  }
+
+  const rows = data ?? [];
+  const paidAmount = rows
+    .filter((row) => row.status === "succeeded")
+    .reduce((sum, row) => sum + Number(row.amount), 0);
+  const latestSuccess = rows.find((row) => row.status === "succeeded");
+
+  return {
+    totalAmount,
+    paidAmount,
+    amountDue: Math.max(0, totalAmount - paidAmount),
+    cardBrand: latestSuccess?.card_brand ?? null,
+    cardLast4: latestSuccess?.card_last4 ?? null,
+  };
+}
+
+export function isTopUpPaymentEligible(
+  booking: BookingRecord,
+  balance: Pick<BookingPaymentBalance, "amountDue">,
+): boolean {
+  return (
+    balance.amountDue > 0 &&
+    booking.paymentStatus === "pending" &&
+    booking.status !== "pending_payment"
+  );
+}
+
+export class TopUpNotEligibleError extends Error {
+  constructor(message = "This booking has no outstanding card payment to collect") {
+    super(message);
+  }
+}
+
+export class PaymentIntentBlockedError extends Error {
+  constructor(message: string) {
+    super(message);
+  }
+}
+
+export type PriorIntentResolution =
+  | { priorIntentToCancel: string | null }
+  | { blocked: string }
+  | { readError: true };
+
+export async function resolvePriorIntentToCancel(bookingId: string): Promise<PriorIntentResolution> {
+  const { data: priorPayments, error: priorError } = await supabaseAdmin
+    .from("payments")
+    .select("stripe_payment_intent_id, status")
+    .eq("booking_id", bookingId)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (priorError) {
+    console.error("[bookings] could not read prior payments:", priorError);
+    return { readError: true };
+  }
+
+  const prior = priorPayments?.[0];
+  if (!prior || prior.status === "canceled" || prior.status === "succeeded") {
+    return { priorIntentToCancel: null };
+  }
+
+  try {
+    const priorStatus = (await retrievePaymentIntent(prior.stripe_payment_intent_id)).status;
+    if (["succeeded", "processing", "requires_capture"].includes(priorStatus)) {
+      return {
+        blocked: "A payment for this booking is already going through. Please wait a moment.",
+      };
+    }
+    return { priorIntentToCancel: prior.stripe_payment_intent_id };
+  } catch (error) {
+    console.error("[bookings] could not read the prior intent:", error);
+    return { readError: true };
+  }
+}
+
+export async function createTopUpPaymentAttempt(
+  bookingId: string,
+  amountThb: number,
+): Promise<{ clientSecret: string }> {
+  if (amountThb < MIN_CHARGE_THB) {
+    throw new AmountTooLowError(`Amount due must be at least THB ${MIN_CHARGE_THB}`);
+  }
+
+  const priorResolution = await resolvePriorIntentToCancel(bookingId);
+  if ("readError" in priorResolution) {
+    throw new Error("Failed to create a new payment attempt");
+  }
+  if ("blocked" in priorResolution) {
+    throw new PaymentIntentBlockedError(priorResolution.blocked);
+  }
+
+  const paymentIntent = await createBookingPaymentIntent({
+    bookingId,
+    amountThb,
+    paymentKind: "top_up",
+  });
+
+  const { error: insertError } = await supabaseAdmin.from("payments").insert({
+    booking_id: bookingId,
+    stripe_payment_intent_id: paymentIntent.id,
+    amount: amountThb,
+    currency: "thb",
+    status: "requires_payment_method",
+  });
+
+  if (insertError) {
+    console.error("[bookings] failed to insert top-up payments row:", insertError);
+    await cancelPaymentIntent(paymentIntent.id).catch((error) => {
+      console.error("[bookings] failed to cancel orphaned top-up intent:", error);
+    });
+    throw new Error("Failed to create a new payment attempt");
+  }
+
+  if (priorResolution.priorIntentToCancel) {
+    await cancelPaymentIntent(priorResolution.priorIntentToCancel).catch((error) => {
+      console.error("[bookings] could not cancel the superseded top-up intent:", error);
+    });
+  }
+
+  if (!paymentIntent.client_secret) {
+    throw new Error("Failed to create a new payment attempt");
+  }
+
+  return { clientSecret: paymentIntent.client_secret };
+}
+
+// Top-up on confirmed/checked-in bookings: adjust payment_status only — never
+// cancel the stay when a card charge fails or is abandoned.
+export async function applyTopUpPaymentOutcome(bookingId: string, outcome: "paid" | "failed"): Promise<void> {
+  if (outcome === "failed") {
+    await prisma.$executeRaw`
+      update bookings set payment_status = 'pending' where id = ${bookingId}::uuid
+    `;
+    return;
+  }
+
+  const balance = await getBookingPaymentBalance(bookingId);
+  const paymentStatus = balance.amountDue <= 0 ? "paid" : "pending";
+  await prisma.$executeRaw`
+    update bookings set payment_status = ${paymentStatus} where id = ${bookingId}::uuid
+  `;
 }
 
 // Called only from the Stripe webhook handler — the source of truth for

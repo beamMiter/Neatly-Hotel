@@ -4,6 +4,7 @@ import { prisma } from "@/server/db";
 import { supabaseAdmin } from "@/server/db/supabase-admin";
 import { selectionCountFromStoredQuantity } from "@/lib/addon-pricing";
 import { getSpecialRequestCatalogForDisplay } from "@/server/queries/special-requests.query";
+import { getBookingPaymentBalance } from "@/server/queries/bookings.query";
 import type { BookingPaymentStatus, BookingStatus, SelectedSpecialRequest } from "@/types/booking";
 import type { CustomerBookingSummary, CustomerBookingDetail } from "@/types/customer-booking";
 
@@ -121,27 +122,11 @@ async function fetchPaymentSummary(bookingId: string): Promise<{
   cardBrand: string | null;
   cardLast4: string | null;
 }> {
-  const { data, error } = await supabaseAdmin
-    .from("payments")
-    .select("amount, card_brand, card_last4, status, updated_at")
-    .eq("booking_id", bookingId)
-    .order("updated_at", { ascending: false });
-
-  if (error) {
-    console.error("[payments] failed to fetch payment summary:", error);
-    return { paidAmount: 0, cardBrand: null, cardLast4: null };
-  }
-
-  const rows = data ?? [];
-  const paidAmount = rows
-    .filter((row) => row.status === "succeeded")
-    .reduce((sum, row) => sum + Number(row.amount), 0);
-  const latestSuccess = rows.find((row) => row.status === "succeeded");
-
+  const balance = await getBookingPaymentBalance(bookingId);
   return {
-    paidAmount,
-    cardBrand: latestSuccess?.card_brand ?? null,
-    cardLast4: latestSuccess?.card_last4 ?? null,
+    paidAmount: balance.paidAmount,
+    cardBrand: balance.cardBrand,
+    cardLast4: balance.cardLast4,
   };
 }
 
