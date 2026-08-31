@@ -48,6 +48,11 @@ export function RoomAvailabilityCard({ initialData }: { initialData: RoomAvailab
     { key: "booked", label: "Booked", value: data.booked, color: COLORS.booked },
     { key: "available", label: "Available", value: data.available, color: COLORS.available },
   ];
+  // Recharts draws nothing at all for a pie whose slices all sum to zero —
+  // no ring, no placeholder, just blank space next to the legend. Swap in
+  // a single neutral-gray full ring so "no data for this period" still
+  // reads as a ring, not a layout gap.
+  const pieData = total > 0 ? segments : [{ key: "empty", label: "No data", value: 1, color: "#d1d5db" }];
 
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-brand-border bg-white p-5">
@@ -62,8 +67,15 @@ export function RoomAvailabilityCard({ initialData }: { initialData: RoomAvailab
         <div className="h-40 w-40 shrink-0">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
-              <Pie data={segments} dataKey="value" nameKey="label" innerRadius="65%" outerRadius="100%" paddingAngle={2}>
-                {segments.map((segment) => (
+              <Pie
+                data={pieData}
+                dataKey="value"
+                nameKey="label"
+                innerRadius="65%"
+                outerRadius="100%"
+                paddingAngle={total > 0 ? 2 : 0}
+              >
+                {pieData.map((segment) => (
                   <Cell key={segment.key} fill={segment.color} stroke="none" />
                 ))}
               </Pie>
