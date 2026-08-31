@@ -59,7 +59,11 @@ export function DateField({
       </label>
 
       {isOpen && (
-        <div className="absolute right-0 z-20 mt-1 rounded-md border border-brand-border bg-white p-2 shadow-lg">
+        <div
+          className="fixed top-24 left-1/2 z-20 max-w-[calc(100vw-2rem)] -translate-x-1/2 overflow-x-auto rounded-md
+            border border-brand-border bg-white p-2 shadow-lg sm:absolute sm:top-auto sm:left-auto sm:right-0
+            sm:mt-1 sm:translate-x-0"
+        >
           <DayPicker
             className="analytics-date-picker"
             mode="single"

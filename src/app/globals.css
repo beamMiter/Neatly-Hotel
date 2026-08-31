@@ -527,3 +527,15 @@ body { color: var(--ink); background: #edf0eb; font-family: var(--font-sans), Ar
 .rdp-root.analytics-date-picker .rdp-today:not(.rdp-outside):not(.rdp-selected) .rdp-day_button {
 	border: 2px solid var(--color-brand-primary);
 }
+
+/* react-day-picker's default 44px day cells make the popup wider than a
+   phone screen, covering most of the card below it. Shrink the grid on
+   narrow viewports only — desktop keeps the library's normal sizing. */
+@media (max-width: 480px) {
+	.rdp-root.analytics-date-picker {
+		--rdp-day-width: 34px;
+		--rdp-day-height: 34px;
+		--rdp-day_button-width: 32px;
+		--rdp-day_button-height: 32px;
+	}
+}
