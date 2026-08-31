@@ -24,9 +24,12 @@ type CancelBookingReceiptViewProps = {
 	checkIn: string;
 	checkOut: string;
 	guests: number;
+	backHref: string;
 };
 
-const CancelBookingReceiptView = ({ roomName, checkIn, checkOut, guests }: CancelBookingReceiptViewProps) => {
+const CancelBookingReceiptView = ({ roomName, checkIn, checkOut, guests, backHref }: CancelBookingReceiptViewProps) => {
+	const backLabel = backHref === '/booking-history' ? 'Back to Booking History' : 'Back to Booking Lookup';
+
 	return (
 		<div className="flex min-h-screen flex-col">
 			<Navbar />
@@ -62,10 +65,10 @@ const CancelBookingReceiptView = ({ roomName, checkIn, checkOut, guests }: Cance
 							</div>
 
 							<Link
-								href="/booking-history"
+								href={backHref}
 								className="flex h-12 w-fit cursor-pointer items-center justify-center whitespace-nowrap rounded bg-[#C14817] px-8 py-4 [font-family:var(--font-open-sans)] text-base font-semibold text-white transition-transform duration-150 hover:bg-[#A93F13] active:scale-90"
 							>
-								Back to Booking History
+								{backLabel}
 							</Link>
 						</div>
 					</div>

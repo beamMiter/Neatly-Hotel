@@ -8,23 +8,26 @@ type CancelBookingPageProps = {
 };
 
 export default async function CancelBookingPage({ searchParams }: CancelBookingPageProps) {
-  const params = await searchParams;
-  const bookingId = typeof params.bookingId === "string" ? params.bookingId : "";
-  if (!bookingId) redirect("/booking-history");
-
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  // Guests (no session) have no access to /booking-history — send them back
+  // to the code+email lookup page instead.
+  const fallbackHref = user ? "/booking-history" : "/booking/lookup";
+
+  const params = await searchParams;
+  const bookingId = typeof params.bookingId === "string" ? params.bookingId : "";
+  if (!bookingId) redirect(fallbackHref);
 
   let booking;
   try {
     booking = await getBookingForCustomerPage(bookingId, user?.id ?? null);
   } catch (error) {
     console.error("[cancel-booking] Failed to load booking:", error);
-    redirect("/booking-history");
+    redirect(fallbackHref);
   }
-  if (!booking || booking.status !== "cancelled") redirect("/booking-history");
+  if (!booking || booking.status !== "cancelled") redirect(fallbackHref);
 
   return (
     <CancelBookingReceiptView
@@ -32,6 +35,7 @@ export default async function CancelBookingPage({ searchParams }: CancelBookingP
       checkIn={booking.checkIn}
       checkOut={booking.checkOut}
       guests={booking.guests}
+      backHref={fallbackHref}
     />
   );
 }
