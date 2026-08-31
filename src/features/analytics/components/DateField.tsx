@@ -69,9 +69,13 @@ export function DateField({
             selected={value}
             disabled={disabledMatchers.length > 0 ? disabledMatchers : undefined}
             onSelect={(date) => {
-              if (!date) return;
-              onChange(date);
+              // react-day-picker fires onSelect(undefined) in single mode
+              // when the already-selected day is clicked again (it reads as
+              // a deselect) — close the popup either way, only refetch when
+              // a real date came back, so re-clicking today's value doesn't
+              // leave the calendar stuck open.
               setIsOpen(false);
+              if (date) onChange(date);
             }}
           />
         </div>
