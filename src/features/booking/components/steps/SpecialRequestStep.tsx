@@ -82,7 +82,7 @@ function CountPicker({
             key={option.count}
             type="button"
             onClick={() => onSelect(option.count)}
-            className={`cursor-pointer rounded-full border px-3 py-1 [font-family:var(--font-inter)] text-sm ${
+            className={`cursor-pointer rounded-full border px-3 py-1 [font-family:var(--font-inter)] text-sm transition-[border-color,background-color,color,transform] duration-150 active:scale-90 ${
               active
                 ? "border-[#E76B39] bg-[#FAEDE8] font-semibold text-[#E76B39]"
                 : "border-[#D6D9E4] text-[#646D89] hover:border-[#C14817]"
@@ -243,14 +243,14 @@ export function SpecialRequestStep({
           <button
             type="button"
             onClick={onBack}
-            className="cursor-pointer px-2 py-1 [font-family:var(--font-open-sans)] text-base font-semibold text-[#E76B39]"
+            className="cursor-pointer px-2 py-1 [font-family:var(--font-open-sans)] text-base font-semibold text-[#E76B39] transition-[color,transform] duration-150 hover:text-[#C14817] active:scale-95"
           >
             Back
           </button>
           <button
             type="button"
             onClick={onNext}
-            className="flex items-center justify-center rounded bg-[#C14817] px-8 py-4 [font-family:var(--font-open-sans)] text-base font-semibold text-white hover:bg-[#A93F13]"
+            className="flex items-center justify-center rounded bg-[#C14817] px-8 py-4 [font-family:var(--font-open-sans)] text-base font-semibold text-white transition-[background-color,transform] duration-150 hover:bg-[#A93F13] active:scale-90"
           >
             Next
           </button>

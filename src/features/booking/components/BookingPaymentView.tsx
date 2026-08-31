@@ -86,7 +86,7 @@ export function BookingPaymentView({ bookingId, booking }: { bookingId: string; 
         <section className="rounded-lg border border-[#E4E6ED] bg-white p-6 text-center">
           <h2 className="text-xl font-semibold text-[#2A2E3F]">This booking is already being processed</h2>
           <p className="mt-2 text-sm text-[#646D89]">Check the booking status or contact the hotel if you need help.</p>
-          <Link href={`/booking/success?bookingId=${bookingId}`} className="mt-5 inline-flex rounded bg-[#C14817] px-5 py-3 text-sm font-semibold text-white">
+          <Link href={`/booking/success?bookingId=${bookingId}`} className="mt-5 inline-flex rounded bg-[#C14817] px-5 py-3 text-sm font-semibold text-white transition-[background-color,transform] duration-150 hover:bg-[#A93F13] active:scale-95">
             View booking
           </Link>
         </section>
@@ -103,7 +103,7 @@ export function BookingPaymentView({ bookingId, booking }: { bookingId: string; 
             <button
               type="button"
               onClick={() => setMethod("cash")}
-              className={`rounded-lg border p-4 text-left transition-colors ${method === "cash" ? "border-[#C14817] bg-[#FFF5F0]" : "border-[#D6D9E4] hover:border-[#C14817]"}`}
+              className={`rounded-lg border p-4 text-left transition-[border-color,background-color,transform] duration-150 active:scale-95 ${method === "cash" ? "border-[#C14817] bg-[#FFF5F0]" : "border-[#D6D9E4] hover:border-[#C14817]"}`}
             >
               <span className="block font-semibold text-[#2A2E3F]">Pay at hotel</span>
               <span className="mt-1 block text-sm text-[#646D89]">Confirm now and pay when you arrive.</span>
@@ -111,7 +111,7 @@ export function BookingPaymentView({ bookingId, booking }: { bookingId: string; 
             <button
               type="button"
               onClick={() => setMethod("credit_card")}
-              className={`rounded-lg border p-4 text-left transition-colors ${method === "credit_card" ? "border-[#C14817] bg-[#FFF5F0]" : "border-[#D6D9E4] hover:border-[#C14817]"}`}
+              className={`rounded-lg border p-4 text-left transition-[border-color,background-color,transform] duration-150 active:scale-95 ${method === "credit_card" ? "border-[#C14817] bg-[#FFF5F0]" : "border-[#D6D9E4] hover:border-[#C14817]"}`}
             >
               <span className="block font-semibold text-[#2A2E3F]">Credit card</span>
               <span className="mt-1 block text-sm text-[#646D89]">Pay securely online to confirm your stay.</span>
@@ -125,7 +125,7 @@ export function BookingPaymentView({ bookingId, booking }: { bookingId: string; 
               type="button"
               disabled={!method || isStartingPayment}
               onClick={() => void (method === "cash" ? choosePayAtHotel() : startCardPayment())}
-              className="rounded bg-[#C14817] px-6 py-3 text-sm font-semibold text-white hover:bg-[#A93F13] disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded bg-[#C14817] px-6 py-3 text-sm font-semibold text-white transition-[background-color,transform] duration-150 hover:bg-[#A93F13] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100"
             >
               {isStartingPayment ? "Preparing..." : method === "cash" ? "Confirm pay at hotel" : "Continue to card payment"}
             </button>
@@ -175,7 +175,7 @@ function CardPaymentForm({ bookingId, clientSecret }: { bookingId: string; clien
           type="button"
           onClick={() => void confirmCardPayment()}
           disabled={isSubmitting || !stripe || !elements}
-          className="rounded bg-[#C14817] px-6 py-3 text-sm font-semibold text-white hover:bg-[#A93F13] disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded bg-[#C14817] px-6 py-3 text-sm font-semibold text-white transition-[background-color,transform] duration-150 hover:bg-[#A93F13] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100"
         >
           {isSubmitting ? "Confirming..." : "Confirm payment"}
         </button>

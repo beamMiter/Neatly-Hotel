@@ -144,7 +144,7 @@ export function SearchFilterDropdown({ query }: SearchFilterDropdownProps) {
         aria-expanded={isOpen}
         aria-haspopup="dialog"
         onClick={handleToggle}
-        className="flex h-12 w-full cursor-pointer items-center gap-2 rounded border border-[#D6D9E4] bg-white px-3 py-3"
+        className="flex h-12 w-full cursor-pointer items-center gap-2 rounded border border-[#D6D9E4] bg-white px-3 py-3 transition-[border-color,transform] duration-150 hover:border-[#C14817] active:scale-95"
       >
         <span className="[font-family:var(--font-inter)] text-base text-[#646D89]">Filters</span>
         {appliedFilterCount > 0 ? (
@@ -274,7 +274,7 @@ export function SearchFilterDropdown({ query }: SearchFilterDropdownProps) {
                 type="button"
                 disabled={!clearEnabled}
                 onClick={handleClear}
-                className="h-10 cursor-pointer rounded border border-[#D6D9E4] bg-white px-5 [font-family:var(--font-inter)] text-sm text-[#9AA1B9] transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
+                className="h-10 cursor-pointer rounded border border-[#D6D9E4] bg-white px-5 [font-family:var(--font-inter)] text-sm text-[#9AA1B9] transition-[opacity,transform] duration-150 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100"
               >
                 Clear
               </button>

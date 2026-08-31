@@ -48,14 +48,14 @@ export function RoomCard({ room, searchQuery, isLoggedIn }: RoomCardProps) {
         <div className="mt-auto flex items-center justify-end gap-6 pt-6">
           <Link
             href={`/rooms/${room.id}`}
-            className="text-sm font-medium text-brand-primary hover:text-brand-primary-hover"
+            className="text-sm font-medium text-brand-primary transition-[color,transform] duration-150 hover:text-brand-primary-hover active:scale-95"
           >
             Room Detail
           </Link>
           <BookNowButton
             href={bookingHref}
             isLoggedIn={isLoggedIn}
-            className="cursor-pointer rounded-sm bg-brand-primary px-6 py-3 text-sm font-medium text-white hover:bg-brand-primary-hover"
+            className="cursor-pointer rounded-sm bg-brand-primary px-6 py-3 text-sm font-medium text-white transition-[background-color,transform] duration-150 hover:bg-brand-primary-hover active:scale-95"
           >
             Book Now
           </BookNowButton>
