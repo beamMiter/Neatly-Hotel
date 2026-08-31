@@ -48,7 +48,7 @@ export function KpiCards({ kpis }: { kpis: DashboardKpis }) {
               <card.icon className="h-4 w-4" />
             </span>
           </div>
-          <span className="text-2xl font-semibold text-brand-ink">{card.format(card.metric.value)}</span>
+          <span className="text-xl font-semibold text-brand-ink">{card.format(card.metric.value)}</span>
           <ChangeIndicator changePct={card.metric.changePct} />
         </div>
       ))}
