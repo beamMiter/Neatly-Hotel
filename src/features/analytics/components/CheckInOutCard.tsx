@@ -2,13 +2,26 @@ import { CheckInIcon } from "@/components/icons/CheckInIcon";
 import { CheckOutIcon } from "@/components/icons/CheckOutIcon";
 import type { CheckInOutAverages } from "@/types/analytics";
 
-// Both tones use the same light-badge / dark-glyph treatment — only the hue
-// (emerald vs orange) differs — so neither side reads as a mismatched
-// one-off. "out" reuses the dashboard's single brand-orange accent rather
-// than a separate red, for the same reason.
+// Matches the mockup exactly: check-in stays neutral (dark label/time, gray
+// subtext, only the icon badge tinted green) while check-out is fully
+// highlighted in the brand orange — label, time, and subtext all colored,
+// not just the icon. That asymmetry is intentional in the source design,
+// not a mismatch to normalize away.
 const TONE_STYLES = {
-  in: { card: "bg-emerald-50", badge: "bg-emerald-100 text-emerald-700", subtext: "text-emerald-700/70" },
-  out: { card: "bg-orange-50", badge: "bg-orange-100 text-brand-primary", subtext: "text-brand-primary/70" },
+  in: {
+    card: "bg-emerald-50",
+    badge: "bg-emerald-100 text-emerald-700",
+    label: "text-brand-body",
+    time: "text-brand-ink",
+    subtext: "text-brand-muted",
+  },
+  out: {
+    card: "bg-orange-50",
+    badge: "bg-orange-100 text-brand-primary",
+    label: "text-brand-primary",
+    time: "text-brand-primary",
+    subtext: "text-brand-primary/80",
+  },
 } as const;
 
 function Stat({
@@ -31,8 +44,8 @@ function Stat({
         <Icon className="h-5 w-5" />
       </span>
       <div className="flex flex-col">
-        <span className="text-sm font-medium text-brand-body">{label}</span>
-        <span className="text-lg font-semibold text-brand-ink">{time ?? "No data yet"}</span>
+        <span className={`text-sm font-medium ${styles.label}`}>{label}</span>
+        <span className={`text-lg font-semibold ${styles.time}`}>{time ?? "No data yet"}</span>
         <span className={`text-xs ${styles.subtext}`}>{subtext}</span>
       </div>
     </div>
