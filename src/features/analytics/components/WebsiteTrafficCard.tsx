@@ -4,6 +4,7 @@ import { useState } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from "recharts";
 import type { TrafficPoint } from "@/types/analytics";
 import { PeriodDropdown } from "@/features/analytics/components/PeriodDropdown";
+import { ErrorToast, useErrorMessage } from "@/features/analytics/components/ErrorToast";
 
 const RANGE_OPTIONS: { key: string; label: string }[] = [
   { key: "realtime", label: "Real-time" },
@@ -23,6 +24,7 @@ export function WebsiteTrafficCard({
   const [page, setPage] = useState("all");
   const [data, setData] = useState(initialData);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useErrorMessage();
 
   async function refetch(nextRange: string, nextPage: string) {
     setIsLoading(true);
@@ -30,8 +32,12 @@ export function WebsiteTrafficCard({
       const response = await fetch(
         `/api/analytics/website-traffic?range=${nextRange}&page=${encodeURIComponent(nextPage)}`,
       );
+      if (!response.ok) throw new Error(`Request failed with status ${response.status}`);
       const json = await response.json();
       setData(json.data);
+    } catch (err) {
+      console.error("[website-traffic] failed to refetch:", err);
+      setError("Something went wrong, unable to provide details");
     } finally {
       setIsLoading(false);
     }
@@ -49,6 +55,8 @@ export function WebsiteTrafficCard({
 
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-brand-border bg-white p-5">
+      {error && <ErrorToast message={error} />}
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-brand-primary">Website traffic</h2>
 

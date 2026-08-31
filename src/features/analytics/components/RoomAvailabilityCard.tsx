@@ -4,6 +4,7 @@ import { useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import type { RoomAvailabilityBreakdown } from "@/types/analytics";
 import { PeriodDropdown } from "@/features/analytics/components/PeriodDropdown";
+import { ErrorToast, useErrorMessage } from "@/features/analytics/components/ErrorToast";
 
 const COLORS = {
   occupied: "#bd5b28",
@@ -23,14 +24,19 @@ export function RoomAvailabilityCard({ initialData }: { initialData: RoomAvailab
   const [period, setPeriod] = useState<OverviewPeriodKey>("month");
   const [data, setData] = useState(initialData);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useErrorMessage();
 
   async function handlePeriodChange(nextPeriod: OverviewPeriodKey) {
     setPeriod(nextPeriod);
     setIsLoading(true);
     try {
       const response = await fetch(`/api/analytics/room-availability?period=${nextPeriod}`);
+      if (!response.ok) throw new Error(`Request failed with status ${response.status}`);
       const json = await response.json();
       setData(json.data);
+    } catch (err) {
+      console.error("[room-availability] failed to refetch:", err);
+      setError("Something went wrong, unable to provide details");
     } finally {
       setIsLoading(false);
     }
@@ -45,6 +51,8 @@ export function RoomAvailabilityCard({ initialData }: { initialData: RoomAvailab
 
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-brand-border bg-white p-5">
+      {error && <ErrorToast message={error} />}
+
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-brand-primary">Room Availability</h2>
         <PeriodDropdown value={period} options={PERIOD_OPTIONS} onChange={handlePeriodChange} />

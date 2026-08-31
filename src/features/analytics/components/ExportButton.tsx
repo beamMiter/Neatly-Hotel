@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { CheckIcon } from "@/components/icons/CheckIcon";
+import { ErrorToast, useErrorMessage } from "@/features/analytics/components/ErrorToast";
 
 const TOAST_DURATION_MS = 3000;
 
 export function ExportButton({ href, fileName }: { href: string; fileName: string }) {
   const [isDownloading, setIsDownloading] = useState(false);
   const [showToast, setShowToast] = useState(false);
+  const [error, setError] = useErrorMessage();
 
   useEffect(() => {
     if (!showToast) return;
@@ -19,6 +21,7 @@ export function ExportButton({ href, fileName }: { href: string; fileName: strin
     setIsDownloading(true);
     try {
       const response = await fetch(href);
+      if (!response.ok) throw new Error(`Request failed with status ${response.status}`);
       const blob = await response.blob();
       const objectUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -29,6 +32,9 @@ export function ExportButton({ href, fileName }: { href: string; fileName: strin
       link.remove();
       URL.revokeObjectURL(objectUrl);
       setShowToast(true);
+    } catch (err) {
+      console.error("[export] failed to download CSV:", err);
+      setError("Something went wrong, unable to provide details");
     } finally {
       setIsDownloading(false);
     }
@@ -44,6 +50,8 @@ export function ExportButton({ href, fileName }: { href: string; fileName: strin
       >
         {isDownloading ? "Exporting..." : "Export"}
       </button>
+
+      {error && <ErrorToast message={error} />}
 
       {showToast && (
         <div className="fixed right-6 top-6 z-50 flex items-center gap-2 rounded-lg border border-brand-border bg-white px-4 py-3 text-sm font-medium text-brand-body shadow-lg animate-[fade-slide_0.2s_ease-out]">
