@@ -7,6 +7,7 @@ import type { RevenuePoint } from "@/types/analytics";
 import { DateField } from "@/features/analytics/components/DateField";
 import { ExportButton } from "@/features/analytics/components/ExportButton";
 import { ErrorToast, useErrorMessage } from "@/features/analytics/components/ErrorToast";
+import { TouchTooltipChart } from "@/features/analytics/components/TouchTooltipChart";
 
 function formatThb(amount: number) {
   return `฿${amount.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
@@ -57,37 +58,46 @@ export function RevenueTrendCard({ initialData, initialFrom, initialTo }: { init
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-brand-primary">Revenue Trend</h2>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <DateField label="From" value={from} max={to} onChange={handleFromChange} />
-          <DateField label="To" value={to} min={from} onChange={handleToChange} />
+        {/* Export stays on the title's row at every width; From/To take
+            their own full-width row below it on mobile (only enough room
+            for one row's worth of controls there) and fall back in next to
+            Export at lg+ where the title row has space for all of it. */}
+        <div className="order-2 lg:order-3">
           <ExportButton
             href={`/api/analytics/revenue-trend/export?from=${toDateInputValue(from)}&to=${toDateInputValue(to)}`}
             fileName="revenue-trend.csv"
           />
         </div>
+
+        <div className="order-3 flex w-full flex-wrap items-center gap-2 lg:order-2 lg:w-auto">
+          <DateField label="From" value={from} max={to} onChange={handleFromChange} />
+          <DateField label="To" value={to} min={from} onChange={handleToChange} />
+        </div>
       </div>
 
       <div className={`h-64 w-full transition-opacity ${isLoading ? "opacity-50" : ""}`}>
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-            <defs>
-              <linearGradient id="revenueFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#bd5b28" stopOpacity={0.25} />
-                <stop offset="100%" stopColor="#bd5b28" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid vertical={false} stroke="#e1e3ea" />
-            <XAxis dataKey="month" tickLine={false} axisLine={false} tick={{ fill: "#8a93a3", fontSize: 12 }} />
-            <YAxis
-              tickLine={false}
-              axisLine={false}
-              tick={{ fill: "#8a93a3", fontSize: 12 }}
-              tickFormatter={(value: number) => value.toLocaleString("en-US")}
-            />
-            <Tooltip formatter={(value) => [formatThb(Number(value)), "Revenue"]} />
-            <Area type="monotone" dataKey="amount" stroke="#bd5b28" strokeWidth={2} fill="url(#revenueFill)" />
-          </AreaChart>
-        </ResponsiveContainer>
+        <TouchTooltipChart>
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="revenueFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#bd5b28" stopOpacity={0.25} />
+                  <stop offset="100%" stopColor="#bd5b28" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid vertical={false} stroke="#e1e3ea" />
+              <XAxis dataKey="month" tickLine={false} axisLine={false} tick={{ fill: "#8a93a3", fontSize: 12 }} />
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                tick={{ fill: "#8a93a3", fontSize: 12 }}
+                tickFormatter={(value: number) => value.toLocaleString("en-US")}
+              />
+              <Tooltip formatter={(value) => [formatThb(Number(value)), "Revenue"]} />
+              <Area type="monotone" dataKey="amount" stroke="#bd5b28" strokeWidth={2} fill="url(#revenueFill)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </TouchTooltipChart>
       </div>
     </div>
   );

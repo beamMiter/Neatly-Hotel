@@ -8,6 +8,7 @@ import { DateField } from "@/features/analytics/components/DateField";
 import { PeriodDropdown } from "@/features/analytics/components/PeriodDropdown";
 import { ExportButton } from "@/features/analytics/components/ExportButton";
 import { ErrorToast, useErrorMessage } from "@/features/analytics/components/ErrorToast";
+import { TouchTooltipChart } from "@/features/analytics/components/TouchTooltipChart";
 import { CreditCardIcon } from "@/components/icons/CreditCardIcon";
 import { CashIcon } from "@/components/icons/CashIcon";
 
@@ -111,9 +112,24 @@ export function OccupancyGuestCard({ initialData, initialFrom, initialTo }: { in
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-brand-primary">Occupancy & Guest</h2>
 
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Same responsive order trick as RevenueTrendCard: Export shares
+            the title's row at every width; the View-by and From/To groups
+            each take a full-width row of their own on mobile, and fall
+            back in beside the title (in their original desktop order) at
+            lg+. */}
+        <div className="order-2 lg:order-4">
+          <ExportButton
+            href={`/api/analytics/occupancy/export?from=${toDateInputValue(from)}&to=${toDateInputValue(to)}`}
+            fileName="occupancy-trend.csv"
+          />
+        </div>
+
+        <div className="order-4 flex w-full items-center gap-2 lg:order-2 lg:w-auto">
           <span className="text-xs text-brand-muted">View by</span>
           <PeriodDropdown value={viewBy} options={VIEW_BY_OPTIONS} onChange={setViewBy} />
+        </div>
+
+        <div className="order-3 flex w-full flex-wrap items-center gap-2 lg:w-auto">
           <DateField
             label="From"
             value={from}
@@ -132,15 +148,12 @@ export function OccupancyGuestCard({ initialData, initialFrom, initialTo }: { in
               refetch(from, date);
             }}
           />
-          <ExportButton
-            href={`/api/analytics/occupancy/export?from=${toDateInputValue(from)}&to=${toDateInputValue(to)}`}
-            fileName="occupancy-trend.csv"
-          />
         </div>
       </div>
 
       <div className={`h-60 w-full transition-opacity ${isLoading ? "opacity-50" : ""}`}>
         <p className="mb-1 text-xs text-brand-muted">Occupancy Rate</p>
+        <TouchTooltipChart>
         <ResponsiveContainer width="100%" height="100%">
           {viewBy === "overall" ? (
             <LineChart data={data.occupancyTrend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -175,6 +188,7 @@ export function OccupancyGuestCard({ initialData, initialFrom, initialTo }: { in
             </BarChart>
           )}
         </ResponsiveContainer>
+        </TouchTooltipChart>
       </div>
 
       <div className="grid grid-cols-1 gap-6 border-t border-brand-border pt-4 sm:grid-cols-2">

@@ -5,6 +5,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tool
 import type { TrafficPoint } from "@/types/analytics";
 import { PeriodDropdown } from "@/features/analytics/components/PeriodDropdown";
 import { ErrorToast, useErrorMessage } from "@/features/analytics/components/ErrorToast";
+import { TouchTooltipChart } from "@/features/analytics/components/TouchTooltipChart";
 
 const RANGE_OPTIONS: { key: string; label: string }[] = [
   { key: "realtime", label: "Real-time" },
@@ -60,14 +61,22 @@ export function WebsiteTrafficCard({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-brand-primary">Website traffic</h2>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="order-2">
           <PeriodDropdown value={page} options={pageOptions} onChange={handlePageChange} />
+        </div>
+
+        {/* Range tabs scroll horizontally on mobile instead of wrapping —
+            there isn't room for 4 tabs across a phone width, and wrapping
+            them buries "Last 30 days" two lines down. lg+ reverts to the
+            original wrapping row (never actually wraps at that width, but
+            keeps the same layout as before this change). */}
+        <div className="order-3 flex w-full items-center gap-2 overflow-x-auto lg:w-auto lg:flex-wrap lg:overflow-visible">
           {RANGE_OPTIONS.map((option) => (
             <button
               key={option.key}
               type="button"
               onClick={() => handleRangeChange(option.key)}
-              className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
+              className={`shrink-0 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
                 range === option.key
                   ? "border-brand-primary bg-brand-primary text-white"
                   : "border-brand-border text-brand-body hover:bg-brand-surface-alt"
@@ -80,15 +89,17 @@ export function WebsiteTrafficCard({
       </div>
 
       <div className={`h-56 w-full transition-opacity ${isLoading ? "opacity-50" : ""}`}>
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-            <CartesianGrid vertical={false} stroke="#e1e3ea" />
-            <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: "#8a93a3", fontSize: 12 }} />
-            <YAxis tickLine={false} axisLine={false} tick={{ fill: "#8a93a3", fontSize: 12 }} allowDecimals={false} />
-            <Tooltip formatter={(value) => [value, "Visits"]} />
-            <Line type="monotone" dataKey="count" stroke="#bd5b28" strokeWidth={2} dot={{ r: 3 }} />
-          </LineChart>
-        </ResponsiveContainer>
+        <TouchTooltipChart>
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+              <CartesianGrid vertical={false} stroke="#e1e3ea" />
+              <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: "#8a93a3", fontSize: 12 }} />
+              <YAxis tickLine={false} axisLine={false} tick={{ fill: "#8a93a3", fontSize: 12 }} allowDecimals={false} />
+              <Tooltip formatter={(value) => [value, "Visits"]} />
+              <Line type="monotone" dataKey="count" stroke="#bd5b28" strokeWidth={2} dot={{ r: 3 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </TouchTooltipChart>
       </div>
     </div>
   );
