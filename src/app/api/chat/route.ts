@@ -1,14 +1,13 @@
 import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 import { buildUnknownChatbotMessage } from "@/lib/chatbot-fallback";
+import { getBangkokDate, normalizeChatbotSearchState, validateChatbotDateRange, type ChatbotDateValidationError } from "@/lib/chatbot-date-validation";
 import { createClient } from "@/server/db/supabase-server";
-import type { ChatbotSuggestion, ChatbotSearchState } from "@/types/chatbot";
+import type { ChatbotResponseMode, ChatbotSearchField, ChatbotSuggestion, ChatbotSearchState } from "@/types/chatbot";
 import {
-  emptyChatbotSearchState,
   getChatbotRoomInformation,
   getChatbotSuggestionRooms,
   getMissingChatbotSearchFields,
-  isValidChatbotDateRange,
   mergeChatbotSearchState,
   searchAvailableChatbotRooms,
 } from "@/server/queries/chatbot.query";
@@ -17,9 +16,8 @@ import { getPublishedChatbotContent } from "@/server/queries/chatbot-cms.query";
 import { buildChatbotResponse } from "@/server/services/chatbot-response.service";
 import {
   analyzeLocally as analyzeIntentLocally,
-  detectExplicitFaqTopic,
   findHandoffReason,
-  normalizeSearchState as normalizeIntentSearchState,
+  isVerifiedFaqAnalysis,
   resolveChatbotAnalysis,
   type ChatbotAnalysis as Analysis,
   type ChatbotIntent as Intent,
@@ -64,7 +62,6 @@ const chatRequestSchema = z
   })
   .strict();
 
-type ResponseMode = "managed_suggestion" | "room_information" | "gemini" | "gemini_fallback" | "demo";
 type ChatbotLocale = "th" | "en";
 
 class GeminiAnalysisError extends Error {
@@ -113,9 +110,26 @@ const faqAnswers: Record<ChatbotLocale, Record<FaqTopic, string>> = {
   },
 };
 
-const fieldLabels: Record<ChatbotLocale, Record<keyof ChatbotSearchState, string>> = {
+const fieldLabels: Record<ChatbotLocale, Record<ChatbotSearchField, string>> = {
   th: { checkIn: "วันเช็กอิน", checkOut: "วันเช็กเอาต์", guests: "จำนวนผู้เข้าพัก", budget: "งบประมาณต่อคืน" },
   en: { checkIn: "check-in date", checkOut: "check-out date", guests: "number of guests", budget: "budget per night" },
+};
+
+const dateValidationMessages: Record<ChatbotLocale, Record<ChatbotDateValidationError, string>> = {
+  th: {
+    invalid_check_in: "รูปแบบวันเช็กอินไม่ถูกต้อง กรุณาระบุวันที่ใหม่ เช่น 10/09/2026",
+    invalid_check_out: "รูปแบบวันเช็กเอาต์ไม่ถูกต้อง กรุณาระบุวันที่ใหม่ เช่น 12/09/2026",
+    check_in_in_past: "วันเช็กอินต้องเป็นวันนี้หรือวันในอนาคต กรุณาระบุวันเช็กอินใหม่ค่ะ",
+    check_out_in_past: "วันเช็กเอาต์ต้องเป็นวันนี้หรือวันในอนาคต กรุณาระบุวันเช็กเอาต์ใหม่ค่ะ",
+    check_out_not_after_check_in: "วันเช็กเอาต์ต้องอยู่หลังวันเช็กอินค่ะ กรุณาระบุวันเช็กเอาต์ใหม่อีกครั้ง",
+  },
+  en: {
+    invalid_check_in: "The check-in date is invalid. Please enter it again, for example 10/09/2026.",
+    invalid_check_out: "The check-out date is invalid. Please enter it again, for example 12/09/2026.",
+    check_in_in_past: "The check-in date must be today or later. Please enter a new check-in date.",
+    check_out_in_past: "The check-out date must be today or later. Please enter a new check-out date.",
+    check_out_not_after_check_in: "The check-out date must be after the check-in date. Please enter a new check-out date.",
+  },
 };
 
 async function getChatbotContent(): Promise<{ autoReplyTh: string | null; autoReplyEn: string | null }> {
@@ -141,7 +155,7 @@ async function responseWithEvent(
   event: {
     requestId: string;
     intent: Intent;
-    mode: ResponseMode;
+    mode: ChatbotResponseMode;
     fallbackReason?: string | null;
     handoffReason?: HandoffReason | null;
   },
@@ -180,7 +194,7 @@ async function analyzeWithGemini(messages: Message[], state: ChatbotSearchState)
   if (!apiKey) throw new Error("GEMINI_API_KEY is not configured");
 
   const ai = new GoogleGenAI({ apiKey });
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getBangkokDate();
   const conversation = messages
     .slice(-GEMINI_CONTEXT_MESSAGE_LIMIT)
     .map((message) => `${message.role === "user" ? "ผู้ใช้" : "ผู้ช่วย"}: ${message.content}`)
@@ -238,13 +252,19 @@ async function searchResponse(analysis: Analysis, current: ChatbotSearchState, l
     budget: analysis.budget,
   });
 
-  if (!isValidChatbotDateRange(search)) {
+  const dateValidation = validateChatbotDateRange(search);
+  if (!dateValidation.valid) {
+    const invalidSearch = { ...search };
+    if (dateValidation.error === "invalid_check_in" || dateValidation.error === "check_in_in_past") {
+      invalidSearch.checkIn = null;
+    } else {
+      invalidSearch.checkOut = null;
+    }
+
     return {
       intent: "search_room" as const,
-      message: locale === "en"
-        ? "The check-out date must be after the check-in date. Please enter the dates again."
-        : "วันเช็กเอาต์ต้องอยู่หลังวันเช็กอินค่ะ กรุณาระบุวันที่ใหม่อีกครั้ง",
-      search: { ...search, checkIn: null, checkOut: null },
+      message: dateValidationMessages[locale][dateValidation.error],
+      search: { ...invalidSearch, phase: "collecting" as const },
       rooms: [],
     };
   }
@@ -257,7 +277,7 @@ async function searchResponse(analysis: Analysis, current: ChatbotSearchState, l
       message: locale === "en"
         ? `Certainly. To find a suitable room, please provide: ${labels.join(", ")}\nExample: 10/09/2026 - 12/09/2026, 2 guests, THB 4,000 per night`
         : `ได้เลยค่ะ เพื่อค้นหาห้องที่เหมาะสม ขอข้อมูลเพิ่ม: ${labels.join(", ")}\nตัวอย่าง: 10/09/2026 - 12/09/2026, 2 คน, งบ 4,000 บาทต่อคืน`,
-      search,
+      search: { ...search, phase: "collecting" as const },
       rooms: [],
     };
   }
@@ -272,7 +292,7 @@ async function searchResponse(analysis: Analysis, current: ChatbotSearchState, l
       : rooms.length
         ? `พบห้องว่าง ${rooms.length} แบบ สำหรับ ${search.guests} ท่าน งบไม่เกิน ${search.budget?.toLocaleString("th-TH")} บาทต่อคืนค่ะ`
         : "ไม่พบห้องที่รองรับจำนวนผู้เข้าพักภายในงบประมาณนี้ ลองเพิ่มงบประมาณหรือปรับจำนวนผู้เข้าพักได้ค่ะ",
-    search,
+    search: { ...search, phase: "results" as const },
     rooms,
   };
 }
@@ -313,7 +333,7 @@ export async function POST(request: Request) {
         message: locale === "en"
           ? "I'll pass this to our staff. Select “Talk to an agent” below to start live support."
           : "ฉันจะส่งต่อเรื่องนี้ให้เจ้าหน้าที่ช่วยดูแลต่อค่ะ กด “คุยกับเจ้าหน้าที่” ด้านล่างเพื่อเริ่ม Live Support ได้เลย",
-        search: normalizeIntentSearchState(body.search),
+        search: normalizeChatbotSearchState(body.search),
         rooms: [],
         mode: "demo",
         handoff: { reason: ruleBasedHandoff },
@@ -345,16 +365,41 @@ export async function POST(request: Request) {
           button_name: translation.button_name,
           options: translation.options,
         } : managedSuggestion;
-        const suggestionSearch = normalizeIntentSearchState(body.search);
+        const suggestionSearch = normalizeChatbotSearchState(body.search);
+        const suggestionDateValidation = validateChatbotDateRange(suggestionSearch);
+        if (localizedSuggestion.format === "Room type" && !suggestionDateValidation.valid) {
+          const invalidSearch = { ...suggestionSearch };
+          if (suggestionDateValidation.error === "invalid_check_in" || suggestionDateValidation.error === "check_in_in_past") {
+            invalidSearch.checkIn = null;
+          } else {
+            invalidSearch.checkOut = null;
+          }
+          invalidSearch.phase = "collecting";
+
+          return buildChatbotResponse({
+            intent: "search_room",
+            message: dateValidationMessages[locale][suggestionDateValidation.error],
+            search: invalidSearch,
+            rooms: [],
+            mode: "managed_suggestion",
+          }, {
+            requestId: id,
+            intent: "search_room",
+            mode: "managed_suggestion",
+          });
+        }
         const rooms = localizedSuggestion.format === "Room type"
           ? await getChatbotSuggestionRooms(localizedSuggestion.rooms, suggestionSearch)
           : [];
+        const responseSearch = localizedSuggestion.format === "Room type" && suggestionSearch.checkIn && suggestionSearch.checkOut && suggestionSearch.guests
+          ? { ...suggestionSearch, phase: "results" as const }
+          : suggestionSearch;
 
         return buildChatbotResponse({
           intent: "faq",
           message: localizedSuggestion.reply,
           suggestion: localizedSuggestion,
-          search: suggestionSearch,
+          search: responseSearch,
           rooms,
           mode: "managed_suggestion",
         }, {
@@ -365,7 +410,7 @@ export async function POST(request: Request) {
       }
     }
 
-    const currentSearch = normalizeIntentSearchState(body.search);
+    const currentSearch = normalizeChatbotSearchState(body.search);
     const roomInformation = await getChatbotRoomInformation(lastMessage.content);
     if (roomInformation) {
       return responseWithEvent({
@@ -382,16 +427,10 @@ export async function POST(request: Request) {
     }
 
     const chatbotContent = await getChatbotContent();
-    const hasStoredSearchState = Object.values(currentSearch).some(Boolean);
-    const hasSearchHistory = validMessages.slice(0, -1).some((message) =>
-      ["ค้นหาห้อง", "หาห้อง", "ห้องว่าง", "จอง", "ข้อมูลเพิ่ม", "room", "availability", "book"].some((word) =>
-        message.content.toLowerCase().includes(word),
-      ),
-    );
-    const localAnalysis = analyzeIntentLocally(lastMessage.content, hasStoredSearchState || hasSearchHistory);
+    const localAnalysis = analyzeIntentLocally(lastMessage.content, currentSearch);
     let analysis: Analysis;
     let geminiAnalysis: Analysis | null = null;
-    let mode: ResponseMode = "demo";
+    let mode: ChatbotResponseMode = "demo";
     let fallbackReason: string | null = null;
     if (process.env.GEMINI_API_KEY) {
       try {
@@ -411,8 +450,7 @@ export async function POST(request: Request) {
     const resolved = resolveChatbotAnalysis(analysis, localAnalysis, mode === "gemini");
     analysis = resolved.analysis;
     const passesConfidence = analysis.confidence >= 0.8;
-    const hasVerifiedFaqTopic =
-      analysis.faqTopic !== "other" && detectExplicitFaqTopic(lastMessage.content) === analysis.faqTopic;
+    const hasVerifiedFaqTopic = isVerifiedFaqAnalysis(analysis, localAnalysis, mode === "gemini");
 
     console.info("[chat:intent]", {
       requestId: id,
@@ -429,7 +467,7 @@ export async function POST(request: Request) {
         },
       } : null,
       local: { intent: localAnalysis.intent, faqTopic: localAnalysis.faqTopic, confidence: localAnalysis.confidence },
-      resolved: { intent: analysis.intent, confidence: analysis.confidence, searchVerified: resolved.isSearchVerified },
+      resolved: { intent: analysis.intent, confidence: analysis.confidence, searchVerified: resolved.isSearchVerified, faqVerified: hasVerifiedFaqTopic },
       fallbackReason,
     });
 
@@ -445,7 +483,7 @@ export async function POST(request: Request) {
       return responseWithEvent({
         intent: "faq",
         message: faqAnswers[locale][analysis.faqTopic],
-        search: emptyChatbotSearchState,
+        search: currentSearch,
         rooms: [],
         mode,
       }, {

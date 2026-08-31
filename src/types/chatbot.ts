@@ -38,12 +38,17 @@ export type ChatbotSuggestion = {
   updated_at?: string;
 };
 
+export type ChatbotSearchPhase = "idle" | "collecting" | "results";
+
 export type ChatbotSearchState = {
   checkIn: string | null;
   checkOut: string | null;
   guests: number | null;
   budget: number | null;
+  phase: ChatbotSearchPhase;
 };
+
+export type ChatbotSearchField = Exclude<keyof ChatbotSearchState, "phase">;
 
 export type ChatbotRoomResult = {
   id: string;
@@ -59,12 +64,13 @@ export type ChatbotRoomResult = {
   detailHref: string;
 };
 export type ChatbotEventType = "response" | "handoff";
+export type ChatbotResponseMode = "managed_suggestion" | "room_information" | "gemini" | "gemini_fallback" | "demo";
 
 export type ChatbotEventInput = {
   requestId: string;
   eventType: ChatbotEventType;
   intent: "faq" | "search_room" | "unknown";
-  responseMode: "managed_suggestion" | "room_information" | "gemini" | "gemini_fallback" | "demo";
+  responseMode: ChatbotResponseMode;
   fallbackReason: string | null;
   handoffReason: string | null;
 };

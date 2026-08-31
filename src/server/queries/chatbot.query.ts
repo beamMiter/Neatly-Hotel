@@ -1,13 +1,15 @@
 import "server-only";
+import { validateChatbotDateRange } from "@/lib/chatbot-date-validation";
 import { getGuestRoomTypeByName, searchRoomTypes } from "@/server/queries/booking-search.query";
 import type { RoomSearchResult } from "@/types/room-search";
-import type { ChatbotRoomResult, ChatbotSearchState } from "@/types/chatbot";
+import type { ChatbotRoomResult, ChatbotSearchField, ChatbotSearchState } from "@/types/chatbot";
 
 export const emptyChatbotSearchState: ChatbotSearchState = {
   checkIn: null,
   checkOut: null,
   guests: null,
   budget: null,
+  phase: "idle",
 };
 
 function toChatbotRoomResult(room: RoomSearchResult): ChatbotRoomResult {
@@ -36,12 +38,12 @@ export async function getChatbotSuggestionRooms(
   roomNames: string[],
   search: Pick<ChatbotSearchState, "checkIn" | "checkOut" | "guests" | "budget">,
 ): Promise<ChatbotRoomResult[]> {
+  if (!validateChatbotDateRange(search).valid || (search.guests !== null && search.guests > 20)) return [];
   if (!search.checkIn || !search.checkOut || !search.guests) {
     return (await Promise.all(roomNames.map(getChatbotRoomInformation))).filter(
       (room): room is ChatbotRoomResult => room !== null,
     );
   }
-
   const allowedNames = new Set(roomNames.map((name) => name.trim().toLowerCase()));
   const availableRooms = await searchRoomTypes({
     checkIn: search.checkIn,
@@ -62,6 +64,7 @@ export async function getChatbotSuggestionRooms(
 export async function searchAvailableChatbotRooms(search: ChatbotSearchState): Promise<ChatbotRoomResult[]> {
   const { checkIn, checkOut, guests, budget } = search;
   if (!checkIn || !checkOut || !guests || !budget) return [];
+  if (!validateChatbotDateRange(search).valid || guests > 20) return [];
 
   const roomTypes = await searchRoomTypes({
     checkIn,
@@ -77,7 +80,7 @@ export async function searchAvailableChatbotRooms(search: ChatbotSearchState): P
 }
 
 export function getMissingChatbotSearchFields(search: ChatbotSearchState) {
-  const missing: Array<keyof ChatbotSearchState> = [];
+  const missing: ChatbotSearchField[] = [];
   if (!search.checkIn) missing.push("checkIn");
   if (!search.checkOut) missing.push("checkOut");
   if (!search.guests) missing.push("guests");
@@ -94,12 +97,6 @@ export function mergeChatbotSearchState(
     checkOut: extracted.checkOut ?? current.checkOut,
     guests: extracted.guests ?? current.guests,
     budget: extracted.budget ?? current.budget,
+    phase: extracted.phase ?? current.phase,
   };
-}
-
-export function isValidChatbotDateRange(search: ChatbotSearchState) {
-  if (!search.checkIn || !search.checkOut) return true;
-  const checkIn = Date.parse(`${search.checkIn}T00:00:00`);
-  const checkOut = Date.parse(`${search.checkOut}T00:00:00`);
-  return Number.isFinite(checkIn) && Number.isFinite(checkOut) && checkOut > checkIn;
 }

@@ -22,6 +22,21 @@ export function normalizeIntentText(value: string) {
   return value.toLowerCase().replace(/[^\p{L}\p{M}\p{N}]+/gu, " ").trim();
 }
 
+function assignSearchDates(dates: string[], message: string, current: ChatbotSearchState) {
+  if (dates.length >= 2) return { checkIn: dates[0], checkOut: dates[1] };
+  const date = dates[0];
+  if (!date) return { checkIn: null, checkOut: null };
+
+  const text = normalizeIntentText(message);
+  const mentionsCheckOut = ["เช็กเอาต์", "เช็คเอาต์", "check out", "checkout"].some((word) => text.includes(word));
+  const mentionsCheckIn = ["เช็กอิน", "เช็คอิน", "check in", "checkin"].some((word) => text.includes(word));
+  if (mentionsCheckOut) return { checkIn: current.checkIn, checkOut: date };
+  if (mentionsCheckIn) return { checkIn: date, checkOut: current.checkOut };
+  if (!current.checkIn) return { checkIn: date, checkOut: null };
+  if (!current.checkOut) return { checkIn: current.checkIn, checkOut: date };
+  return { checkIn: null, checkOut: null };
+}
+
 export function detectExplicitFaqTopic(message: string): FaqTopic {
   const text = normalizeIntentText(message);
   if (["เช็กอิน", "เช็คอิน", "check in", "checkin", "เช็กเอาต์", "เช็คเอาต์", "check out", "checkout"]
@@ -38,21 +53,32 @@ export function detectExplicitFaqTopic(message: string): FaqTopic {
 export function findHandoffReason(message: string, _messages: ChatMessage[]): HandoffReason | null {
   void _messages;
   const normalized = normalizeIntentText(message);
-  if (["คุยกับเจ้าหน้าที่", "ติดต่อเจ้าหน้าที่", "ขอเจ้าหน้าที่", "เจ้าหน้าที่ช่วย", "human agent", "talk to an agent", "speak to staff"]
-    .some((phrase) => normalized.includes(normalizeIntentText(phrase)))) return "explicit_agent_request";
+  const explicitHandoffPhrases = ["คุยกับเจ้าหน้าที่", "ติดต่อเจ้าหน้าที่", "ขอเจ้าหน้าที่", "เจ้าหน้าที่ช่วย", "human agent"];
+  const englishHandoffPatterns = [
+    /\b(?:chat|talk|speak|connect)\s+(?:(?:me|us)\s+)?(?:to|with)\s+(?:(?:a|an|the|your)\s+)?(?:human\s+)?(?:agent|staff|representative|receptionist)\b/,
+    /\b(?:contact|reach)\s+(?:(?:a|an|the|your)\s+)?(?:agent|staff|representative|receptionist)\b/,
+  ];
+  if (
+    explicitHandoffPhrases.some((phrase) => normalized.includes(normalizeIntentText(phrase))) ||
+    englishHandoffPatterns.some((pattern) => pattern.test(normalized))
+  ) return "explicit_agent_request";
   return null;
 }
 
-export function analyzeLocally(message: string, hasSearchState: boolean): ChatbotAnalysis {
+export function analyzeLocally(message: string, currentSearch: ChatbotSearchState): ChatbotAnalysis {
   const text = message.toLowerCase();
   const normalizedText = normalizeIntentText(message);
+  const hasSearchState = currentSearch.phase !== "idle";
   const dates = text.match(/\b\d{4}-\d{2}-\d{2}\b/g) ?? [];
   const slashDates = text.match(/\b\d{1,2}[\/-]\d{1,2}[\/-]\d{4}\b/g) ?? [];
   const allDates = [...dates, ...slashDates].map((value) => {
     const match = value.match(/\b(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})\b/);
     return match ? `${match[3]}-${match[2].padStart(2, "0")}-${match[1].padStart(2, "0")}` : value;
   });
+  const assignedDates = assignSearchDates(allDates, message, currentSearch);
   const guestMatch = text.match(/(\d+)\s*(คน|ท่าน|guest)/);
+  const parsedGuests = guestMatch ? Number(guestMatch[1]) : null;
+  const guests = parsedGuests && Number.isInteger(parsedGuests) && parsedGuests <= 20 ? parsedGuests : null;
   const budgetMatch = text.match(/(?:งบ|ไม่เกิน|budget)\s*(?:ประมาณ)?\s*([\d,]+)/);
   const explicitSearchWords = [
     "หาห้อง",
@@ -77,12 +103,22 @@ export function analyzeLocally(message: string, hasSearchState: boolean): Chatbo
     /\bhotel\s+reservation\b/,
   ];
   const faqTopic = detectExplicitFaqTopic(message);
-  const suppliesSearchData = allDates.length > 0 || Boolean(guestMatch) || Boolean(budgetMatch);
-  const isSearch = explicitSearchWords.some((word) => normalizedText.includes(word)) || searchPatterns.some((pattern) => pattern.test(normalizedText)) || suppliesSearchData;
   const isFaq = faqTopic !== "other";
+  const hasExplicitSearchIntent =
+    explicitSearchWords.some((word) => normalizedText.includes(word)) ||
+    searchPatterns.some((pattern) => pattern.test(normalizedText));
+  const suppliesSearchData = allDates.length > 0 || Boolean(guestMatch) || Boolean(budgetMatch);
+  const hasStrongSearchData =
+    allDates.length >= 2 ||
+    (allDates.length >= 1 && Boolean(guestMatch)) ||
+    (allDates.length >= 1 && Boolean(budgetMatch)) ||
+    (Boolean(guestMatch) && Boolean(budgetMatch));
+  const isSearch =
+    hasExplicitSearchIntent ||
+    (!isFaq && (hasSearchState ? suppliesSearchData : hasStrongSearchData));
   const intent: ChatbotIntent = isSearch ? "search_room" : isFaq ? "faq" : "unknown";
   const confidence = intent === "unknown" ? 0 : hasSearchState && suppliesSearchData ? 1 : 0.95;
-  return { intent, faqTopic, confidence, checkIn: allDates[0] ?? null, checkOut: allDates[1] ?? null, guests: guestMatch ? Number(guestMatch[1]) : null, budget: budgetMatch ? Number(budgetMatch[1].replaceAll(",", "")) : null };
+  return { intent, faqTopic, confidence, checkIn: assignedDates.checkIn, checkOut: assignedDates.checkOut, guests, budget: budgetMatch ? Number(budgetMatch[1].replaceAll(",", "")) : null };
 }
 
 export function resolveChatbotAnalysis(
@@ -91,8 +127,18 @@ export function resolveChatbotAnalysis(
   usedGemini: boolean,
 ): ResolvedChatbotAnalysis {
   if (localAnalysis.intent === "search_room") {
+    const analysis: ChatbotAnalysis = {
+      intent: "search_room",
+      faqTopic: "other",
+      confidence: Math.max(localAnalysis.confidence, modelAnalysis.confidence),
+      checkIn: localAnalysis.checkIn ?? modelAnalysis.checkIn,
+      checkOut: localAnalysis.checkOut ?? modelAnalysis.checkOut,
+      guests: localAnalysis.guests ?? modelAnalysis.guests,
+      budget: localAnalysis.budget ?? modelAnalysis.budget,
+    };
+
     return {
-      analysis: modelAnalysis.intent === "search_room" ? modelAnalysis : localAnalysis,
+      analysis,
       isSearchVerified: true,
     };
   }
@@ -101,8 +147,13 @@ export function resolveChatbotAnalysis(
   return { analysis: modelAnalysis, isSearchVerified: isStrongGeminiSearch };
 }
 
-export function normalizeSearchState(value: unknown): ChatbotSearchState {
-  if (!value || typeof value !== "object") return { checkIn: null, checkOut: null, guests: null, budget: null };
-  const state = value as Partial<ChatbotSearchState>;
-  return { checkIn: typeof state.checkIn === "string" ? state.checkIn : null, checkOut: typeof state.checkOut === "string" ? state.checkOut : null, guests: typeof state.guests === "number" && state.guests > 0 ? state.guests : null, budget: typeof state.budget === "number" && state.budget > 0 ? state.budget : null };
+export function isVerifiedFaqAnalysis(
+  modelAnalysis: ChatbotAnalysis,
+  localAnalysis: ChatbotAnalysis,
+  usedGemini: boolean,
+) {
+  if (modelAnalysis.intent !== "faq" || modelAnalysis.faqTopic === "other") return false;
+  const localMatches = localAnalysis.intent === "faq" && localAnalysis.faqTopic === modelAnalysis.faqTopic;
+  const isStrongGeminiFaq = usedGemini && modelAnalysis.confidence >= 0.9;
+  return localMatches || isStrongGeminiFaq;
 }

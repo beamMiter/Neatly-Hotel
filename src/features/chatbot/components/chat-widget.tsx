@@ -249,6 +249,7 @@ const initialSearch: ChatbotSearchState = {
   checkOut: null,
   guests: null,
   budget: null,
+  phase: "idle",
 };
 
 function buildRoomSearchHref(search: ChatbotSearchState, roomName?: string) {
@@ -547,8 +548,12 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
   }
 
   function retryQuestion() {
-    setInput("");
-    window.requestAnimationFrame(() => inputRef.current?.focus());
+    const latestQuestion = messages.findLast((message) => message.role === "user")?.content ?? "";
+    setInput(latestQuestion);
+    window.requestAnimationFrame(() => {
+      inputRef.current?.focus();
+      inputRef.current?.setSelectionRange(latestQuestion.length, latestQuestion.length);
+    });
   }
 
   function createLiveSupport(content: string, phone: string | null = null) {
@@ -710,7 +715,7 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
     }
   }
 
-  const hasSearchProgress = Object.values(search).some(Boolean);
+  const hasSearchProgress = Boolean(search.checkIn || search.checkOut || search.guests || search.budget);
   const completedUserTurns = messages.filter((message) => message.role === "user").length;
   const latestAssistantMessage = messages.findLast((message) => message.role === "assistant");
   const hasUnresolvedQuestion = latestAssistantMessage?.intent === "unknown";
