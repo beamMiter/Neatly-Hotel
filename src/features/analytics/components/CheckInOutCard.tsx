@@ -7,21 +7,22 @@ import type { CheckInOutAverages } from "@/types/analytics";
 // subtext, only the icon badge tinted green) while check-out is fully
 // highlighted in the brand orange — label, time, and subtext all colored,
 // not just the icon. That asymmetry is intentional in the source design,
-// not a mismatch to normalize away. The check-out tint uses brand-primary
-// at low opacity rather than Tailwind's stock orange scale, which reads too
-// yellow next to this app's redder terracotta accent.
+// not a mismatch to normalize away. Explicit hex values here (not Tailwind's
+// stock emerald/orange scales or opacity-derived tints) — picked to match
+// the mockup's flat colors directly rather than approximate them through a
+// formula that lands close but not exact.
 const TONE_STYLES = {
   in: {
-    card: "bg-emerald-50",
-    badge: "bg-emerald-100 text-emerald-700",
-    corner: "bg-emerald-700 text-white",
+    card: "bg-[#eaf6f0]",
+    badge: "bg-[#d9ece1] text-[#3f6152]",
+    corner: "bg-[#4f8567] text-white",
     label: "text-brand-body",
     time: "text-brand-ink",
     subtext: "text-brand-muted",
   },
   out: {
-    card: "bg-brand-primary/10",
-    badge: "bg-brand-primary/15 text-brand-primary",
+    card: "bg-[#fbe6da]",
+    badge: "bg-[#f6d3bd] text-brand-primary",
     corner: "bg-brand-primary text-white",
     label: "text-brand-primary",
     time: "text-brand-primary",
