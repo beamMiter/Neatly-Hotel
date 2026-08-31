@@ -499,3 +499,13 @@ body { color: var(--ink); background: #edf0eb; font-family: var(--font-sans), Ar
 		transform: translateY(0);
 	}
 }
+
+@keyframes fade-in {
+	from {
+		opacity: 0;
+	}
+
+	to {
+		opacity: 1;
+	}
+}

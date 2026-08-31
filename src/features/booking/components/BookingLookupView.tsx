@@ -115,7 +115,7 @@ function BookingLookupResult({ booking }: { booking: BookingRecord }) {
   const paymentLabel = booking.paymentStatus.replaceAll("_", " ");
 
   return (
-    <div className="flex flex-col gap-4 rounded-lg border border-[#E4E6ED] bg-white p-8">
+    <div className="flex animate-[fade-slide_400ms_ease-out] flex-col gap-4 rounded-lg border border-[#E4E6ED] bg-white p-8">
       <div className="flex flex-col gap-1 border-b border-[#E4E6ED] pb-4">
         <p className="text-sm text-[#646D89]">Booking code</p>
         <p className="text-lg font-semibold text-[#2A2E3F]">{booking.bookingCode}</p>

@@ -32,7 +32,7 @@ export function BookingDetailDropdown({ booking, open, onToggle }: BookingDetail
         aria-expanded={open}
         aria-controls={panelId}
         onClick={onToggle}
-        className="flex w-full cursor-pointer items-center justify-between bg-[#F1F2F6] px-4 py-3 text-left [font-family:var(--font-inter)] text-sm font-medium text-[#2A2E3F]"
+        className="flex w-full cursor-pointer items-center justify-between bg-[#F1F2F6] px-4 py-3 text-left [font-family:var(--font-inter)] text-sm font-medium text-[#2A2E3F] transition-colors duration-150 hover:bg-[#E4E6ED]"
       >
         <span>Booking Detail</span>
         <ChevronDownIcon
@@ -41,7 +41,7 @@ export function BookingDetailDropdown({ booking, open, onToggle }: BookingDetail
       </button>
 
       {open && (
-        <div id={panelId} className="px-1 py-6 sm:px-4">
+        <div id={panelId} className="animate-[dropdown-in_200ms_ease-out] px-1 py-6 sm:px-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <p className="text-sm text-[#2A2E3F]">
               {booking.guests} {guestLabel} ({booking.nights} {nightLabel})

@@ -16,8 +16,8 @@ const ChangeDateConfirmModal = ({ open, onClose, onConfirm }: ChangeDateConfirmM
 	if (!open) return null;
 
 	return (
-		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-			<div className="flex w-full max-w-157.75 flex-col rounded bg-white shadow-lg">
+		<div className="fixed inset-0 z-50 flex animate-[fade-in_150ms_ease-out] items-center justify-center bg-black/40 px-4">
+			<div className="flex w-full max-w-157.75 animate-[fade-slide_200ms_ease-out] flex-col rounded bg-white shadow-lg">
 				<div className="flex items-center justify-between border-b border-[#E4E6ED] px-6 py-2">
 					<h2 className="[font-family:var(--font-inter)] text-xl leading-[150%] font-semibold tracking-[-0.02em] text-black">
 						Change Date
@@ -41,7 +41,7 @@ const ChangeDateConfirmModal = ({ open, onClose, onConfirm }: ChangeDateConfirmM
 						<button
 							type="button"
 							onClick={onClose}
-							className="flex h-12 w-fit cursor-pointer items-center justify-center whitespace-nowrap rounded border border-[#E76B39] bg-white px-8 py-4 [font-family:var(--font-open-sans)] text-base font-semibold text-[#E76B39] transition-colors duration-150 hover:bg-[#FFF7F3]"
+							className="flex h-12 w-fit cursor-pointer items-center justify-center whitespace-nowrap rounded border border-[#E76B39] bg-white px-8 py-4 [font-family:var(--font-open-sans)] text-base font-semibold text-[#E76B39] transition-[background-color,transform] duration-150 hover:bg-[#FFF7F3] active:scale-90"
 						>
 							No, I don&apos;t
 						</button>

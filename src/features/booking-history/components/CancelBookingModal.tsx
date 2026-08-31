@@ -53,7 +53,7 @@ export function CancelBookingModal({
   return (
     <div
       role="presentation"
-      className="fixed inset-0 z-60 flex items-center justify-center bg-black/40 px-4"
+      className="fixed inset-0 z-60 flex animate-[fade-in_150ms_ease-out] items-center justify-center bg-black/40 px-4"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget && !isSubmitting) onClose();
       }}
@@ -62,7 +62,7 @@ export function CancelBookingModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="cancel-booking-title"
-        className="w-full max-w-2xl rounded-sm bg-white shadow-[2px_2px_12px_rgba(64,50,133,0.12)]"
+        className="w-full max-w-2xl animate-[fade-slide_200ms_ease-out] rounded-sm bg-white shadow-[2px_2px_12px_rgba(64,50,133,0.12)]"
       >
         <div className="flex items-center justify-between border-b border-[#E4E6ED] px-6 py-4">
           <h2
@@ -95,7 +95,7 @@ export function CancelBookingModal({
             type="button"
             onClick={onConfirm}
             disabled={isSubmitting}
-            className="cursor-pointer rounded-sm border border-[#C14817] bg-white px-6 py-3 [font-family:var(--font-open-sans)] text-base font-semibold text-[#C14817] transition-colors hover:bg-[#FFF7F3] disabled:cursor-not-allowed disabled:opacity-40"
+            className="cursor-pointer rounded-sm border border-[#C14817] bg-white px-6 py-3 [font-family:var(--font-open-sans)] text-base font-semibold text-[#C14817] transition-[background-color,transform] duration-150 hover:bg-[#FFF7F3] active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {isSubmitting ? "Cancelling..." : copy.confirmLabel}
           </button>
@@ -103,7 +103,7 @@ export function CancelBookingModal({
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
-            className="cursor-pointer rounded-sm bg-[#C14817] px-6 py-3 [font-family:var(--font-open-sans)] text-base font-semibold text-white transition-colors hover:bg-[#A93F13] disabled:cursor-not-allowed disabled:opacity-40"
+            className="cursor-pointer rounded-sm bg-[#C14817] px-6 py-3 [font-family:var(--font-open-sans)] text-base font-semibold text-white transition-[background-color,transform] duration-150 hover:bg-[#A93F13] active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
           >
             No, Don&apos;t Cancel
           </button>

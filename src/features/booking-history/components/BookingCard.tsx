@@ -16,15 +16,19 @@ import type { BookingHistoryItem } from "@/types/booking";
 type BookingCardProps = {
   booking: BookingHistoryItem;
   onCancel: (booking: BookingHistoryItem) => void;
+  index: number;
 };
 
-export function BookingCard({ booking, onCancel }: BookingCardProps) {
+export function BookingCard({ booking, onCancel, index }: BookingCardProps) {
   const [detailOpen, setDetailOpen] = useState(false);
   const actions = getBookingActions(booking);
   const showFooter = actions.showCancel || actions.showRoomDetail || actions.showChangeDate;
 
   return (
-    <article className="grid gap-6 lg:grid-cols-[minmax(240px,357px)_minmax(0,1fr)] lg:gap-10">
+    <article
+      style={{ animationDelay: `${Math.min(index, 6) * 60}ms` }}
+      className="grid animate-[fade-slide_400ms_ease-out_backwards] gap-6 lg:grid-cols-[minmax(240px,357px)_minmax(0,1fr)] lg:gap-10"
+    >
       <RoomImagePlaceholder
         label={booking.roomTypeName}
         src={booking.imageUrl}
@@ -73,7 +77,7 @@ export function BookingCard({ booking, onCancel }: BookingCardProps) {
                 <button
                   type="button"
                   onClick={() => onCancel(booking)}
-                  className="cursor-pointer [font-family:var(--font-open-sans)] text-base font-semibold text-[#C14817] hover:text-[#A93F13]"
+                  className="inline-block cursor-pointer [font-family:var(--font-open-sans)] text-base font-semibold text-[#C14817] transition-[color,transform] duration-150 hover:text-[#A93F13] active:scale-95"
                 >
                   Cancel Booking
                 </button>
@@ -84,7 +88,7 @@ export function BookingCard({ booking, onCancel }: BookingCardProps) {
               {actions.showRoomDetail ? (
                 <Link
                   href={`/rooms/${booking.roomTypeId}`}
-                  className="[font-family:var(--font-open-sans)] text-base font-semibold text-[#C14817] hover:text-[#A93F13]"
+                  className="inline-block [font-family:var(--font-open-sans)] text-base font-semibold text-[#C14817] transition-[color,transform] duration-150 hover:text-[#A93F13] active:scale-95"
                 >
                   Room Detail
                 </Link>
@@ -92,7 +96,7 @@ export function BookingCard({ booking, onCancel }: BookingCardProps) {
               {actions.showChangeDate ? (
                 <Link
                   href={`/change-date?bookingId=${booking.id}`}
-                  className="flex h-12 items-center justify-center rounded-sm bg-[#C14817] px-8 [font-family:var(--font-open-sans)] text-base font-semibold text-white transition-colors hover:bg-[#A93F13]"
+                  className="flex h-12 items-center justify-center rounded-sm bg-[#C14817] px-8 [font-family:var(--font-open-sans)] text-base font-semibold text-white transition-[background-color,transform] duration-150 hover:bg-[#A93F13] active:scale-95"
                 >
                   Change Date
                 </Link>
