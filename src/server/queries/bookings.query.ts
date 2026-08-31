@@ -20,6 +20,7 @@ import type {
   BookingRecord,
   CreateBookingInput,
   SelectedSpecialRequest,
+  SpecialRequestSelection,
 } from "@/types/booking";
 import {
   BookingNotFoundError,
@@ -301,6 +302,53 @@ export async function createPendingBooking(
   }
 
   throw new Error("Failed to generate a unique booking code after multiple attempts");
+}
+
+export async function updatePendingBookingSpecialRequests(
+  bookingId: string,
+  selections: SpecialRequestSelection[],
+): Promise<{ selectedSpecialRequests: SelectedSpecialRequest[]; addonsTotal: number; totalAmount: number }> {
+  const catalog = await getSpecialRequestCatalog();
+
+  return prisma.$transaction(async (tx) => {
+    const rows = await tx.$queryRaw<Array<{
+      check_in: Date;
+      check_out: Date;
+      status: string;
+      payment_status: string;
+      total_amount: Prisma.Decimal;
+      addons_total: Prisma.Decimal;
+      discount_amount: Prisma.Decimal;
+    }>>`
+      select check_in, check_out, status, payment_status, total_amount, addons_total, discount_amount
+      from bookings
+      where id = ${bookingId}::uuid
+      for update
+    `;
+    const booking = rows[0];
+    if (!booking) throw new BookingNotFoundError();
+    if (booking.status !== "pending_payment" || booking.payment_status !== "pending") {
+      throw new InvalidBookingTransitionError("Special requests can only be changed before payment");
+    }
+
+    const toIsoDate = (value: Date | string) => value instanceof Date ? value.toISOString().slice(0, 10) : value;
+    const nights = nightsBetween(toIsoDate(booking.check_in), toIsoDate(booking.check_out));
+    const selectedSpecialRequests = resolveSelectedSpecialRequests(catalog, selections, nights);
+    const addonsTotal = selectedSpecialRequests.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const roomSubtotal = Number(booking.total_amount) - Number(booking.addons_total) + Number(booking.discount_amount);
+    const totalAmount = roomSubtotal + addonsTotal - Number(booking.discount_amount);
+
+    await tx.$executeRaw`
+      update bookings
+      set special_requests = ${JSON.stringify(selectedSpecialRequests)}::jsonb,
+          addons_total = ${addonsTotal},
+          total_amount = ${totalAmount},
+          updated_at = now()
+      where id = ${bookingId}::uuid
+    `;
+
+    return { selectedSpecialRequests, addonsTotal, totalAmount };
+  });
 }
 
 export async function getBookingById(id: string, customerId: string | null): Promise<BookingRecord | null> {

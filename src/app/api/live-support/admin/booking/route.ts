@@ -3,11 +3,16 @@ import { hasDatabaseUrl } from "@/server/db";
 import { searchRoomTypes } from "@/server/queries/booking-search.query";
 import { BookingConflictError, InvalidGuestsError, RoomTypeNotFoundError } from "@/server/queries/bookings.query";
 import {
+  BookingNotFoundError,
+  InvalidBookingTransitionError,
+} from "@/server/queries/customer-bookings.query";
+import {
   authorizationErrorResponse,
   requireStaff,
 } from "@/server/services/authorization";
 import {
   AdminBookingValidationError,
+  cancelSupportBookingForAdmin,
   createBookingForSupportConversation,
   getSupportBookingIdentity,
   SupportMemberSelectionError,
@@ -61,6 +66,7 @@ export async function POST(request: Request) {
     conversationId: z.string().uuid(),
     selectedCustomerId: z.string().uuid().nullable().optional(),
     emailVerificationToken: z.string().min(1).max(1024).optional(),
+    allowSpecialRequests: z.boolean().default(false),
     booking: z.unknown(),
   }).safeParse(body);
   if (!parsed.success) return Response.json({ error: "Invalid booking request" }, { status: 400 });
@@ -79,5 +85,26 @@ export async function POST(request: Request) {
     if (error instanceof RoomTypeNotFoundError) return Response.json({ error: "Room type was not found" }, { status: 404 });
     console.error("Admin support booking creation failed:", error);
     return Response.json({ error: "Unable to create booking" }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  const auth = await authorizeStaff();
+  if (auth instanceof Response) return auth;
+  const body = await request.json().catch(() => null);
+  const parsed = z.object({
+    conversationId: z.string().uuid(),
+    bookingId: z.string().uuid(),
+  }).strict().safeParse(body);
+  if (!parsed.success) return Response.json({ error: "Invalid cancellation request" }, { status: 400 });
+
+  try {
+    return Response.json(await cancelSupportBookingForAdmin(parsed.data.conversationId, parsed.data.bookingId));
+  } catch (error) {
+    if (error instanceof AdminBookingValidationError) return Response.json({ error: error.message }, { status: 403 });
+    if (error instanceof BookingNotFoundError) return Response.json({ error: error.message }, { status: 404 });
+    if (error instanceof InvalidBookingTransitionError) return Response.json({ error: error.message }, { status: 409 });
+    console.error("Admin support booking cancellation failed:", error);
+    return Response.json({ error: "Unable to cancel booking" }, { status: 500 });
   }
 }

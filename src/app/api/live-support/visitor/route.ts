@@ -1,12 +1,19 @@
 import { z } from "zod";
+import { redactChatbotMessage } from "@/lib/chatbot-redaction";
 import { createClient } from "@/server/db/supabase-server";
 import {
+  addSupportMessage,
   addVisitorSupportMessage,
   createOrReopenVisitorConversation,
+  ExpiredSupportConversationError,
   findVisitorConversation,
+  isResolvedSupportConversationExpired,
   listConversationMessages,
+  listSupportBookings,
   SupportMessageLimitError,
 } from "@/server/queries/live-support.query";
+import { getSpecialRequestCatalogForDisplay } from "@/server/queries/special-requests.query";
+import { recordChatbotEvent } from "@/server/queries/chatbot-events.query";
 import {
   checkRateLimits,
   hasOversizedBody,
@@ -29,8 +36,15 @@ const visitorMessageSchema = z
     visitorToken: visitorTokenSchema,
     content: z.string().trim().min(1).max(2000),
     contactPhone: z.string().trim().max(32).nullable().optional(),
+    locale: z.enum(["th", "en"]).optional(),
+    contextMessage: z.string().trim().min(1).max(800).optional(),
   })
   .strict();
+
+const waitingMessage = {
+  th: "ส่งข้อความถึงเจ้าหน้าที่แล้ว กรุณารอสักครู่",
+  en: "Your message has been sent to our team. Please wait a moment.",
+} as const;
 
 function normalizePhone(value: string | null | undefined) {
   if (!value) return null;
@@ -70,16 +84,27 @@ export async function GET(request: Request) {
     if (!limit.allowed) return rateLimitExceededResponse(limit.retryAfterSeconds);
 
     const conversation = await findVisitorConversation(parsedToken.data);
-    if (!conversation) {
+    if (!conversation || isResolvedSupportConversationExpired(conversation)) {
       return Response.json(
         { conversation: null, messages: [] },
         { headers: { "Cache-Control": "no-store" } },
       );
     }
 
-    const messages = await listConversationMessages(conversation.id);
+    const [messages, bookings] = await Promise.all([
+      listConversationMessages(conversation.id),
+      listSupportBookings(conversation),
+    ]);
+    const booking = bookings[0] ?? null;
+    const allowsSpecialRequests = Boolean(booking && messages.some((message) =>
+      message.sender === "system" &&
+      message.content.startsWith(`Booking ${booking.bookingCode} is ready for confirmation with special requests.`),
+    ));
+    const specialRequestOptions = allowsSpecialRequests
+      ? (await getSpecialRequestCatalogForDisplay()).filter((option) => option.category === "special")
+      : [];
     return Response.json(
-      { conversation, messages },
+      { conversation, messages, booking, specialRequestOptions },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {
@@ -126,7 +151,7 @@ export async function POST(request: Request) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    const conversation = await createOrReopenVisitorConversation(
+    const { conversation, started } = await createOrReopenVisitorConversation(
       parsed.data.visitorToken,
       contactPhone,
       user?.id ?? null,
@@ -136,8 +161,32 @@ export async function POST(request: Request) {
       parsed.data.content,
       MAX_CONVERSATION_MESSAGES,
     );
-    return Response.json({ conversation, message }, { status: 201 });
+    const systemMessage = started
+      ? await addSupportMessage(conversation.id, "system", waitingMessage[parsed.data.locale ?? "en"])
+      : null;
+    if (started && parsed.data.contextMessage) {
+      try {
+        await recordChatbotEvent({
+          requestId: id,
+          eventType: "handoff",
+          intent: "unknown",
+          responseMode: "demo",
+          fallbackReason: null,
+          handoffReason: "live_support_started",
+          messageRedacted: redactChatbotMessage(parsed.data.contextMessage),
+        });
+      } catch (error) {
+        logApiFailure("live-support:handoff-event", id, error);
+      }
+    }
+    return Response.json({ conversation, message, systemMessage }, { status: 201 });
   } catch (error) {
+    if (error instanceof ExpiredSupportConversationError) {
+      return Response.json(
+        { error: "This support session has expired. Start a new request.", expired: true },
+        { status: 409 },
+      );
+    }
     logApiFailure("live-support:visitor:write", id, error);
     if (error instanceof RateLimitUnavailableError) return rateLimitUnavailableResponse();
     if (error instanceof SupportMessageLimitError) {

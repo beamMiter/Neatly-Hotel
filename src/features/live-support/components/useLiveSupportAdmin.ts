@@ -11,8 +11,17 @@ export function useLiveSupportAdmin(selectedThreadId: string | null, onInitialSe
   const [customer, setCustomer] = useState<SupportCustomer | null>(null);
   const [bookings, setBookings] = useState<SupportBooking[]>([]);
   const [isSending, setIsSending] = useState(false);
+  const [loadedConversationId, setLoadedConversationId] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (reset = false) => {
+    await Promise.resolve();
+    if (reset) {
+      setLoadedConversationId(null);
+      setSupportMessages([]);
+      setCustomer(null);
+      setBookings([]);
+    }
+
     try {
       const query = selectedThreadId ? `?conversationId=${selectedThreadId}` : "";
       const response = await fetch(`/api/live-support/admin${query}`, { cache: "no-store" });
@@ -32,6 +41,7 @@ export function useLiveSupportAdmin(selectedThreadId: string | null, onInitialSe
       setSupportMessages(data.messages);
       setCustomer(data.customer);
       setBookings(data.bookings);
+      setLoadedConversationId(data.selectedConversationId);
       return data.selectedConversationId;
     } catch {
       return null;
@@ -41,7 +51,7 @@ export function useLiveSupportAdmin(selectedThreadId: string | null, onInitialSe
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
-      const selectedConversationId = await refresh();
+      const selectedConversationId = await refresh(true);
       if (!cancelled && !selectedThreadId && selectedConversationId) onInitialSelection?.(selectedConversationId);
     };
     void load();
@@ -86,5 +96,7 @@ export function useLiveSupportAdmin(selectedThreadId: string | null, onInitialSe
     ));
   }
 
-  return { conversations, supportMessages, agents, currentAdminId, customer, bookings, isSending, sendReply, updateConversation, appendSupportMessage, refresh };
+  const isConversationLoading = Boolean(selectedThreadId && loadedConversationId !== selectedThreadId);
+
+  return { conversations, supportMessages, agents, currentAdminId, customer, bookings, isSending, isConversationLoading, sendReply, updateConversation, appendSupportMessage, refresh };
 }

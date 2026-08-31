@@ -6,6 +6,7 @@ import {
   listSupportBookings,
   listConversationMessages,
   listSupportConversations,
+  markSupportConversationRead,
   updateSupportConversation,
 } from "@/server/queries/live-support.query";
 import { generateLiveSupportSummary } from "@/server/queries/live-support-summary.query";
@@ -38,11 +39,12 @@ export async function GET(request: Request) {
 
     const conversationId = searchParams.get("conversationId");
     const [conversations, agents] = await Promise.all([
-      listSupportConversations(),
+      listSupportConversations(auth.userId),
       listActiveSupportAgents(),
     ]);
     const selectedConversationId = conversationId ?? conversations[0]?.id ?? null;
     const selectedConversation = conversations.find((conversation) => conversation.id === selectedConversationId) ?? null;
+    if (selectedConversation) await markSupportConversationRead(selectedConversation.id, auth.userId);
     const [messages, customer, bookings] = selectedConversation
       ? await Promise.all([
           listConversationMessages(selectedConversation.id),

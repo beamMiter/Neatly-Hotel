@@ -12,11 +12,11 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-[#F7F8FA]">
-      <aside className="h-screen w-[260px] shrink-0">
+    <div className="flex h-dvh w-full overflow-hidden bg-[#F7F8FA]">
+      <aside className="hidden h-screen w-[260px] shrink-0 lg:block">
         <AdminSidebar />
       </aside>
-      <main className="flex h-screen min-w-0 flex-1 flex-col overflow-hidden">
+      <main className="flex h-dvh min-w-0 flex-1 flex-col overflow-hidden">
         {children}
       </main>
     </div>

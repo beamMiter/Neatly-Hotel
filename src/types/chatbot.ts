@@ -1,24 +1,11 @@
-export type ChatbotFaq = {
-  id: number;
-  question: string;
-  answer: string;
-  category: string;
-  keywords: string[];
-  is_active: boolean;
-  sort_order: number;
-  created_at: string;
-  updated_at: string;
-};
-
-export type ChatbotFaqInput = Pick<
-  ChatbotFaq,
-  "question" | "answer" | "category" | "keywords" | "is_active" | "sort_order"
->;
-
 export type ChatbotSettings = {
   id: boolean;
   greeting_message: string;
   auto_reply_message: string;
+  greeting_message_th: string;
+  greeting_message_en: string;
+  auto_reply_message_th: string;
+  auto_reply_message_en: string;
   updated_at: string;
 };
 
@@ -29,6 +16,13 @@ export type ChatbotSuggestionOption = {
   details: string;
 };
 
+export type ChatbotSuggestionTranslation = {
+  topic: string;
+  reply: string;
+  button_name: string | null;
+  options: ChatbotSuggestionOption[];
+};
+
 export type ChatbotSuggestion = {
   id: string;
   topic: string;
@@ -37,18 +31,24 @@ export type ChatbotSuggestion = {
   button_name: string | null;
   rooms: string[];
   options: ChatbotSuggestionOption[];
+  translations?: Partial<Record<"th" | "en", ChatbotSuggestionTranslation>>;
   is_active: boolean;
   sort_order: number;
   created_at?: string;
   updated_at?: string;
 };
 
+export type ChatbotSearchPhase = "idle" | "collecting" | "results";
+
 export type ChatbotSearchState = {
   checkIn: string | null;
   checkOut: string | null;
   guests: number | null;
   budget: number | null;
+  phase: ChatbotSearchPhase;
 };
+
+export type ChatbotSearchField = Exclude<keyof ChatbotSearchState, "phase">;
 
 export type ChatbotRoomResult = {
   id: string;
@@ -64,12 +64,14 @@ export type ChatbotRoomResult = {
   detailHref: string;
 };
 export type ChatbotEventType = "response" | "handoff";
+export type ChatbotResponseMode = "managed_suggestion" | "room_information" | "gemini" | "gemini_fallback" | "demo";
 
 export type ChatbotEventInput = {
   requestId: string;
   eventType: ChatbotEventType;
   intent: "faq" | "search_room" | "unknown";
-  responseMode: "managed_suggestion" | "managed_faq" | "room_information" | "gemini" | "gemini_fallback" | "demo";
+  responseMode: ChatbotResponseMode;
   fallbackReason: string | null;
   handoffReason: string | null;
+  messageRedacted: string | null;
 };

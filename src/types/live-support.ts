@@ -20,6 +20,9 @@ export type SupportConversation = {
   resolved_at: string | null;
   summary: string | null;
   summary_generated_at: string | null;
+  latest_visitor_message_at?: string | null;
+  last_read_at?: string | null;
+  latest_message_content?: string | null;
 };
 
 export type SupportMessage = {
@@ -56,4 +59,7 @@ export type SupportBooking = {
   checkOut: string;
   status: string;
   totalAmount: number;
+  addonsTotal: number;
+  specialRequests: SelectedSpecialRequest[];
 };
+import type { SelectedSpecialRequest } from "@/types/booking";
