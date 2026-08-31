@@ -2,7 +2,7 @@ import { isIsoDate, nightsBetween } from "@/features/booking/date-rules";
 import type { AdminBookingEditPaymentMethod, AdminEditPaymentRequirement } from "@/types/admin-booking-edit";
 import type { BookingStatus } from "@/types/booking";
 
-export const EDITABLE_BOOKING_STATUSES: BookingStatus[] = ["confirmed", "checked_in"];
+export const EDITABLE_BOOKING_STATUSES: BookingStatus[] = ["pending_payment", "confirmed", "checked_in"];
 
 export type AdminBookingEditBlockReason =
   | "status_not_editable"
@@ -26,7 +26,50 @@ export function isAdminBookingEditable(status: BookingStatus): boolean {
 
 export function getAdminBookingEditBlockMessage(status: BookingStatus): string | null {
   if (isAdminBookingEditable(status)) return null;
-  return "Only confirmed or checked-in bookings can be edited";
+  return "Only pending-payment, confirmed, or checked-in bookings can be edited";
+}
+
+export function isUnpaidPendingPaymentBooking(status: BookingStatus): boolean {
+  return status === "pending_payment";
+}
+
+export function getAdminEditPaymentLabel(status: BookingStatus): string {
+  return isUnpaidPendingPaymentBooking(status) ? "Total due" : "Additional amount due";
+}
+
+export function getAdminEditPaymentLegend(status: BookingStatus): string {
+  return isUnpaidPendingPaymentBooking(status) ? "Payment method" : "Payment for the difference";
+}
+
+export function getAdminEditPaymentAmount(
+  status: BookingStatus,
+  nextTotal: number,
+  difference: number,
+): number {
+  return isUnpaidPendingPaymentBooking(status) ? nextTotal : difference;
+}
+
+export function resolveEditPaymentRequirementForBooking(
+  status: BookingStatus,
+  paymentMethod: AdminBookingEditPaymentMethod,
+  previousTotal: number,
+  nextTotal: number,
+): AdminEditPaymentRequirement {
+  const difference = calculateEditPriceDifference(previousTotal, nextTotal);
+  if (difference <= 0) {
+    return { requiresPayment: false };
+  }
+
+  if (isUnpaidPendingPaymentBooking(status)) {
+    return {
+      requiresPayment: true,
+      amount: nextTotal,
+      channel: "pay_at_hotel",
+      paymentStatus: "pay_at_hotel",
+    };
+  }
+
+  return resolveEditPaymentRequirement(paymentMethod, difference);
 }
 
 export function validateAdminDateChange(params: {

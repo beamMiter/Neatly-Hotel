@@ -4,7 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CloseIcon } from "@/components/icons/CloseIcon";
 import { resolveAddOnQuantity } from "@/lib/addon-pricing";
-import { isAdminBookingEditable } from "@/lib/admin-booking-edit";
+import {
+  getAdminEditPaymentAmount,
+  getAdminEditPaymentLabel,
+  getAdminEditPaymentLegend,
+  isAdminBookingEditable,
+  isUnpaidPendingPaymentBooking,
+} from "@/lib/admin-booking-edit";
 import { SpecialRequestStep } from "@/features/booking/components/steps/SpecialRequestStep";
 import type { SpecialRequestOption } from "@/types/booking";
 import type { CustomerBookingDetail } from "@/types/customer-booking";
@@ -95,7 +101,7 @@ function EditSpecialRequestsModal({ booking, catalog, onClose }: EditSpecialRequ
         additionalRequest: additionalRequest.trim() || null,
       };
 
-      if (showPaymentSection) {
+      if (showPaymentSection && !isUnpaidPendingPaymentBooking(booking.status)) {
         payload.paymentMethod = paymentMethod;
       }
 
@@ -181,33 +187,40 @@ function EditSpecialRequestsModal({ booking, catalog, onClose }: EditSpecialRequ
           {showPaymentSection && (
             <div className="mt-6 flex flex-col gap-3 rounded-md border border-brand-border bg-brand-surface px-5 py-4">
               <p className="text-sm text-brand-body">
-                Additional amount due: <span className="font-semibold">{formatThb(estimatedDifference)}</span>
+                {getAdminEditPaymentLabel(booking.status)}:{" "}
+                <span className="font-semibold">
+                  {formatThb(getAdminEditPaymentAmount(booking.status, estimatedTotal, estimatedDifference))}
+                </span>
               </p>
-              <fieldset className="flex flex-col gap-2">
-                <legend className="text-sm font-medium text-brand-body">Payment for the difference</legend>
-                <label className="flex cursor-pointer items-center gap-2 text-sm text-brand-body">
-                  <input
-                    type="radio"
-                    name="paymentMethod"
-                    value="credit_card"
-                    checked={paymentMethod === "credit_card"}
-                    onChange={() => setPaymentMethod("credit_card")}
-                    disabled={isSubmitting}
-                  />
-                  Credit card (Stripe)
-                </label>
-                <label className="flex cursor-pointer items-center gap-2 text-sm text-brand-body">
-                  <input
-                    type="radio"
-                    name="paymentMethod"
-                    value="cash"
-                    checked={paymentMethod === "cash"}
-                    onChange={() => setPaymentMethod("cash")}
-                    disabled={isSubmitting}
-                  />
-                  Pay at hotel
-                </label>
-              </fieldset>
+              {!isUnpaidPendingPaymentBooking(booking.status) && (
+                <fieldset className="flex flex-col gap-2">
+                  <legend className="text-sm font-medium text-brand-body">
+                    {getAdminEditPaymentLegend(booking.status)}
+                  </legend>
+                  <label className="flex cursor-pointer items-center gap-2 text-sm text-brand-body">
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="credit_card"
+                      checked={paymentMethod === "credit_card"}
+                      onChange={() => setPaymentMethod("credit_card")}
+                      disabled={isSubmitting}
+                    />
+                    Credit card (Stripe)
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-2 text-sm text-brand-body">
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="cash"
+                      checked={paymentMethod === "cash"}
+                      onChange={() => setPaymentMethod("cash")}
+                      disabled={isSubmitting}
+                    />
+                    Pay at hotel
+                  </label>
+                </fieldset>
+              )}
             </div>
           )}
 

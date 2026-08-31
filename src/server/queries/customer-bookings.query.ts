@@ -1,8 +1,9 @@
 import "server-only";
-import { differenceInCalendarDays } from "date-fns";
+import { nightsBetween } from "@/features/booking/date-rules";
 import { prisma } from "@/server/db";
 import { supabaseAdmin } from "@/server/db/supabase-admin";
 import { selectionCountFromStoredQuantity } from "@/lib/addon-pricing";
+import { formatUtcDateOnly } from "@/lib/local-date";
 import { getSpecialRequestCatalogForDisplay } from "@/server/queries/special-requests.query";
 import { getBookingPaymentBalance } from "@/server/queries/bookings.query";
 import type { BookingPaymentStatus, BookingStatus, SelectedSpecialRequest } from "@/types/booking";
@@ -173,7 +174,9 @@ async function toDetail(
   payment: { paidAmount: number; cardBrand: string | null; cardLast4: string | null },
 ): Promise<CustomerBookingDetail> {
   const rooms = row.booking_rooms ?? [];
-  const nights = differenceInCalendarDays(new Date(row.check_out), new Date(row.check_in));
+  const checkIn = typeof row.check_in === "string" ? row.check_in.slice(0, 10) : formatUtcDateOnly(row.check_in);
+  const checkOut = typeof row.check_out === "string" ? row.check_out.slice(0, 10) : formatUtcDateOnly(row.check_out);
+  const nights = nightsBetween(checkIn, checkOut);
   const roomSubtotal = rooms.reduce((sum, room) => sum + Number(room.price_per_night), 0) * nights;
   const catalog = await getSpecialRequestCatalogForDisplay();
   const standardRequestCodes = row.standard_requests ?? [];
@@ -203,8 +206,8 @@ async function toDetail(
     roomTypeId: rooms.find((room) => room.rooms?.room_type_id)?.rooms?.room_type_id ?? null,
     amount: rooms.length,
     bedType: summarizeDistinct(rooms.map((room) => room.rooms?.bed_type)),
-    checkIn: row.check_in,
-    checkOut: row.check_out,
+    checkIn,
+    checkOut,
     nights,
     bookingDate: row.created_at,
     totalAmount,
@@ -299,13 +302,60 @@ export async function getCustomerBookings({
 }
 
 export async function getCustomerBookingById(id: string): Promise<CustomerBookingDetail | null> {
-  const { data, error } = await supabaseAdmin.from("bookings").select(BOOKING_DETAIL_SELECT).eq("id", id).single();
+  const booking = await prisma.booking.findUnique({
+    where: { id },
+    include: {
+      rooms: {
+        include: {
+          room: {
+            select: {
+              roomNo: true,
+              roomType: true,
+              bedType: true,
+              roomTypeId: true,
+            },
+          },
+        },
+      },
+    },
+  });
 
-  if (error || !data) {
-    console.error("[bookings] failed to fetch booking detail:", error);
+  if (!booking) {
     return null;
   }
-  const row = data as unknown as BookingDetailRow;
+
+  const row: BookingDetailRow = {
+    id: booking.id,
+    booking_code: booking.bookingCode,
+    customer_id: booking.customerId,
+    check_in: formatUtcDateOnly(booking.checkIn),
+    check_out: formatUtcDateOnly(booking.checkOut),
+    guests: booking.guests,
+    status: booking.status,
+    payment_status: booking.paymentStatus,
+    total_amount: Number(booking.totalAmount),
+    created_at: booking.createdAt.toISOString(),
+    guest_first_name: booking.guestFirstName,
+    guest_last_name: booking.guestLastName,
+    guest_email: booking.guestEmail,
+    standard_requests: (booking.standardRequests as string[] | null) ?? [],
+    special_requests: (booking.specialRequests as StoredSpecialRequest[] | null) ?? [],
+    additional_request: booking.additionalRequest,
+    promo_code: booking.promoCode,
+    discount_amount: Number(booking.discountAmount),
+    payment_method: booking.paymentMethod,
+    booking_rooms: booking.rooms.map((entry) => ({
+      price_per_night: Number(entry.pricePerNight),
+      rooms: entry.room
+        ? {
+            room_no: entry.room.roomNo,
+            room_type: entry.room.roomType,
+            bed_type: entry.room.bedType,
+            room_type_id: entry.room.roomTypeId ?? "",
+          }
+        : null,
+    })),
+  };
 
   const [nameByCustomerId, payment] = await Promise.all([
     customerNamesByProfileId(row.customer_id ? [row.customer_id] : []),
@@ -317,7 +367,7 @@ export async function getCustomerBookingById(id: string): Promise<CustomerBookin
     row.guest_last_name,
     row.customer_id
       ? nameByCustomerId.get(row.customer_id) ?? "Unknown"
-      : "Unknown"
+      : "Guest",
   );
 
   return toDetail(row, customerName, payment);

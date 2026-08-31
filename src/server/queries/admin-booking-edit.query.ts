@@ -5,10 +5,12 @@ import { selectionCountFromStoredQuantity } from "@/lib/addon-pricing";
 import {
   calculateEditPriceDifference,
   getAdminBookingEditBlockMessage,
-  resolveEditPaymentRequirement,
+  isUnpaidPendingPaymentBooking,
+  resolveEditPaymentRequirementForBooking,
   validateAdminDateChange,
   validateRoomUpgrade,
 } from "@/lib/admin-booking-edit";
+import { formatUtcDateOnly } from "@/lib/local-date";
 import { prisma } from "@/server/db";
 import { validatePromotionCode } from "@/server/queries/promo.query";
 import {
@@ -197,6 +199,7 @@ function resolvePaymentDelta(params: {
   nextTotal: number;
   paymentMethod: AdminBookingEditPaymentMethod | undefined;
   currentPaymentStatus: string;
+  bookingStatus: BookingStatus;
 }): {
   pricingDelta: AdminBookingEditPricingDelta;
   paymentRequirement: AdminEditPaymentRequirement;
@@ -204,17 +207,32 @@ function resolvePaymentDelta(params: {
 } {
   const difference = calculateEditPriceDifference(params.previousTotal, params.nextTotal);
 
-  if (difference > 0 && !params.paymentMethod) {
+  const effectivePaymentMethod =
+    difference > 0 && isUnpaidPendingPaymentBooking(params.bookingStatus)
+      ? ("cash" as AdminBookingEditPaymentMethod)
+      : params.paymentMethod;
+
+  if (difference > 0 && !effectivePaymentMethod) {
     throw new PaymentMethodRequiredError();
   }
 
-  if (difference > 0 && params.paymentMethod === "credit_card" && difference < MIN_CHARGE_THB) {
+  const chargeAmount = isUnpaidPendingPaymentBooking(params.bookingStatus)
+    ? params.nextTotal
+    : difference;
+
+  if (difference > 0 && effectivePaymentMethod === "credit_card" && chargeAmount < MIN_CHARGE_THB) {
     throw new AmountTooLowError();
   }
 
-  const paymentRequirement = params.paymentMethod
-    ? resolveEditPaymentRequirement(params.paymentMethod, difference)
-    : { requiresPayment: false as const };
+  const paymentRequirement =
+    effectivePaymentMethod && difference > 0
+      ? resolveEditPaymentRequirementForBooking(
+          params.bookingStatus,
+          effectivePaymentMethod,
+          params.previousTotal,
+          params.nextTotal,
+        )
+      : { requiresPayment: false as const };
 
   const nextPaymentStatus = paymentRequirement.requiresPayment
     ? paymentRequirement.paymentStatus
@@ -256,8 +274,8 @@ export async function updateBookingSpecialRequests(
     throw new InvalidBookingTransitionError(blockMessage);
   }
 
-  const checkIn = booking.checkIn.toISOString().slice(0, 10);
-  const checkOut = booking.checkOut.toISOString().slice(0, 10);
+  const checkIn = formatUtcDateOnly(booking.checkIn);
+  const checkOut = formatUtcDateOnly(booking.checkOut);
   const nights = nightsBetween(checkIn, checkOut);
   const pricePerNightSum = booking.rooms.reduce((sum, room) => sum + Number(room.pricePerNight), 0);
 
@@ -284,6 +302,7 @@ export async function updateBookingSpecialRequests(
     nextTotal: pricing.totalAmount,
     paymentMethod: input.paymentMethod,
     currentPaymentStatus: booking.paymentStatus,
+    bookingStatus: status,
   });
 
   await prisma.booking.update({
@@ -331,8 +350,8 @@ export async function updateBookingDates(
   if (!booking) throw new BookingNotFoundError();
 
   const status = asBookingStatus(booking.status);
-  const currentCheckIn = booking.checkIn.toISOString().slice(0, 10);
-  const currentCheckOut = booking.checkOut.toISOString().slice(0, 10);
+  const currentCheckIn = formatUtcDateOnly(booking.checkIn);
+  const currentCheckOut = formatUtcDateOnly(booking.checkOut);
 
   const dateValidation = validateAdminDateChange({
     status,
@@ -373,6 +392,7 @@ export async function updateBookingDates(
     nextTotal: pricing.totalAmount,
     paymentMethod: input.paymentMethod,
     currentPaymentStatus: booking.paymentStatus,
+    bookingStatus: status,
   });
 
   await prisma.booking.update({
@@ -442,8 +462,8 @@ export async function getAdminRoomUpgradeOptions(bookingId: string): Promise<Adm
   const status = asBookingStatus(booking.status);
   if (getAdminBookingEditBlockMessage(status)) return [];
 
-  const checkIn = booking.checkIn.toISOString().slice(0, 10);
-  const checkOut = booking.checkOut.toISOString().slice(0, 10);
+  const checkIn = formatUtcDateOnly(booking.checkIn);
+  const checkOut = formatUtcDateOnly(booking.checkOut);
   const nights = nightsBetween(checkIn, checkOut);
   const roomsCount = booking.rooms.length;
   if (roomsCount === 0) return [];
@@ -533,8 +553,8 @@ export async function upgradeBookingRoom(
     throw new InvalidBookingTransitionError(blockMessage);
   }
 
-  const checkIn = booking.checkIn.toISOString().slice(0, 10);
-  const checkOut = booking.checkOut.toISOString().slice(0, 10);
+  const checkIn = formatUtcDateOnly(booking.checkIn);
+  const checkOut = formatUtcDateOnly(booking.checkOut);
   const nights = nightsBetween(checkIn, checkOut);
   const roomsCount = booking.rooms.length;
   if (roomsCount === 0) {
@@ -585,6 +605,7 @@ export async function upgradeBookingRoom(
     nextTotal: pricing.totalAmount,
     paymentMethod: input.paymentMethod,
     currentPaymentStatus: booking.paymentStatus,
+    bookingStatus: status,
   });
 
   const oldRoomIds = booking.rooms.map((room) => room.roomId);
