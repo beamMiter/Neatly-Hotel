@@ -2,6 +2,7 @@ import "server-only";
 import { differenceInCalendarDays } from "date-fns";
 import { prisma } from "@/server/db";
 import { supabaseAdmin } from "@/server/db/supabase-admin";
+import { selectionCountFromStoredQuantity } from "@/lib/addon-pricing";
 import { getSpecialRequestCatalogForDisplay } from "@/server/queries/special-requests.query";
 import type { BookingPaymentStatus, BookingStatus, SelectedSpecialRequest } from "@/types/booking";
 import type { CustomerBookingSummary, CustomerBookingDetail } from "@/types/customer-booking";
@@ -115,30 +116,35 @@ function resolveCustomerName(
   return guestName || profileName;
 }
 
-async function fetchSuccessfulPayment(bookingId: string): Promise<{ cardBrand: string | null; cardLast4: string | null }> {
+async function fetchPaymentSummary(bookingId: string): Promise<{
+  paidAmount: number;
+  cardBrand: string | null;
+  cardLast4: string | null;
+}> {
   const { data, error } = await supabaseAdmin
     .from("payments")
-    .select("card_brand, card_last4")
+    .select("amount, card_brand, card_last4, status, updated_at")
     .eq("booking_id", bookingId)
-    .eq("status", "succeeded")
-    .order("updated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .order("updated_at", { ascending: false });
 
   if (error) {
-    console.error("[payments] failed to fetch card details:", error);
-    return { cardBrand: null, cardLast4: null };
+    console.error("[payments] failed to fetch payment summary:", error);
+    return { paidAmount: 0, cardBrand: null, cardLast4: null };
   }
 
-  return { cardBrand: data?.card_brand ?? null, cardLast4: data?.card_last4 ?? null };
+  const rows = data ?? [];
+  const paidAmount = rows
+    .filter((row) => row.status === "succeeded")
+    .reduce((sum, row) => sum + Number(row.amount), 0);
+  const latestSuccess = rows.find((row) => row.status === "succeeded");
+
+  return {
+    paidAmount,
+    cardBrand: latestSuccess?.card_brand ?? null,
+    cardLast4: latestSuccess?.card_last4 ?? null,
+  };
 }
 
-async function resolveStandardRequestLabels(codes: string[]): Promise<string[]> {
-  if (codes.length === 0) return [];
-  const catalog = await getSpecialRequestCatalogForDisplay();
-  const labelByCode = new Map(catalog.map((option) => [option.code, option.label]));
-  return codes.map((code) => labelByCode.get(code) ?? code);
-}
 
 async function customerNamesByProfileId(customerIds: string[]): Promise<Map<string, string>> {
   const ids = customerIds.filter(Boolean);
@@ -179,12 +185,29 @@ function asPaymentMethod(value: string | null): "credit_card" | "cash" {
 async function toDetail(
   row: BookingDetailRow,
   customerName: string,
-  card: { cardBrand: string | null; cardLast4: string | null }
+  payment: { paidAmount: number; cardBrand: string | null; cardLast4: string | null },
 ): Promise<CustomerBookingDetail> {
   const rooms = row.booking_rooms ?? [];
   const nights = differenceInCalendarDays(new Date(row.check_out), new Date(row.check_in));
   const roomSubtotal = rooms.reduce((sum, room) => sum + Number(room.price_per_night), 0) * nights;
-  const standardRequests = await resolveStandardRequestLabels(row.standard_requests ?? []);
+  const catalog = await getSpecialRequestCatalogForDisplay();
+  const standardRequestCodes = row.standard_requests ?? [];
+  const labelByCode = new Map(catalog.map((option) => [option.code, option.label]));
+  const standardRequests = standardRequestCodes.map((code) => labelByCode.get(code) ?? code);
+
+  const specialRequestSelections: Record<string, number> = {};
+  for (const item of row.special_requests ?? []) {
+    const option = catalog.find((entry) => entry.code === item.code);
+    if (!option) continue;
+    specialRequestSelections[item.code] = selectionCountFromStoredQuantity(
+      option.billingType,
+      item.quantity ?? 1,
+      nights,
+    );
+  }
+
+  const totalAmount = Number(row.total_amount);
+  const amountDue = Math.max(0, totalAmount - payment.paidAmount);
 
   return {
     id: row.id,
@@ -198,23 +221,27 @@ async function toDetail(
     checkOut: row.check_out,
     nights,
     bookingDate: row.created_at,
-    totalAmount: Number(row.total_amount),
+    totalAmount,
     status: asBookingStatus(row.status),
     paymentStatus: asPaymentStatus(row.payment_status),
     roomNos: rooms.map((room) => room.rooms?.room_no).filter((value): value is string => Boolean(value)),
     paymentMethod: asPaymentMethod(row.payment_method),
-    cardBrand: card.cardBrand,
-    cardLast4: card.cardLast4,
+    cardBrand: payment.cardBrand,
+    cardLast4: payment.cardLast4,
     roomSubtotal,
     standardRequests,
+    standardRequestCodes,
     specialRequests: (row.special_requests ?? []).map((item) => ({
       label: item.label,
       price: item.price,
       quantity: item.quantity ?? 1,
     })),
+    specialRequestSelections,
     additionalRequest: row.additional_request,
     promoCode: row.promo_code,
     discountAmount: Number(row.discount_amount ?? 0),
+    paidAmount: payment.paidAmount,
+    amountDue,
   };
 }
 
@@ -294,9 +321,9 @@ export async function getCustomerBookingById(id: string): Promise<CustomerBookin
   }
   const row = data as unknown as BookingDetailRow;
 
-  const [nameByCustomerId, card] = await Promise.all([
+  const [nameByCustomerId, payment] = await Promise.all([
     customerNamesByProfileId(row.customer_id ? [row.customer_id] : []),
-    fetchSuccessfulPayment(row.id),
+    fetchPaymentSummary(row.id),
   ]);
 
   const customerName = resolveCustomerName(
@@ -307,7 +334,7 @@ export async function getCustomerBookingById(id: string): Promise<CustomerBookin
       : "Unknown"
   );
 
-  return toDetail(row, customerName, card);
+  return toDetail(row, customerName, payment);
 }
 
 export async function checkInBooking(bookingId: string): Promise<CustomerBookingDetail> {

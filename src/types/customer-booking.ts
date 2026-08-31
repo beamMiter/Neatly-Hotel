@@ -43,8 +43,12 @@ export type CustomerBookingDetail = {
   cardLast4: string | null;
   roomSubtotal: number;
   standardRequests: string[];
+  standardRequestCodes: string[];
   specialRequests: CustomerBookingSpecialRequest[];
+  specialRequestSelections: Record<string, number>;
   additionalRequest: string | null;
   promoCode: string | null;
   discountAmount: number;
+  paidAmount: number;
+  amountDue: number;
 };

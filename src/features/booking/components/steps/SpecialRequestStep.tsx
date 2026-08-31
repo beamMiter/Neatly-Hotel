@@ -17,6 +17,7 @@ type SpecialRequestStepProps = {
   onAdditionalRequestChange: (value: string) => void;
   onBack: () => void;
   onNext: () => void;
+  showActions?: boolean;
 };
 
 const HEADING_CLASSNAME = "[font-family:var(--font-inter)] text-xl leading-[150%] font-semibold tracking-[-0.02em] text-[#424C6B]";
@@ -183,6 +184,7 @@ export function SpecialRequestStep({
   onAdditionalRequestChange,
   onBack,
   onNext,
+  showActions = true,
 }: SpecialRequestStepProps) {
   const standardOptions = catalog.filter((option) => option.category === "standard");
   const specialOptions = catalog.filter((option) => option.category === "special");
@@ -239,22 +241,24 @@ export function SpecialRequestStep({
           />
         </div>
 
-        <div className="flex w-full items-center justify-between">
-          <button
-            type="button"
-            onClick={onBack}
-            className="cursor-pointer px-2 py-1 [font-family:var(--font-open-sans)] text-base font-semibold text-[#E76B39]"
-          >
-            Back
-          </button>
-          <button
-            type="button"
-            onClick={onNext}
-            className="flex items-center justify-center rounded bg-[#C14817] px-8 py-4 [font-family:var(--font-open-sans)] text-base font-semibold text-white hover:bg-[#A93F13]"
-          >
-            Next
-          </button>
-        </div>
+        {showActions && (
+          <div className="flex w-full items-center justify-between">
+            <button
+              type="button"
+              onClick={onBack}
+              className="cursor-pointer px-2 py-1 [font-family:var(--font-open-sans)] text-base font-semibold text-[#E76B39]"
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              onClick={onNext}
+              className="flex items-center justify-center rounded bg-[#C14817] px-8 py-4 [font-family:var(--font-open-sans)] text-base font-semibold text-white hover:bg-[#A93F13]"
+            >
+              Next
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
