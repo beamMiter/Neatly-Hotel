@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { analyzeLocally, findHandoffReason, isVerifiedFaqAnalysis, resolveChatbotAnalysis } from "../src/server/services/chatbot-intent.service.ts";
 import { buildUnknownChatbotMessage } from "../src/lib/chatbot-fallback.ts";
+import { redactChatbotMessage } from "../src/lib/chatbot-redaction.ts";
 import { getBangkokDate, normalizeChatbotSearchState, validateChatbotDateRange } from "../src/lib/chatbot-date-validation.ts";
 
 const idleSearch = { checkIn: null, checkOut: null, guests: null, budget: null, phase: "idle" };
@@ -30,17 +31,24 @@ assert.equal(analyzeLocally("Find a room with Wi-Fi", idleSearch).intent, "searc
 assert.equal(analyzeLocally("เข้าพักได้ไหม", idleSearch).intent, "unknown");
 assert.deepEqual(
   analyzeLocally("12/09/2026", { ...collectingSearch, checkIn: "2026-09-10" }),
-  { intent: "search_room", faqTopic: "other", confidence: 1, checkIn: "2026-09-10", checkOut: "2026-09-12", guests: null, budget: null },
+  { intent: "search_room", faqTopic: "other", handoffReason: null, confidence: 1, checkIn: "2026-09-10", checkOut: "2026-09-12", guests: null, budget: null },
 );
 assert.equal(findHandoffReason("ขอคุยกับเจ้าหน้าที่", []), "explicit_agent_request");
 assert.equal(findHandoffReason("can I chat with your agent", []), "explicit_agent_request");
 assert.equal(findHandoffReason("Could I speak with a representative?", []), "explicit_agent_request");
 assert.equal(findHandoffReason("Please connect me to the receptionist", []), "explicit_agent_request");
 assert.equal(findHandoffReason("What can your agent do?", []), null);
-assert.equal(findHandoffReason("ขอคืนเงินได้ไหม", []), null);
+assert.equal(findHandoffReason("ขอคืนเงินได้ไหม", []), "refund_request");
+assert.equal(findHandoffReason("ต้องการยกเลิกการจอง", []), "booking_change");
+assert.equal(findHandoffReason("บัตรเครดิตถูกตัดเงินแต่จ่ายไม่ผ่าน", []), "payment_issue");
+assert.equal(findHandoffReason("ต้องการร้องเรียนพนักงาน", []), "complaint");
+assert.equal(findHandoffReason("I need to modify my reservation", []), "booking_change");
+assert.equal(findHandoffReason("My card payment was declined", []), "payment_issue");
+assert.equal(findHandoffReason("What payment methods do you accept?", []), null);
+assert.equal(findHandoffReason("What is your cancellation policy?", []), null);
 assert.equal(findHandoffReason("ถามซ้ำ", [{ role: "user", content: "ถามซ้ำ" }]), null);
 
-const emptyAnalysis = { faqTopic: "other", checkIn: null, checkOut: null, guests: null, budget: null };
+const emptyAnalysis = { faqTopic: "other", handoffReason: null, checkIn: null, checkOut: null, guests: null, budget: null };
 assert.deepEqual(
   resolveChatbotAnalysis(
     { ...emptyAnalysis, intent: "unknown", confidence: 0 },
@@ -126,6 +134,10 @@ assert.equal(
 assert.equal(
   buildUnknownChatbotMessage("ขออภัยค่ะ"),
   "ขออภัยค่ะ",
+);
+assert.equal(
+  redactChatbotMessage("โทร 081-234-5678 อีเมล guest@example.com booking BK-ABCD1234"),
+  "โทร [REDACTED_PHONE] อีเมล [REDACTED_EMAIL] [REDACTED_BOOKING_CODE]",
 );
 
 const validationNow = new Date("2026-08-31T05:00:00.000Z");

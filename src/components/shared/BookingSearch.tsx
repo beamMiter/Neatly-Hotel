@@ -13,7 +13,9 @@ import { appendSearchFilterParams, type SearchQuery } from '@/types/room-search'
 type BookingSearchProps = {
 	initialQuery?: Partial<SearchQuery>;
 	compact?: boolean;
+	stacked?: boolean;
 	extraControl?: ReactNode;
+	onSearch?: (query: Pick<SearchQuery, 'checkIn' | 'checkOut' | 'rooms' | 'guests'>) => void;
 };
 
 const startOfLocalDay = (date = new Date()) =>
@@ -45,7 +47,7 @@ const toIsoDate = (date: Date) => {
 	return `${year}-${month}-${day}`;
 };
 
-const BookingSearch = ({ initialQuery, compact = false, extraControl }: BookingSearchProps) => {
+const BookingSearch = ({ initialQuery, compact = false, stacked = false, extraControl, onSearch }: BookingSearchProps) => {
 	const router = useRouter();
 	const hasUrlDates = Boolean(initialQuery?.checkIn && initialQuery?.checkOut);
 	const usingDefaults = useRef(!hasUrlDates);
@@ -79,11 +81,22 @@ const BookingSearch = ({ initialQuery, compact = false, extraControl }: BookingS
 	}, [hasUrlDates]);
 
 	const handleSearch = () => {
+		const searchQuery = {
+			checkIn: checkIn ? toIsoDate(checkIn) : '',
+			checkOut: checkOut ? toIsoDate(checkOut) : '',
+			rooms,
+			guests,
+		};
+		if (onSearch) {
+			onSearch(searchQuery);
+			return;
+		}
+
 		const params = new URLSearchParams();
-		if (checkIn) params.set('checkIn', toIsoDate(checkIn));
-		if (checkOut) params.set('checkOut', toIsoDate(checkOut));
-		params.set('rooms', String(rooms));
-		params.set('guests', String(guests));
+		if (searchQuery.checkIn) params.set('checkIn', searchQuery.checkIn);
+		if (searchQuery.checkOut) params.set('checkOut', searchQuery.checkOut);
+		params.set('rooms', String(searchQuery.rooms));
+		params.set('guests', String(searchQuery.guests));
 		if (compact) {
 			appendSearchFilterParams(params, {
 				minPrice: initialQuery?.minPrice,
@@ -105,6 +118,7 @@ const BookingSearch = ({ initialQuery, compact = false, extraControl }: BookingS
 			<div className={compact ? 'col-span-2 min-w-0 lg:col-auto' : 'flex w-full flex-col gap-6 lg:w-auto lg:flex-row lg:items-end lg:gap-10'}>
 				<DatePicker
 					compact={compact}
+					stacked={stacked}
 					checkIn={checkIn}
 					checkOut={checkOut}
 					onChange={(nextCheckIn, nextCheckOut) => {
@@ -138,9 +152,9 @@ const BookingSearch = ({ initialQuery, compact = false, extraControl }: BookingS
 			<button
 				type="button"
 				onClick={handleSearch}
-				className={`flex h-12 flex-none cursor-pointer items-center justify-center gap-2.5 rounded bg-[#C14817] px-8 py-4 [font-family:var(--font-open-sans)] text-base font-semibold text-white transition-transform duration-150 active:scale-90 ${
-					compact ? 'col-span-2 w-full lg:w-36' : 'w-full lg:w-36'
-				}`}
+			className={`flex h-12 flex-none cursor-pointer items-center justify-center gap-2.5 rounded bg-[#C14817] px-8 py-4 [font-family:var(--font-open-sans)] text-base font-semibold text-white transition-transform duration-150 active:scale-90 ${
+				compact ? `col-span-2 w-full lg:w-36 ${stacked ? 'mx-auto' : ''}` : 'w-full lg:w-36'
+			}`}
 			>
 				Search
 			</button>

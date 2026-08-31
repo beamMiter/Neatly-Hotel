@@ -16,6 +16,23 @@ export class SupportMessageLimitError extends Error {
   }
 }
 
+const RESOLVED_CONVERSATION_REOPEN_WINDOW_MS = 72 * 60 * 60 * 1000;
+
+export class ExpiredSupportConversationError extends Error {
+  constructor() {
+    super("This support conversation has expired");
+    this.name = "ExpiredSupportConversationError";
+  }
+}
+
+export function isResolvedSupportConversationExpired(conversation: SupportConversation, now = Date.now()) {
+  if (conversation.status !== "resolved") return false;
+  if (!conversation.resolved_at) return true;
+
+  const resolvedAt = new Date(conversation.resolved_at).getTime();
+  return !Number.isFinite(resolvedAt) || now - resolvedAt > RESOLVED_CONVERSATION_REOPEN_WINDOW_MS;
+}
+
 export async function findVisitorConversation(visitorToken: string) {
   const { data, error } = await supabaseAdmin
     .from("support_conversations")
@@ -38,22 +55,37 @@ export async function createOrReopenVisitorConversation(
       ...(customerPhone && existingConversation.customer_phone !== customerPhone ? { customer_phone: customerPhone } : {}),
       ...(customerId && existingConversation.customer_id !== customerId ? { customer_id: customerId } : {}),
     };
-    return Object.keys(update).length > 0
-      ? updateSupportConversation(existingConversation.id, update)
+    const conversation = Object.keys(update).length > 0
+      ? await updateSupportConversation(existingConversation.id, update)
       : existingConversation;
+    return { conversation, started: false };
+  }
+
+  if (existingConversation) {
+    if (isResolvedSupportConversationExpired(existingConversation)) {
+      throw new ExpiredSupportConversationError();
+    }
+
+    const conversation = await updateSupportConversation(existingConversation.id, {
+      assigned_agent_id: null,
+      customer_phone: customerPhone ?? existingConversation.customer_phone,
+      customer_id: customerId ?? existingConversation.customer_id,
+      resolved_at: null,
+      status: "waiting",
+      summary: null,
+      summary_generated_at: null,
+    });
+    return { conversation, started: true };
   }
 
   const { data, error } = await supabaseAdmin
     .from("support_conversations")
-    .upsert(
-      { visitor_token: visitorToken, customer_phone: customerPhone, customer_id: customerId, status: "waiting", resolved_at: null },
-      { onConflict: "visitor_token" },
-    )
+    .insert({ visitor_token: visitorToken, customer_phone: customerPhone, customer_id: customerId, status: "waiting" })
     .select("*")
     .single();
 
   if (error) throw new Error(error.message);
-  return data as SupportConversation;
+  return { conversation: data as SupportConversation, started: true };
 }
 
 export async function listConversationMessages(conversationId: string) {
@@ -112,9 +144,9 @@ export async function addVisitorSupportMessage(
 }
 
 export async function listSupportConversations(adminId: string) {
-  const [{ data: conversations, error: conversationsError }, { data: visitorMessages, error: messagesError }, { data: readReceipts, error: receiptsError }] = await Promise.all([
+  const [{ data: conversations, error: conversationsError }, { data: messages, error: messagesError }, { data: readReceipts, error: receiptsError }] = await Promise.all([
     supabaseAdmin.from("support_conversations").select("*").order("last_message_at", { ascending: false }),
-    supabaseAdmin.from("support_messages").select("conversation_id, created_at").eq("sender", "visitor"),
+    supabaseAdmin.from("support_messages").select("conversation_id, sender, content, created_at"),
     supabaseAdmin.from("support_conversation_read_receipts").select("conversation_id, last_read_at").eq("admin_id", adminId),
   ]);
 
@@ -123,7 +155,13 @@ export async function listSupportConversations(adminId: string) {
   if (receiptsError) throw new Error(receiptsError.message);
 
   const latestVisitorMessageByConversation = new Map<string, string>();
-  for (const message of visitorMessages ?? []) {
+  const latestMessageByConversation = new Map<string, { content: string; createdAt: string }>();
+  for (const message of messages ?? []) {
+    const latestMessage = latestMessageByConversation.get(message.conversation_id);
+    if (!latestMessage || new Date(message.created_at).getTime() > new Date(latestMessage.createdAt).getTime()) {
+      latestMessageByConversation.set(message.conversation_id, { content: message.content, createdAt: message.created_at });
+    }
+    if (message.sender !== "visitor") continue;
     const latest = latestVisitorMessageByConversation.get(message.conversation_id);
     if (!latest || new Date(message.created_at).getTime() > new Date(latest).getTime()) {
       latestVisitorMessageByConversation.set(message.conversation_id, message.created_at);
@@ -135,6 +173,7 @@ export async function listSupportConversations(adminId: string) {
     ...conversation,
     latest_visitor_message_at: latestVisitorMessageByConversation.get(conversation.id) ?? null,
     last_read_at: readAtByConversation.get(conversation.id) ?? null,
+    latest_message_content: latestMessageByConversation.get(conversation.id)?.content ?? null,
   })) as SupportConversation[];
 }
 

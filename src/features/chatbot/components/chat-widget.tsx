@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
+import BookingSearch from "@/components/shared/BookingSearch";
 import { buildBookingHref } from "@/features/booking-flow/utils";
 import { resolveAddOnQuantity } from "@/lib/addon-pricing";
 import type { ChatbotRoomResult, ChatbotSearchState, ChatbotSuggestion } from "@/types/chatbot";
@@ -50,8 +51,8 @@ const CHATBOT_LOCALE_KEY = "neatly-chatbot-locale";
 const LIVE_SUPPORT_POLL_INTERVAL_MS = 5_000;
 
 const widgetCopy: Record<WidgetLocale, Record<string, string>> = {
-  th: { back: "ย้อนกลับ", reset: "เริ่มแชทใหม่", booking: "การจอง", conversation: "บทสนทนา", checkIn: "เข้า", checkOut: "ออก", guests: "ท่าน", budget: "บาท", bookNow: "จองเลย", viewDetails: "ดูรายละเอียด", retry: "ลองถามใหม่", liveSupport: "คุยกับเจ้าหน้าที่", helpRoom: "ต้องการให้เจ้าหน้าที่ช่วยแนะนำห้องนี้ไหม?", help: "ยังต้องการความช่วยเหลือเพิ่มเติมไหม?", phone: "เบอร์โทรศัพท์สำหรับติดต่อกลับ (ไม่บังคับ)", phonePrompt: "หากต้องการให้เจ้าหน้าที่ติดต่อกลับ สามารถกรอกเบอร์โทรศัพท์ได้ (ไม่บังคับ)", phoneExample: "เช่น 081 234 5678", startSupport: "เริ่มคุยกับเจ้าหน้าที่", otp: "รหัสยืนยันจาก SMS", otpPlaceholder: "กรอกรหัส OTP", verifyPhone: "ยืนยันเบอร์โทรศัพท์", typing: "กำลังพิมพ์", messagePlaceholder: "พิมพ์ข้อความ", close: "ปิดหน้าต่างแชท", open: "เปิดแชทกับ Neatly Hotel" },
-  en: { back: "Back", reset: "Reset chat", booking: "Booking", conversation: "Conversation", checkIn: "Check-in", checkOut: "Check-out", guests: "guests", budget: "THB", bookNow: "Book Now", viewDetails: "View Details", retry: "Ask again", liveSupport: "Talk to an agent", helpRoom: "Would you like an agent to help with this room?", help: "Do you need more help?", phone: "Phone number for a callback (optional)", phonePrompt: "Enter a phone number if you would like an agent to call you back (optional).", phoneExample: "e.g. 081 234 5678", startSupport: "Start live support", otp: "SMS verification code", otpPlaceholder: "Enter the OTP", verifyPhone: "Verify phone number", typing: "Typing", messagePlaceholder: "Write your message", close: "Close chat", open: "Open chat with Neatly Hotel" },
+  th: { back: "ย้อนกลับ", reset: "เริ่มแชทใหม่", booking: "การจอง", conversation: "บทสนทนา", checkIn: "เข้า", checkOut: "ออก", guests: "ท่าน", budget: "บาท", bookNow: "จองเลย", viewDetails: "ดูรายละเอียด", retry: "ลองถามใหม่", liveSupport: "คุยกับเจ้าหน้าที่", helpRoom: "ต้องการให้เจ้าหน้าที่ช่วยแนะนำห้องนี้ไหม?", help: "ยังต้องการความช่วยเหลือเพิ่มเติมไหม?", phone: "เบอร์โทรศัพท์สำหรับติดต่อกลับ (ไม่บังคับ)", phonePrompt: "หากต้องการให้เจ้าหน้าที่ติดต่อกลับ สามารถกรอกเบอร์โทรศัพท์ได้ (ไม่บังคับ)", phoneExample: "เช่น 081 234 5678", startSupport: "เริ่มคุยกับเจ้าหน้าที่", supportRequest: "ต้องการพูดคุยกับเจ้าหน้าที่ Live Support", otp: "รหัสยืนยันจาก SMS", otpPlaceholder: "กรอกรหัส OTP", verifyPhone: "ยืนยันเบอร์โทรศัพท์", typing: "กำลังพิมพ์", messagePlaceholder: "พิมพ์ข้อความ", close: "ปิดหน้าต่างแชท", open: "เปิดแชทกับ Neatly Hotel" },
+  en: { back: "Back", reset: "Reset chat", booking: "Booking", conversation: "Conversation", checkIn: "Check-in", checkOut: "Check-out", guests: "guests", budget: "THB", bookNow: "Book Now", viewDetails: "View Details", retry: "Ask again", liveSupport: "Talk to an agent", helpRoom: "Would you like an agent to help with this room?", help: "Do you need more help?", phone: "Phone number for a callback (optional)", phonePrompt: "Enter a phone number if you would like an agent to call you back (optional).", phoneExample: "e.g. 081 234 5678", startSupport: "Start live support", supportRequest: "I would like to speak with a live support agent.", otp: "SMS verification code", otpPlaceholder: "Enter the OTP", verifyPhone: "Verify phone number", typing: "Typing", messagePlaceholder: "Write your message", close: "Close chat", open: "Open chat with Neatly Hotel" },
 };
 
 function toChatMessage(message: SupportMessageResponse): ChatMessage {
@@ -77,11 +78,17 @@ function supportStatusLabel(conversation: SupportSessionResponse["conversation"]
   return "Waiting";
 }
 
-function supportStatusDescription(conversation: SupportSessionResponse["conversation"]) {
+function supportStatusDescription(conversation: SupportSessionResponse["conversation"], locale: WidgetLocale) {
   if (!conversation) return null;
-  if (conversation.status === "resolved") return "This conversation is closed. Reset chat to start a new request.";
-  if (conversation.status === "active" || conversation.assigned_agent_id) return "An agent has received your request.";
-  return "Your request is waiting for an agent.";
+  if (conversation.status === "resolved") {
+    return locale === "th"
+      ? "การสนทนานี้ปิดแล้ว ส่งข้อความใหม่ภายใน 72 ชั่วโมงเพื่อเปิดเคสเดิมได้"
+      : "This conversation is closed. Send another message within 72 hours to reopen it.";
+  }
+  if (conversation.status === "active" || conversation.assigned_agent_id) {
+    return locale === "th" ? "เจ้าหน้าที่รับเรื่องของคุณแล้ว" : "An agent has received your request.";
+  }
+  return locale === "th" ? "คำขอของคุณกำลังรอเจ้าหน้าที่" : "Your request is waiting for an agent.";
 }
 
 function formatBookingDate(value: string) {
@@ -559,6 +566,7 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
   function createLiveSupport(content: string, phone: string | null = null) {
     if (isLoading || hasRequestedLiveSupport) return;
     const normalizedPhone = phone?.trim() ?? "";
+    const contextMessage = messages.findLast((message) => message.role === "user")?.content ?? content;
     const savedToken = window.localStorage.getItem(LIVE_SUPPORT_TOKEN_KEY);
     const token = savedToken ?? crypto.randomUUID();
     if (!savedToken) window.localStorage.setItem(LIVE_SUPPORT_TOKEN_KEY, token);
@@ -571,6 +579,8 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
         visitorToken: token,
         contactPhone: normalizedPhone || null,
         content,
+        locale,
+        contextMessage,
       }),
     })
       .then(async (response) => {
@@ -578,6 +588,7 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
         const data = (await response.json()) as {
           conversation: SupportSessionResponse["conversation"];
           message: SupportMessageResponse;
+          systemMessage: SupportMessageResponse | null;
         };
         setVisitorToken(token);
         setHasRequestedLiveSupport(true);
@@ -589,11 +600,7 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
             role: "user",
             content,
           },
-          {
-            id: crypto.randomUUID(),
-            role: "assistant",
-            content: "เชื่อมต่อกับเจ้าหน้าที่แล้วค่ะ พิมพ์รายละเอียดที่ต้องการความช่วยเหลือได้เลย",
-          },
+          ...(data.systemMessage ? [toChatMessage(data.systemMessage)] : []),
         ]);
       })
       .catch(() => {
@@ -614,11 +621,11 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
     const phone = contactPhone.trim();
     const digits = phone.replace(/\D/g, "");
     if (phone && (digits.length < 7 || digits.length > 15)) return;
-    createLiveSupport("ต้องการพูดคุยกับเจ้าหน้าที่ Live Support", phone);
+    createLiveSupport(widgetCopy[locale].supportRequest, phone);
   }
 
   async function sendLiveSupportMessage(content: string) {
-    if (!visitorToken || isSupportResolved) return;
+    if (!visitorToken) return;
 
     const messageId = crypto.randomUUID();
     setMessages((current) => [
@@ -632,17 +639,28 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
       const response = await fetch("/api/live-support/visitor", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ visitorToken, content }),
+        body: JSON.stringify({ visitorToken, content, locale }),
       });
-      if (!response.ok) throw new Error("Unable to send support message");
       const data = (await response.json()) as {
         conversation: SupportSessionResponse["conversation"];
         message: SupportMessageResponse;
+        systemMessage?: SupportMessageResponse | null;
+        expired?: boolean;
       };
+      if (!response.ok) {
+        if (data.expired) {
+          resetLiveSupport();
+          return;
+        }
+        throw new Error("Unable to send support message");
+      }
       setSupportConversation(data.conversation);
-      setMessages((current) => current.map((message) => (
-        message.id === messageId ? toChatMessage(data.message) : message
-      )));
+      setMessages((current) => [
+        ...current.map((message) => (
+          message.id === messageId ? toChatMessage(data.message) : message
+        )),
+        ...(data.systemMessage ? [toChatMessage(data.systemMessage)] : []),
+      ]);
     } catch {
       setMessages((current) => [
         ...current,
@@ -660,13 +678,6 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     void sendMessage(input);
-  }
-
-  function handleFilterSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const searchMessage = `ค้นหาห้องพัก ${filterSearch.checkIn} ถึง ${filterSearch.checkOut} สำหรับ ${filterSearch.guests} ท่าน`;
-    setView("chat");
-    void sendMessage(searchMessage, filterSearch, bookingSuggestionId ?? undefined);
   }
 
   function resetLiveSupport() {
@@ -727,7 +738,7 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
       hasRoomTypeSuggestion || hasSelectedRoom || completedUserTurns >= 3 || hasUnresolvedQuestion
     );
   const liveSupportStatus = supportStatusLabel(supportConversation);
-  const liveSupportStatusDescription = supportStatusDescription(supportConversation);
+  const liveSupportStatusDescription = supportStatusDescription(supportConversation, locale);
   const isSupportResolved = supportConversation?.status === "resolved";
   const hasBookingConfirmationMessage = messages.some((message) => isBookingConfirmationMessage(message, supportBooking));
   const t = widgetCopy[locale];
@@ -977,36 +988,35 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
             )}
           </div>
           ) : (
-            <div className="isolate flex min-h-0 w-full flex-1 flex-col gap-4 overflow-y-auto bg-[#F7F7FB] px-5 py-6">
-              <div className="flex items-center gap-3">
-                <span className="grid h-[38px] w-[38px] place-items-center rounded-xl bg-[#e6eee8] text-[22px] text-[#698172]">⌕</span>
-                <div><h3 className="m-0 text-[17px] text-[#3e5046]">ค้นหาห้องพัก</h3><p className="m-0 text-[10px] text-[#89928d]">ระบุรายละเอียดเพื่อดูห้องที่เหมาะกับคุณ</p></div>
+            <div className="isolate flex min-h-0 w-full flex-1 flex-col gap-6 overflow-y-auto bg-[#F7F7FB] px-4 py-6">
+              <p className="m-0 text-center text-sm text-[#646D89]">{locale === "th" ? "ค้นหาห้องว่าง" : "Search available rooms"}</p>
+              <div className="mx-auto w-full max-w-[260px]">
+                <BookingSearch
+                  compact
+                  stacked
+                  initialQuery={{
+                    checkIn: filterSearch.checkIn ?? undefined,
+                    checkOut: filterSearch.checkOut ?? undefined,
+                    rooms: 1,
+                    guests: filterSearch.guests ?? undefined,
+                  }}
+                  onSearch={(nextSearch) => {
+                    const searchState: ChatbotSearchState = {
+                      ...filterSearch,
+                      checkIn: nextSearch.checkIn || null,
+                      checkOut: nextSearch.checkOut || null,
+                      guests: nextSearch.guests,
+                    };
+                    setFilterSearch(searchState);
+                    setView("chat");
+                    const searchMessage = locale === "th"
+                      ? `ค้นหาห้องพัก ${nextSearch.checkIn} ถึง ${nextSearch.checkOut} สำหรับ ${nextSearch.guests} ท่าน`
+                      : `Find a room from ${nextSearch.checkIn} to ${nextSearch.checkOut} for ${nextSearch.guests} guests`;
+                    void sendMessage(searchMessage, searchState, bookingSuggestionId ?? undefined);
+                  }}
+                />
               </div>
-              <form className="grid gap-3 rounded-[15px] border border-[#e0e5e1] bg-white p-[15px] shadow-[0_4px_14px_rgba(35,45,40,.05)]" onSubmit={handleFilterSubmit}>
-                <label className="grid gap-1 text-[10px] text-[#5e6e65]">
-                  <span>วันเช็กอิน</span>
-                  <input className="w-full rounded-[9px] border border-[#dce2de] bg-white px-[10px] py-[9px] text-[11px] text-[#3f4d45] outline-none focus:border-[#8ba092] focus:ring-2 focus:ring-[#849b8c]/15" type="date" required value={filterSearch.checkIn ?? ""} onChange={(event) => setFilterSearch((current) => ({ ...current, checkIn: event.target.value || null }))} />
-                </label>
-                <label className="grid gap-1 text-[10px] text-[#5e6e65]">
-                  <span>วันเช็กเอาต์</span>
-                  <input className="w-full rounded-[9px] border border-[#dce2de] bg-white px-[10px] py-[9px] text-[11px] text-[#3f4d45] outline-none focus:border-[#8ba092] focus:ring-2 focus:ring-[#849b8c]/15" type="date" required value={filterSearch.checkOut ?? ""} onChange={(event) => setFilterSearch((current) => ({ ...current, checkOut: event.target.value || null }))} />
-                </label>
-                <div className="grid grid-cols-2 gap-[9px]">
-                  <label className="grid gap-1 text-[10px] text-[#5e6e65]">
-                    <span>ผู้เข้าพัก</span>
-                    <select className="min-w-0 rounded-[9px] border border-[#dce2de] bg-white px-[10px] py-[9px] text-[11px] text-[#3f4d45]" required value={filterSearch.guests ?? ""} onChange={(event) => setFilterSearch((current) => ({ ...current, guests: Number(event.target.value) || null }))}>
-                      <option value="">เลือก</option>
-                      {[1, 2, 3, 4, 5, 6].map((guests) => <option key={guests} value={guests}>{guests} ท่าน</option>)}
-                    </select>
-                  </label>
-                  <label className="grid gap-1 text-[10px] text-[#5e6e65]">
-                    <span>งบต่อคืน</span>
-                    <input className="min-w-0 rounded-[9px] border border-[#dce2de] bg-white px-[10px] py-[9px] text-[11px] text-[#3f4d45]" type="number" required min="1000" step="100" placeholder="เช่น 4000" value={filterSearch.budget ?? ""} onChange={(event) => setFilterSearch((current) => ({ ...current, budget: Number(event.target.value) || null }))} />
-                  </label>
-                </div>
-                <button className="cursor-pointer rounded-[9px] border-0 bg-[#829a8b] p-[11px] text-[11px] font-semibold text-white hover:bg-[#71897a]" type="submit">ค้นหาห้องว่าง</button>
-              </form>
-              <button className="w-full cursor-pointer border-0 bg-transparent text-[10px] text-[#718779] underline underline-offset-3" type="button" onClick={() => setView("chat")}>ต้องการให้บอตช่วยแนะนำ? ค้นหาผ่านแชต</button>
+              <button className="w-full cursor-pointer border-0 bg-transparent text-sm text-[#646D89] underline underline-offset-4" type="button" onClick={() => setView("chat")}>{locale === "th" ? "ให้แชทช่วยแนะนำ" : "Continue in chat"}</button>
             </div>
           )}
 
@@ -1021,9 +1031,9 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
               maxLength={800}
               placeholder={t.messagePlaceholder}
               aria-label="ข้อความ"
-              disabled={isCollectingPhone || isSupportResolved}
+              disabled={isCollectingPhone}
             />
-            <button className="grid h-6 w-6 shrink-0 cursor-pointer place-items-center border-0 bg-transparent disabled:cursor-default disabled:opacity-60" type="submit" disabled={!input.trim() || isLoading || isCollectingPhone || isSupportResolved} aria-label="ส่งข้อความ">
+            <button className="grid h-6 w-6 shrink-0 cursor-pointer place-items-center border-0 bg-transparent disabled:cursor-default disabled:opacity-60" type="submit" disabled={!input.trim() || isLoading || isCollectingPhone} aria-label="ส่งข้อความ">
               <svg className="h-6 w-6 -rotate-[8deg] fill-[#E76B39]" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 20 18-8L3 4v6l13 2-13 2v6Z" /></svg>
             </button>
           </form>

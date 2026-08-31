@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { EmailOtpVerification } from "@/features/booking/components/EmailOtpVerification";
@@ -25,23 +24,10 @@ type Conversation = {
   accent: string;
 };
 
-type Message =
-  | {
-      id: string;
-      author: "customer" | "agent";
-      text: string;
-      time: string;
-    }
-  | {
-      id: string;
-      author: "room";
-      time: string;
-    };
-
-const TABS: Array<{ key: SupportTab; label: string; count: number }> = [
-  { key: "open", label: "Open", count: 6 },
-  { key: "mine", label: "My Chats", count: 2 },
-  { key: "resolved", label: "Resolved", count: 18 },
+const TABS: Array<{ key: SupportTab; label: string }> = [
+  { key: "open", label: "Open" },
+  { key: "mine", label: "My Chats" },
+  { key: "resolved", label: "Resolved" },
 ];
 
 const FILTERS: Array<{ key: SupportFilter; label: string }> = [
@@ -51,158 +37,6 @@ const FILTERS: Array<{ key: SupportFilter; label: string }> = [
   { key: "payment", label: "Payment" },
   { key: "other", label: "Other" },
 ];
-
-const CONVERSATIONS: Conversation[] = [
-  {
-    id: "supatcha",
-    tab: "open",
-    name: "Supatcha K.",
-    preview: "ขอบคุณมากค่ะ 🙏",
-    time: "10:24",
-    tags: ["booking", "vip"],
-    unread: true,
-    active: true,
-    initials: "SK",
-    accent: "from-[#dbe7ff] to-[#eef4ff]",
-  },
-  {
-    id: "tanawat",
-    tab: "open",
-    name: "Tanawat S.",
-    preview: "สอบถามเรื่องที่จอดรถครับ",
-    time: "10:18",
-    tags: ["other"],
-    initials: "TS",
-    accent: "from-[#e4ede8] to-[#f4f7f5]",
-  },
-  {
-    id: "natcha",
-    tab: "mine",
-    name: "Natcha P.",
-    preview: "สามารถเช็คอินก่อนเวลาได้ไหมคะ",
-    time: "09:56",
-    tags: ["booking"],
-    initials: "NP",
-    accent: "from-[#ece7ff] to-[#f6f3ff]",
-  },
-  {
-    id: "phakphum",
-    tab: "resolved",
-    name: "Phakphum R.",
-    preview: "ยกเลิกการจองได้หรือเปล่า",
-    time: "09:32",
-    tags: ["booking"],
-    initials: "PR",
-    accent: "from-[#f0e9de] to-[#faf7f0]",
-  },
-  {
-    id: "jirapa",
-    tab: "open",
-    name: "Jirapa M.",
-    preview: "มีห้องวิวทะเลว่างเดือนหน้าไหมคะ",
-    time: "09:15",
-    tags: ["room"],
-    initials: "JM",
-    accent: "from-[#e7e9ff] to-[#f5f6ff]",
-  },
-  {
-    id: "chanon",
-    tab: "mine",
-    name: "Chanon L.",
-    preview: "รับการส่งใบเสร็จรับเงินใหม่หน่อยครับ",
-    time: "08:47",
-    tags: ["payment"],
-    initials: "CL",
-    accent: "from-[#e0f0ee] to-[#f5fbfa]",
-  },
-  {
-    id: "wara",
-    tab: "resolved",
-    name: "Wara T.",
-    preview: "ขอบคุณสำหรับการช่วยเหลือค่ะ",
-    time: "เมื่อวาน",
-    tags: ["other"],
-    initials: "WT",
-    accent: "from-[#ede4ff] to-[#f7f1ff]",
-  },
-];
-
-const MESSAGES: Message[] = [
-  {
-    id: "m1",
-    author: "customer",
-    text: "สวัสดีค่ะ สอบถามเรื่องการจองห้องพักค่ะ",
-    time: "10:18",
-  },
-  {
-    id: "m2",
-    author: "agent",
-    text: "สวัสดีค่ะ ยินดีให้บริการนะคะ\nรบกวนแจ้งรายละเอียดที่ต้องการสอบถามได้เลยค่ะ 😊",
-    time: "10:19",
-  },
-  {
-    id: "m3",
-    author: "customer",
-    text: "อยากทราบว่าห้อง Deluxe Sea View สำหรับวันที่ 25-27 ก.ย. ยังมีห้องว่างอยู่ไหมคะ แล้วราคาเท่าไหร่คะ",
-    time: "10:20",
-  },
-  {
-    id: "m4",
-    author: "room",
-    time: "10:21",
-  },
-  {
-    id: "m5",
-    author: "agent",
-    text: "สำหรับวันที่ 25-27 ก.ย. ยังมีห้อง Deluxe Sea View ว่างอยู่ค่ะ\nราคา 3,500 บาท/คืน รวมอาหารเช้าแล้วค่ะ\nหากลูกค้าสนใจ สามารถจองผ่านหน้าแชทได้เลยนะคะ หรือให้แอดมินช่วยดำเนินการจองให้ก็ได้ค่ะ 🙏",
-    time: "10:22",
-  },
-  {
-    id: "m6",
-    author: "customer",
-    text: "ขอให้แอดมินช่วยจองให้หน่อยได้ไหมคะ",
-    time: "10:23",
-  },
-  {
-    id: "m7",
-    author: "agent",
-    text: "ได้เลยค่ะ รบกวนแจ้งชื่อ-นามสกุล และเบอร์โทรศัพท์สำหรับการจองค่ะ\nเดี๋ยวแอดมินดูแลเรื่องการจองให้ทั้งหมดนะคะ ✨",
-    time: "10:23",
-  },
-  {
-    id: "m8",
-    author: "customer",
-    text: "ขอบคุณมากค่ะ 🙏",
-    time: "10:24",
-  },
-];
-
-const BOOKING_HISTORY = [
-  {
-    label: "Upcoming",
-    room: "Deluxe Room",
-    date: "15 - 17 Aug 2025",
-    ref: "Booking #BK24081522",
-    price: "฿7,000",
-    tone: "bg-[#ecf8ef] text-[#2e8a52]",
-  },
-  {
-    label: "Past Stay",
-    room: "Superior Room",
-    date: "12 - 14 Mar 2025",
-    ref: "",
-    price: "฿4,800",
-    tone: "bg-[#eef1fb] text-[#4d61a6]",
-  },
-  {
-    label: "Past Stay",
-    room: "Deluxe Sea View",
-    date: "10 - 12 Nov 2024",
-    ref: "",
-    price: "฿6,500",
-    tone: "bg-[#f0f3f1] text-[#647a6f]",
-  },
-] as const;
 
 export function LiveSupportPage() {
   const [activeTab, setActiveTab] = useState<SupportTab>("open");
@@ -239,16 +73,19 @@ export function LiveSupportPage() {
         ? "mine"
         : "open",
     name: conversation.customer_name ?? `Guest ${conversation.id.slice(0, 6)}`,
-    preview: "Live support request",
+    preview: conversation.latest_message_content ?? "No messages yet",
     time: new Intl.DateTimeFormat("th-TH", { hour: "2-digit", minute: "2-digit" }).format(new Date(conversation.last_message_at)),
     tags: [conversation.topic],
     unread: Boolean(
       conversation.latest_visitor_message_at
       && (!conversation.last_read_at || new Date(conversation.latest_visitor_message_at).getTime() > new Date(conversation.last_read_at).getTime())
     ),
-    initials: (conversation.customer_name ?? "Guest").slice(0, 2).toUpperCase(),
-    accent: "from-[#dbe7ff] to-[#eef4ff]",
+    initials: initialsForName(conversation.customer_name ?? "Guest"),
+    accent: avatarAccent(conversation.id),
   })), [conversations, currentAdminId]);
+
+  const unreadConversationCount = threads.filter((thread) => thread.unread).length;
+  const waitingConversationCount = conversations.filter((conversation) => conversation.status === "waiting").length;
 
   const visibleThreads = useMemo(() => {
     const normalized = search.trim().toLowerCase();
@@ -286,9 +123,12 @@ export function LiveSupportPage() {
 
   useEffect(() => {
     previousLastMessageIdRef.current = null;
-    setHasNewMessagesBelow(false);
-    setIsChatAtBottom(true);
-    window.requestAnimationFrame(() => scrollChatToBottom("auto"));
+    const frameId = window.requestAnimationFrame(() => {
+      setHasNewMessagesBelow(false);
+      setIsChatAtBottom(true);
+      scrollChatToBottom("auto");
+    });
+    return () => window.cancelAnimationFrame(frameId);
   }, [selectedThreadId]);
 
   useEffect(() => {
@@ -356,7 +196,7 @@ export function LiveSupportPage() {
         <div className="flex items-center gap-3 text-[14px] text-[#3f4a5a] sm:gap-5">
           <span className="hidden items-center gap-2 sm:inline-flex">
             <span className="h-2.5 w-2.5 rounded-full bg-[#20b15d]" />
-            Online
+            {waitingConversationCount} waiting
           </span>
           <span className="hidden h-6 w-px bg-[#e3e8ef] sm:block" aria-hidden />
           <button
@@ -365,9 +205,11 @@ export function LiveSupportPage() {
             aria-label="Notifications"
           >
             <BellIcon className="h-5 w-5" />
-            <span className="absolute -right-0.5 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-[#e11d48] px-1 text-[11px] font-semibold text-white">
-              3
-            </span>
+            {unreadConversationCount > 0 ? (
+              <span className="absolute -right-0.5 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-[#e11d48] px-1 text-[11px] font-semibold text-white">
+                {unreadConversationCount > 99 ? "99+" : unreadConversationCount}
+              </span>
+            ) : null}
           </button>
         </div>
       </header>
@@ -512,14 +354,14 @@ export function LiveSupportPage() {
               <button type="button" onClick={() => setMobilePanel("conversations")} className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-[#667085] hover:bg-[#f2f4f7] xl:hidden" aria-label="Back to conversations">
                 <ChevronLeftIcon className="h-5 w-5" />
               </button>
-              <Avatar initials={currentThread?.initials ?? "SK"} accent={currentThread?.accent ?? "from-[#dbe7ff] to-[#eef4ff]"} />
+              <Avatar initials={currentThread?.initials ?? "?"} accent={currentThread?.accent ?? "from-[#eef2f7] to-[#f8fafc]"} />
               <div className="min-w-0 flex-1">
                 <h2 className="truncate text-[18px] font-semibold text-[#111827]">
-                  {currentThread?.name ?? "Supatcha K."}
+                  {currentThread?.name ?? "Guest"}
                 </h2>
                 <p className="flex items-center gap-2 text-[13px] text-[#667085]">
-                  <span className="h-2.5 w-2.5 rounded-full bg-[#24b05a]" />
-                  Online • Active now
+                  <span className={`h-2.5 w-2.5 rounded-full ${conversationStatusDotClass(currentConversation?.status)}`} />
+                  {conversationStatusLabel(currentConversation?.status)}
                 </p>
               </div>
               <button type="button" onClick={() => setMobilePanel("details")} className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#e2e7ef] text-[#667085] lg:hidden" aria-label="View customer details">
@@ -551,9 +393,6 @@ export function LiveSupportPage() {
                 <option value="active">Active</option>
                 <option value="resolved">Resolved</option>
               </select>
-              <IconButton ariaLabel="More options">
-                <DotsIcon className="h-5 w-5" />
-              </IconButton>
             </div>
           </div>
 
@@ -567,11 +406,7 @@ export function LiveSupportPage() {
             }}
             className="scrollbar-hide min-h-0 flex-1 overflow-y-auto bg-[linear-gradient(180deg,#ffffff_0%,#ffffff_18%,#f8fbff_100%)] px-3 py-4 sm:px-5 sm:py-5"
           >
-            <div className="flex justify-center">
-              <span className="rounded-full bg-[#f2f4f8] px-3 py-1 text-[12px] font-medium text-[#667085]">
-                Today
-              </span>
-            </div>
+            {supportMessages[0] ? <MessageDayLabel createdAt={supportMessages[0].created_at} /> : null}
 
             <div className="mt-5 grid gap-5">
               {isConversationLoading ? (
@@ -615,7 +450,7 @@ export function LiveSupportPage() {
                     }`}
                   >
                     {!isAgent ? (
-                      <span className="hidden sm:inline-flex"><Avatar initials="SK" accent="from-[#dbe7ff] to-[#eef4ff]" /></span>
+                      <span className="hidden sm:inline-flex"><Avatar initials={currentThread?.initials ?? "?"} accent={currentThread?.accent ?? "from-[#eef2f7] to-[#f8fafc]"} /></span>
                     ) : null}
 
                     <div className={`max-w-[min(80%,34rem)] ${isAgent ? "text-right" : "text-left"}`}>
@@ -634,7 +469,7 @@ export function LiveSupportPage() {
                         }`}
                       >
                         {new Intl.DateTimeFormat("th-TH", { hour: "2-digit", minute: "2-digit" }).format(new Date(message.created_at))}
-                        {isAgent ? " ✓✓" : null}
+                        {isAgent ? " Ã¢Å“â€œÃ¢Å“â€œ" : null}
                       </div>
                     </div>
                   </div>
@@ -648,7 +483,7 @@ export function LiveSupportPage() {
                   onClick={() => scrollChatToBottom()}
                   className="rounded-full border border-[#cfd9ee] bg-white px-4 py-2 text-[13px] font-semibold text-[#2f6bff] shadow-[0_8px_20px_rgba(15,23,42,0.14)] hover:bg-[#f7f9ff]"
                 >
-                  New messages ↓
+                  New messages Ã¢â€ â€œ
                 </button>
               </div>
             ) : null}
@@ -709,7 +544,7 @@ export function LiveSupportPage() {
             action={<PanelEditButton>Edit</PanelEditButton>}
           >
             <div className="flex items-center gap-3">
-              <Avatar initials="SK" accent="from-[#dbe7ff] to-[#eef4ff]" size="lg" />
+              <Avatar initials={currentThread?.initials ?? "?"} accent={currentThread?.accent ?? "from-[#eef2f7] to-[#f8fafc]"} size="lg" />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="text-[18px] font-semibold text-[#111827]">
@@ -937,17 +772,17 @@ function CreateBookingDialog({ conversation, customer, onClose, onCreated }: {
       <form onSubmit={createBooking} className="max-h-[calc(100dvh-16px)] w-full max-w-3xl overflow-y-auto rounded-[16px] bg-white p-4 pb-[max(16px,env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[92vh] sm:rounded-[22px] sm:p-6">
         <div className="flex items-start justify-between gap-4">
           <div><h2 id="create-booking-title" className="text-xl font-semibold text-[#111827]">Create Booking</h2><p className="mt-1 text-sm text-[#667085]">Customer identity is checked automatically. The customer chooses payment on the Neatly Hotel website.</p></div>
-          <button type="button" onClick={onClose} className="text-2xl text-[#667085]" aria-label="Close">×</button>
+          <button type="button" onClick={onClose} className="text-2xl text-[#667085]" aria-label="Close">Ãƒâ€”</button>
         </div>
 
         <div className="mt-5 rounded-xl border border-[#e2e8f0] bg-[#f8fafc] p-4">
           {isMatching ? <p className="text-sm text-[#667085]">Checking member details...</p> : identity?.kind === "member" ? (
-            <div><p className="text-sm font-semibold text-[#18794e]">Member found automatically</p><p className="mt-1 text-sm text-[#475467]">{identity.matches[0]?.name} · matched by {identity.matches[0]?.matchedBy}</p></div>
+            <div><p className="text-sm font-semibold text-[#18794e]">Member found automatically</p><p className="mt-1 text-sm text-[#475467]">{identity.matches[0]?.name} Ã‚Â· matched by {identity.matches[0]?.matchedBy}</p></div>
           ) : identity?.kind === "ambiguous" ? (
             <label className="grid gap-2 text-sm font-semibold text-[#9a6617]">Multiple members found
               <select value={selectedCustomerId ?? ""} onChange={(event) => setSelectedCustomerId(event.target.value || null)} className="h-10 rounded-lg border border-[#d0d5dd] bg-white px-3 font-normal text-[#344054]">
                 <option value="">Select the correct member</option>
-                {identity.matches.map((match) => <option key={match.customerId} value={match.customerId}>{match.name} · {match.email ?? match.phone}</option>)}
+                {identity.matches.map((match) => <option key={match.customerId} value={match.customerId}>{match.name} Ã‚Â· {match.email ?? match.phone}</option>)}
               </select>
             </label>
           ) : <div><p className="text-sm font-semibold text-[#475467]">Guest booking</p><p className="mt-1 text-sm text-[#667085]">No member matched this phone or email.</p></div>}
@@ -960,7 +795,7 @@ function CreateBookingDialog({ conversation, customer, onClose, onCreated }: {
           <BookingField label="Rooms"><input required type="number" min="1" max="3" value={rooms} onChange={(event) => updateAvailabilityCriteria(() => setRooms(Number(event.target.value)))} /></BookingField>
         </div>
         <button type="button" onClick={() => void findAvailableRooms()} disabled={isLoading} className="mt-3 rounded-lg border border-[#2f6bff] px-4 py-2 text-sm font-semibold text-[#2f6bff] disabled:opacity-50">Check availability</button>
-        {availableRooms.length > 0 && <div className="mt-3"><BookingField label="Available room type"><select required value={roomTypeId} onChange={(event) => setRoomTypeId(event.target.value)}>{availableRooms.map((room) => <option key={room.id} value={room.id}>{room.name} · THB {room.discountedPrice.toLocaleString()} / night</option>)}</select></BookingField></div>}
+        {availableRooms.length > 0 && <div className="mt-3"><BookingField label="Available room type"><select required value={roomTypeId} onChange={(event) => setRoomTypeId(event.target.value)}>{availableRooms.map((room) => <option key={room.id} value={room.id}>{room.name} Ã‚Â· THB {room.discountedPrice.toLocaleString()} / night</option>)}</select></BookingField></div>}
 
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <BookingField label="First name"><input required value={firstName} onChange={(event) => setFirstName(event.target.value)} /></BookingField>
@@ -1128,17 +963,6 @@ function PanelEditButton({ children }: { children: React.ReactNode }) {
   );
 }
 
-function ActionButton({ children }: { children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      className="h-11 rounded-[12px] border border-[#d9deea] bg-white px-4 text-[14px] font-medium text-[#344054] transition-colors hover:border-[#b8c3dc] hover:bg-[#fbfcfe]"
-    >
-      {children}
-    </button>
-  );
-}
-
 function IconButton({
   children,
   ariaLabel,
@@ -1174,6 +998,50 @@ function Avatar({
       aria-hidden
     >
       {initials}
+    </div>
+  );
+}
+
+function initialsForName(name: string) {
+  const initials = name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("");
+  return initials.toUpperCase() || "?";
+}
+
+function avatarAccent(seed: string) {
+  const accents = [
+    "from-[#dbe7ff] to-[#eef4ff]",
+    "from-[#e4ede8] to-[#f4f7f5]",
+    "from-[#ece7ff] to-[#f6f3ff]",
+    "from-[#f0e9de] to-[#faf7f0]",
+    "from-[#e0f0ee] to-[#f5fbfa]",
+  ];
+  const index = [...seed].reduce((total, character) => total + character.charCodeAt(0), 0) % accents.length;
+  return accents[index];
+}
+
+function conversationStatusLabel(status: SupportConversationStatus | undefined) {
+  if (status === "resolved") return "Resolved";
+  if (status === "active") return "Active";
+  return "Waiting for an agent";
+}
+
+function conversationStatusDotClass(status: SupportConversationStatus | undefined) {
+  if (status === "resolved") return "bg-[#98A2B3]";
+  if (status === "active") return "bg-[#24B05A]";
+  return "bg-[#F79009]";
+}
+
+function MessageDayLabel({ createdAt }: { createdAt: string }) {
+  const date = new Date(createdAt);
+  const today = new Date();
+  const isToday = date.toDateString() === today.toDateString();
+  const label = isToday ? "Today" : new Intl.DateTimeFormat("th-TH", { dateStyle: "medium" }).format(date);
+
+  return (
+    <div className="flex justify-center">
+      <span className="rounded-full bg-[#f2f4f8] px-3 py-1 text-[12px] font-medium text-[#667085]">
+        {label}
+      </span>
     </div>
   );
 }
@@ -1216,67 +1084,6 @@ function InfoRow({
       </span>
       <span>{text}</span>
     </div>
-  );
-}
-
-function RoomCard() {
-  return (
-    <div className="w-full max-w-[520px] overflow-hidden rounded-[20px] border border-[#dfe6f1] bg-white shadow-[0_12px_30px_rgba(15,23,42,0.06)]">
-      <div className="grid gap-4 p-4 md:grid-cols-[156px_minmax(0,1fr)]">
-        <div className="overflow-hidden rounded-[16px]">
-          <Image
-            src="/images/room-bg-preview/Deluxe.jpg"
-            alt="Deluxe Sea View room"
-            width={312}
-            height={208}
-            className="h-full w-full object-cover"
-          />
-        </div>
-
-        <div className="min-w-0">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h3 className="text-[17px] font-semibold text-[#111827]">
-                Deluxe Sea View
-              </h3>
-              <p className="mt-1 text-[14px] font-semibold text-[#111827]">
-                ฿3,500 / คืน
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-4 flex flex-wrap gap-2 text-[13px] text-[#667085]">
-            <RoomSpec icon={<SpaIcon className="h-4 w-4" />} label="วิวทะเล" />
-            <RoomSpec icon={<SquareIcon className="h-4 w-4" />} label="35 ตร.ม." />
-            <RoomSpec icon={<BedIcon className="h-4 w-4" />} label="เตียงคิงไซส์" />
-          </div>
-
-          <div className="mt-5 flex justify-end">
-            <button
-              type="button"
-              className="rounded-[12px] border border-[#cdd8f7] bg-white px-4 py-2 text-[14px] font-medium text-[#1e4fd7] transition-colors hover:bg-[#f5f8ff]"
-            >
-              ดูรายละเอียด
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function RoomSpec({
-  icon,
-  label,
-}: {
-  icon: React.ReactNode;
-  label: string;
-}) {
-  return (
-    <span className="inline-flex items-center gap-2 rounded-full bg-[#f6f8fc] px-3 py-1.5">
-      {icon}
-      {label}
-    </span>
   );
 }
 
@@ -1326,16 +1133,6 @@ function BellIcon({ className }: { className?: string }) {
         strokeWidth="1.5"
         strokeLinejoin="round"
       />
-    </svg>
-  );
-}
-
-function DotsIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <circle cx="6" cy="12" r="1.5" fill="currentColor" />
-      <circle cx="12" cy="12" r="1.5" fill="currentColor" />
-      <circle cx="18" cy="12" r="1.5" fill="currentColor" />
     </svg>
   );
 }
@@ -1407,44 +1204,6 @@ function MailIcon({ className }: { className?: string }) {
     <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
       <rect x="4" y="6" width="16" height="12" rx="2" stroke="currentColor" strokeWidth="1.5" />
       <path d="m5 8 7 5 7-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function SpaIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M12 20s-5-3.2-5-8a5 5 0 0 1 10 0c0 4.8-5 8-5 8Z"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinejoin="round"
-      />
-      <path d="M9.2 11.4h5.6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function SquareIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <rect x="5" y="5" width="14" height="14" rx="2" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M8 12h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function BedIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M5 11a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v6H5v-6Z"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinejoin="round"
-      />
-      <path d="M5 17v2M19 17v2M7 9V6M17 9V6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M5 14h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   );
 }

@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 import { buildUnknownChatbotMessage } from "@/lib/chatbot-fallback";
+import { redactChatbotMessage } from "@/lib/chatbot-redaction";
 import { getBangkokDate, normalizeChatbotSearchState, validateChatbotDateRange, type ChatbotDateValidationError } from "@/lib/chatbot-date-validation";
 import { createClient } from "@/server/db/supabase-server";
 import type { ChatbotResponseMode, ChatbotSearchField, ChatbotSuggestion, ChatbotSearchState } from "@/types/chatbot";
@@ -72,7 +73,6 @@ class GeminiAnalysisError extends Error {
 }
 
 const GEMINI_CONTEXT_MESSAGE_LIMIT = 6;
-const GEMINI_CONTEXT_MESSAGE_CHARS = 450;
 const GEMINI_TIMEOUT_MS = 8_000;
 
 const intentSchema = {
@@ -84,13 +84,17 @@ const intentSchema = {
       type: "string",
       enum: ["check_in", "facilities", "location", "contact", "other"],
     },
+    handoffReason: {
+      type: ["string", "null"],
+      enum: ["explicit_agent_request", "booking_change", "refund_request", "payment_issue", "complaint", null],
+    },
     confidence: { type: "number", minimum: 0, maximum: 1 },
     checkIn: { type: ["string", "null"], description: "YYYY-MM-DD or null" },
     checkOut: { type: ["string", "null"], description: "YYYY-MM-DD or null" },
     guests: { type: ["integer", "null"], minimum: 1, maximum: 20 },
     budget: { type: ["number", "null"], minimum: 1 },
   },
-  required: ["intent", "faqTopic", "confidence", "checkIn", "checkOut", "guests", "budget"],
+  required: ["intent", "faqTopic", "handoffReason", "confidence", "checkIn", "checkOut", "guests", "budget"],
 } as const;
 
 const faqAnswers: Record<ChatbotLocale, Record<FaqTopic, string>> = {
@@ -136,13 +140,6 @@ async function getChatbotContent(): Promise<{ autoReplyTh: string | null; autoRe
   try { return await getPublishedChatbotContent(); } catch { return { autoReplyTh: null, autoReplyEn: null }; }
 }
 
-function redactForGemini(value: string) {
-  return value
-    .replace(/(?<!\w)(?:\+?\d[\d\s().-]{6,}\d)(?!\w)/g, "[REDACTED_PHONE]")
-    .replace(/\b(?:booking\s*(?:code|no\.?|number)?\s*[:#-]?\s*[a-z0-9_-]{4,}|(?:bk|res|book)[-_]?[a-z0-9]{4,})\b/gi, "[REDACTED_BOOKING_CODE]")
-    .slice(0, GEMINI_CONTEXT_MESSAGE_CHARS);
-}
-
 function geminiFailureReason(error: unknown): GeminiAnalysisError["reason"] {
   if (error instanceof GeminiAnalysisError) return error.reason;
   const message = error instanceof Error ? error.message.toLowerCase() : "";
@@ -158,6 +155,7 @@ async function responseWithEvent(
     mode: ChatbotResponseMode;
     fallbackReason?: string | null;
     handoffReason?: HandoffReason | null;
+    messageRedacted: string;
   },
 ) {
   try {
@@ -168,6 +166,7 @@ async function responseWithEvent(
       responseMode: event.mode,
       fallbackReason: event.fallbackReason ?? null,
       handoffReason: event.handoffReason ?? null,
+      messageRedacted: event.messageRedacted,
     });
   } catch (error) {
     logApiFailure("chat:event", event.requestId, error);
@@ -181,6 +180,7 @@ function isAnalysis(value: unknown): value is Analysis {
   return (
     ["faq", "search_room", "unknown"].includes(analysis.intent ?? "") &&
     ["check_in", "facilities", "location", "contact", "other"].includes(analysis.faqTopic ?? "") &&
+    (analysis.handoffReason === null || ["explicit_agent_request", "booking_change", "refund_request", "payment_issue", "complaint"].includes(analysis.handoffReason ?? "")) &&
     typeof analysis.confidence === "number" && analysis.confidence >= 0 && analysis.confidence <= 1 &&
     (analysis.checkIn === null || typeof analysis.checkIn === "string") &&
     (analysis.checkOut === null || typeof analysis.checkOut === "string") &&
@@ -201,7 +201,7 @@ async function analyzeWithGemini(messages: Message[], state: ChatbotSearchState)
     .join("\n");
   const redactedConversation = conversation
     .split("\n")
-    .map(redactForGemini)
+    .map(redactChatbotMessage)
     .join("\n");
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
@@ -215,6 +215,9 @@ intent มี faq, search_room, unknown เท่านั้น
 confidence อยู่ระหว่าง 0 ถึง 1 หากคำถามไม่ตรงหมวดที่รองรับหรือไม่แน่ใจ ให้ใช้ unknown และ confidence ต่ำกว่า 0.8
 ถ้ากำลังเก็บข้อมูลค้นหาห้องอยู่ ให้คง intent เป็น search_room แม้ข้อความล่าสุดเป็นเพียงวันที่หรือตัวเลข
 faqTopic ใช้ check_in, facilities, location, contact หรือ other
+handoffReason ใช้ explicit_agent_request, booking_change, refund_request, payment_issue, complaint หรือ null
+ให้ตั้ง handoffReason เมื่อผู้ใช้ขอคุยกับคน หรือต้องให้เจ้าหน้าที่ทำงานจริง: ยกเลิก/เปลี่ยนการจอง ขอคืนเงิน ปัญหาชำระเงิน หรือร้องเรียน
+จับความหมายแม้ผู้ใช้ใช้ถ้อยคำไม่ตรงตัว สะกดผิด หรือใช้ไทยปนอังกฤษ แต่คำถามข้อมูลทั่วไป เช่น วิธีชำระเงินหรือนโยบายยกเลิก ให้ handoffReason เป็น null
 คำถามนโยบายที่ไม่มีหมวด เช่น สัตว์เลี้ยง สูบบุหรี่ เด็ก หรือเงินมัดจำ ให้เป็น unknown ห้ามจัดรวมเป็น facilities
 คำถามเกี่ยวกับการจอง การสำรองห้อง วิธีจอง หรือเริ่มจอง เช่น book a room, book the room, reserve a room, make a reservation ให้เป็น search_room
 คืนเฉพาะข้อมูลที่ผู้ใช้ระบุจริง ห้ามเดาห้อง ราคา หรือจำนวนผู้เข้าพัก
@@ -323,6 +326,7 @@ export async function POST(request: Request) {
     if (!lastMessage || lastMessage.role !== "user") {
       return Response.json({ error: "กรุณาส่งข้อความที่ถูกต้อง" }, { status: 400 });
     }
+    const messageRedacted = redactChatbotMessage(lastMessage.content);
 
     const ruleBasedHandoff = body.suggestionId
       ? null
@@ -342,6 +346,7 @@ export async function POST(request: Request) {
         intent: "unknown",
         mode: "demo",
         handoffReason: ruleBasedHandoff,
+        messageRedacted,
       });
     }
 
@@ -386,6 +391,7 @@ export async function POST(request: Request) {
             requestId: id,
             intent: "search_room",
             mode: "managed_suggestion",
+            messageRedacted,
           });
         }
         const rooms = localizedSuggestion.format === "Room type"
@@ -406,6 +412,7 @@ export async function POST(request: Request) {
           requestId: id,
           intent: "faq",
           mode: "managed_suggestion",
+          messageRedacted,
         });
       }
     }
@@ -423,6 +430,7 @@ export async function POST(request: Request) {
         requestId: id,
         intent: "faq",
         mode: "room_information",
+        messageRedacted,
       });
     }
 
@@ -459,6 +467,7 @@ export async function POST(request: Request) {
         intent: geminiAnalysis.intent,
         faqTopic: geminiAnalysis.faqTopic,
         confidence: geminiAnalysis.confidence,
+        handoffReason: geminiAnalysis.handoffReason,
         extracted: {
           checkIn: Boolean(geminiAnalysis.checkIn),
           checkOut: Boolean(geminiAnalysis.checkOut),
@@ -466,17 +475,56 @@ export async function POST(request: Request) {
           budget: Boolean(geminiAnalysis.budget),
         },
       } : null,
-      local: { intent: localAnalysis.intent, faqTopic: localAnalysis.faqTopic, confidence: localAnalysis.confidence },
-      resolved: { intent: analysis.intent, confidence: analysis.confidence, searchVerified: resolved.isSearchVerified, faqVerified: hasVerifiedFaqTopic },
+      local: { intent: localAnalysis.intent, faqTopic: localAnalysis.faqTopic, confidence: localAnalysis.confidence, handoffReason: localAnalysis.handoffReason },
+      resolved: { intent: analysis.intent, confidence: analysis.confidence, handoffReason: analysis.handoffReason, searchVerified: resolved.isSearchVerified, faqVerified: hasVerifiedFaqTopic },
       fallbackReason,
     });
 
+    if (analysis.handoffReason && passesConfidence) {
+      return responseWithEvent({
+        intent: "unknown",
+        message: locale === "en"
+          ? "This needs help from our team. Select “Talk to an agent” below to start live support."
+          : "เรื่องนี้ต้องให้เจ้าหน้าที่ช่วยดูแลค่ะ กด “คุยกับเจ้าหน้าที่” ด้านล่างเพื่อเริ่ม Live Support ได้เลย",
+        search: currentSearch,
+        rooms: [],
+        mode,
+        handoff: { reason: analysis.handoffReason },
+      }, {
+        requestId: id,
+        intent: "unknown",
+        mode,
+        fallbackReason,
+        handoffReason: analysis.handoffReason,
+        messageRedacted,
+      });
+    }
     if (analysis.intent === "search_room" && passesConfidence && resolved.isSearchVerified) {
       return responseWithEvent({ ...(await searchResponse(analysis, currentSearch, locale)), mode }, {
         requestId: id,
         intent: "search_room",
         mode,
         fallbackReason,
+        messageRedacted,
+      });
+    }
+    if (analysis.intent === "faq" && analysis.faqTopic === "contact" && passesConfidence && hasVerifiedFaqTopic) {
+      return responseWithEvent({
+        intent: "unknown",
+        message: locale === "en"
+          ? "I’ll connect you with our team. Select “Talk to an agent” below to start live support."
+          : "ฉันจะส่งต่อให้เจ้าหน้าที่ดูแลค่ะ กด “คุยกับเจ้าหน้าที่” ด้านล่างเพื่อเริ่ม Live Support ได้เลย",
+        search: currentSearch,
+        rooms: [],
+        mode,
+        handoff: { reason: "explicit_agent_request" },
+      }, {
+        requestId: id,
+        intent: "unknown",
+        mode,
+        fallbackReason,
+        handoffReason: "explicit_agent_request",
+        messageRedacted,
       });
     }
     if (analysis.intent === "faq" && passesConfidence && hasVerifiedFaqTopic) {
@@ -491,6 +539,7 @@ export async function POST(request: Request) {
         intent: "faq",
         mode,
         fallbackReason,
+        messageRedacted,
       });
     }
 
@@ -500,11 +549,14 @@ export async function POST(request: Request) {
       search: currentSearch,
       rooms: [],
       mode,
+      handoff: { reason: "unanswered" },
     }, {
       requestId: id,
       intent: "unknown",
       mode,
       fallbackReason,
+      handoffReason: "unanswered",
+      messageRedacted,
     });
   } catch (error) {
     logApiFailure("chat", id, error);

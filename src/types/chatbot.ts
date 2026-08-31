@@ -73,4 +73,5 @@ export type ChatbotEventInput = {
   responseMode: ChatbotResponseMode;
   fallbackReason: string | null;
   handoffReason: string | null;
+  messageRedacted: string | null;
 };

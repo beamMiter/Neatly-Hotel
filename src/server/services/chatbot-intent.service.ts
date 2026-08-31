@@ -6,6 +6,7 @@ export type FaqTopic = "check_in" | "facilities" | "location" | "contact" | "oth
 export type ChatbotAnalysis = {
   intent: ChatbotIntent;
   faqTopic: FaqTopic;
+  handoffReason: HandoffReason | null;
   confidence: number;
   checkIn: string | null;
   checkOut: string | null;
@@ -16,7 +17,15 @@ export type ResolvedChatbotAnalysis = {
   analysis: ChatbotAnalysis;
   isSearchVerified: boolean;
 };
-export type HandoffReason = "explicit_agent_request" | "sensitive_request" | "repeated_question" | "unanswered";
+export type HandoffReason =
+  | "explicit_agent_request"
+  | "booking_change"
+  | "refund_request"
+  | "payment_issue"
+  | "complaint"
+  | "sensitive_request"
+  | "repeated_question"
+  | "unanswered";
 
 export function normalizeIntentText(value: string) {
   return value.toLowerCase().replace(/[^\p{L}\p{M}\p{N}]+/gu, " ").trim();
@@ -62,6 +71,49 @@ export function findHandoffReason(message: string, _messages: ChatMessage[]): Ha
     explicitHandoffPhrases.some((phrase) => normalized.includes(normalizeIntentText(phrase))) ||
     englishHandoffPatterns.some((pattern) => pattern.test(normalized))
   ) return "explicit_agent_request";
+
+  const riskPatterns: Array<{ reason: HandoffReason; patterns: RegExp[] }> = [
+    {
+      reason: "refund_request",
+      patterns: [
+        /(?:ขอ|ต้องการ|อยาก|ยังไม่ได้|ไม่ได้รับ).*คืนเงิน/u,
+        /คืนเงิน.*(?:ได้ไหม|เมื่อไหร่|ยังไง|ไม่เข้า|ไม่ได้)/u,
+        /\b(?:refund|money back|refunded)\b.*\b(?:request|want|need|where|when|not|missing|status)\b/i,
+        /\b(?:request|want|need|where|when|not|missing)\b.*\brefund\b/i,
+      ],
+    },
+    {
+      reason: "payment_issue",
+      patterns: [
+        /(?:จ่าย|ชำระ|ตัด|หัก).*เงิน.*(?:ไม่ได้|ไม่ผ่าน|ล้มเหลว|ซ้ำ|สองครั้ง|แต่)/u,
+        /(?:บัตร|เครดิต).*?(?:ไม่ผ่าน|ถูกปฏิเสธ|ตัดเงิน|หักเงิน)/u,
+        /เงิน.*(?:ถูกตัด|ถูกหัก).*?(?:แต่|ซ้ำ|สองครั้ง)/u,
+        /\b(?:payment|card|charge|charged|pay)\b.*\b(?:failed|declined|error|problem|issue|twice|duplicate|stuck|not working)\b/i,
+        /\b(?:failed|declined|duplicate|double)\b.*\b(?:payment|charge|card)\b/i,
+      ],
+    },
+    {
+      reason: "booking_change",
+      patterns: [
+        /(?:ยกเลิก|เลื่อน|เปลี่ยน|แก้ไข).*(?:การจอง|ห้อง|วันเข้าพัก|วันเช็กอิน|วันเช็คอิน)/u,
+        /(?:การจอง|ห้อง|วันเข้าพัก).*(?:ยกเลิก|เลื่อน|เปลี่ยน|แก้ไข)/u,
+        /\b(?:cancel|change|modify|reschedule|amend)\b.*\b(?:booking|reservation|stay|check[ -]?in date)\b/i,
+        /\b(?:booking|reservation)\b.*\b(?:cancel|change|modify|reschedule|amend)\b/i,
+      ],
+    },
+    {
+      reason: "complaint",
+      patterns: [
+        /(?:ร้องเรียน|คอมเพลน|แจ้งเรื่อง|ไม่พอใจ).*(?:โรงแรม|ห้อง|บริการ|พนักงาน|เจ้าหน้าที่)?/u,
+        /(?:บริการ|พนักงาน|เจ้าหน้าที่|ห้อง).*(?:แย่มาก|ไม่สุภาพ|ไม่พอใจ|ร้องเรียน)/u,
+        /\b(?:complaint|complain|report an issue)\b/i,
+        /\b(?:staff|service|room)\b.*\b(?:rude|terrible|unacceptable)\b/i,
+      ],
+    },
+  ];
+  for (const { reason, patterns } of riskPatterns) {
+    if (patterns.some((pattern) => pattern.test(normalized))) return reason;
+  }
   return null;
 }
 
@@ -118,7 +170,7 @@ export function analyzeLocally(message: string, currentSearch: ChatbotSearchStat
     (!isFaq && (hasSearchState ? suppliesSearchData : hasStrongSearchData));
   const intent: ChatbotIntent = isSearch ? "search_room" : isFaq ? "faq" : "unknown";
   const confidence = intent === "unknown" ? 0 : hasSearchState && suppliesSearchData ? 1 : 0.95;
-  return { intent, faqTopic, confidence, checkIn: assignedDates.checkIn, checkOut: assignedDates.checkOut, guests, budget: budgetMatch ? Number(budgetMatch[1].replaceAll(",", "")) : null };
+  return { intent, faqTopic, handoffReason: findHandoffReason(message, []), confidence, checkIn: assignedDates.checkIn, checkOut: assignedDates.checkOut, guests, budget: budgetMatch ? Number(budgetMatch[1].replaceAll(",", "")) : null };
 }
 
 export function resolveChatbotAnalysis(
@@ -130,6 +182,7 @@ export function resolveChatbotAnalysis(
     const analysis: ChatbotAnalysis = {
       intent: "search_room",
       faqTopic: "other",
+      handoffReason: localAnalysis.handoffReason ?? modelAnalysis.handoffReason,
       confidence: Math.max(localAnalysis.confidence, modelAnalysis.confidence),
       checkIn: localAnalysis.checkIn ?? modelAnalysis.checkIn,
       checkOut: localAnalysis.checkOut ?? modelAnalysis.checkOut,

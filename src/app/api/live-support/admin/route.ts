@@ -39,12 +39,12 @@ export async function GET(request: Request) {
 
     const conversationId = searchParams.get("conversationId");
     const [conversations, agents] = await Promise.all([
-      listSupportConversations(user.id),
+      listSupportConversations(auth.userId),
       listActiveSupportAgents(),
     ]);
     const selectedConversationId = conversationId ?? conversations[0]?.id ?? null;
     const selectedConversation = conversations.find((conversation) => conversation.id === selectedConversationId) ?? null;
-    if (selectedConversation) await markSupportConversationRead(selectedConversation.id, user.id);
+    if (selectedConversation) await markSupportConversationRead(selectedConversation.id, auth.userId);
     const [messages, customer, bookings] = selectedConversation
       ? await Promise.all([
           listConversationMessages(selectedConversation.id),

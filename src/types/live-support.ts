@@ -22,6 +22,7 @@ export type SupportConversation = {
   summary_generated_at: string | null;
   latest_visitor_message_at?: string | null;
   last_read_at?: string | null;
+  latest_message_content?: string | null;
 };
 
 export type SupportMessage = {
