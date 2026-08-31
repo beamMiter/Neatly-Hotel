@@ -46,6 +46,10 @@ function UpgradeRoomModal({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isSubmitting, onClose]);
 
+  useEffect(() => {
+    setError(null);
+  }, [selectedRoomTypeId]);
+
   async function handleSave() {
     if (!selectedOption) {
       setError("Select an available upgrade option");
@@ -245,6 +249,7 @@ export function BookingRoomUpgradeSection({
 
       {isOpen && (
         <UpgradeRoomModal
+          key={`${booking.id}-${booking.roomTypeId}-${booking.totalAmount}-${booking.roomSubtotal}`}
           booking={booking}
           upgradeOptions={upgradeOptions}
           onClose={() => setIsOpen(false)}

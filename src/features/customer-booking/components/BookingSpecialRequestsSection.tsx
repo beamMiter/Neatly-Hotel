@@ -56,9 +56,35 @@ function EditSpecialRequestsModal({ booking, catalog, onClose }: EditSpecialRequ
 
   const estimatedTotal = booking.roomSubtotal + estimatedAddonsTotal - booking.discountAmount;
   const estimatedDifference = Math.max(0, estimatedTotal - booking.totalAmount);
-  const requiresPaymentMethod = estimatedDifference > 0;
+
+  const requestsUnchanged = useMemo(() => {
+    const sameStandard =
+      standardRequests.length === booking.standardRequestCodes.length &&
+      standardRequests.every((code) => booking.standardRequestCodes.includes(code));
+    const sameSpecial =
+      JSON.stringify(specialRequestSelections) === JSON.stringify(booking.specialRequestSelections);
+    const sameAdditional = (additionalRequest.trim() || null) === (booking.additionalRequest ?? null);
+    return sameStandard && sameSpecial && sameAdditional;
+  }, [
+    standardRequests,
+    specialRequestSelections,
+    additionalRequest,
+    booking.standardRequestCodes,
+    booking.specialRequestSelections,
+    booking.additionalRequest,
+  ]);
+
+  const showPaymentSection = !requestsUnchanged && estimatedDifference > 0;
+
+  useEffect(() => {
+    setError(null);
+  }, [standardRequests, specialRequestSelections, additionalRequest]);
 
   async function handleSave() {
+    if (requestsUnchanged) {
+      setError("No changes to save");
+      return;
+    }
     setError(null);
     setIsSubmitting(true);
 
@@ -69,7 +95,7 @@ function EditSpecialRequestsModal({ booking, catalog, onClose }: EditSpecialRequ
         additionalRequest: additionalRequest.trim() || null,
       };
 
-      if (requiresPaymentMethod) {
+      if (showPaymentSection) {
         payload.paymentMethod = paymentMethod;
       }
 
@@ -152,7 +178,7 @@ function EditSpecialRequestsModal({ booking, catalog, onClose }: EditSpecialRequ
             showActions={false}
           />
 
-          {requiresPaymentMethod && (
+          {showPaymentSection && (
             <div className="mt-6 flex flex-col gap-3 rounded-md border border-brand-border bg-brand-surface px-5 py-4">
               <p className="text-sm text-brand-body">
                 Additional amount due: <span className="font-semibold">{formatThb(estimatedDifference)}</span>
@@ -199,7 +225,7 @@ function EditSpecialRequestsModal({ booking, catalog, onClose }: EditSpecialRequ
           </button>
           <button
             type="button"
-            disabled={isSubmitting}
+            disabled={isSubmitting || requestsUnchanged}
             onClick={handleSave}
             className="h-11 rounded bg-brand-primary px-6 text-sm font-semibold text-white transition-colors hover:bg-brand-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
           >
@@ -256,6 +282,7 @@ export function BookingSpecialRequestsSection({ booking, catalog }: BookingSpeci
 
       {isEditOpen && (
         <EditSpecialRequestsModal
+          key={`${booking.id}-${booking.totalAmount}-${booking.roomSubtotal}`}
           booking={booking}
           catalog={catalog}
           onClose={() => setIsEditOpen(false)}

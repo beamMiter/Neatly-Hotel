@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import type { BookingPaymentStatus } from "@/types/booking";
 import type { CustomerBookingDetail } from "@/types/customer-booking";
@@ -124,22 +123,14 @@ export function BookingPaymentBreakdown({ booking }: BookingPaymentBreakdownProp
 
       {showStripeCollection && (
         <div className="flex flex-col gap-2 border-t border-brand-border pt-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <Link
-              href={`/booking/payment?bookingId=${booking.id}`}
-              className="inline-flex rounded bg-brand-primary px-3 py-2 text-xs font-semibold text-white hover:bg-brand-primary-hover"
-            >
-              Collect payment
-            </Link>
-            <button
-              type="button"
-              onClick={() => void copyPaymentLink()}
-              disabled={isCreatingLink}
-              className="inline-flex rounded border border-brand-border bg-white px-3 py-2 text-xs font-semibold text-brand-body hover:bg-brand-surface disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isCreatingLink ? "Preparing link..." : copied ? "Link copied" : "Copy payment link"}
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => void copyPaymentLink()}
+            disabled={isCreatingLink}
+            className="inline-flex w-fit rounded bg-brand-primary px-3 py-2 text-xs font-semibold text-white hover:bg-brand-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isCreatingLink ? "Preparing link..." : copied ? "Link copied" : "Copy payment link"}
+          </button>
           {linkError && <p className="text-xs text-red-600">{linkError}</p>}
           {paymentUrl && (
             <p className="break-all text-xs text-brand-muted">{paymentUrl}</p>

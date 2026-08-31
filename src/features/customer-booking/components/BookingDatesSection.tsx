@@ -23,6 +23,10 @@ function formatDisplayDate(isoDate: string) {
   return format(new Date(isoDate), "EEE, d MMM yyyy");
 }
 
+function toDateInputValue(isoDate: string) {
+  return isoDate.slice(0, 10);
+}
+
 function EditDatesModal({
   booking,
   catalog,
@@ -34,11 +38,17 @@ function EditDatesModal({
 }) {
   const router = useRouter();
   const isCheckedIn = booking.status === "checked_in";
-  const [checkIn, setCheckIn] = useState(booking.checkIn);
-  const [checkOut, setCheckOut] = useState(booking.checkOut);
+  const bookingCheckIn = toDateInputValue(booking.checkIn);
+  const bookingCheckOut = toDateInputValue(booking.checkOut);
+  const [checkIn, setCheckIn] = useState(bookingCheckIn);
+  const [checkOut, setCheckOut] = useState(bookingCheckOut);
   const [paymentMethod, setPaymentMethod] = useState<"credit_card" | "cash">(booking.paymentMethod);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setError(null);
+  }, [checkIn, checkOut]);
 
   useEffect(() => {
     if (isSubmitting) return;
@@ -55,12 +65,12 @@ function EditDatesModal({
     () =>
       validateAdminDateChange({
         status: booking.status,
-        currentCheckIn: booking.checkIn,
-        currentCheckOut: booking.checkOut,
+        currentCheckIn: bookingCheckIn,
+        currentCheckOut: bookingCheckOut,
         newCheckIn: checkIn,
         newCheckOut: checkOut,
       }),
-    [booking, checkIn, checkOut],
+    [booking.status, bookingCheckIn, bookingCheckOut, checkIn, checkOut],
   );
 
   const nextNights = dateValidation.ok ? dateValidation.nextNights : booking.nights;
@@ -81,8 +91,9 @@ function EditDatesModal({
 
   const estimatedTotal = perNightRoomRate * nextNights + estimatedAddonsTotal - booking.discountAmount;
   const estimatedDifference = Math.max(0, estimatedTotal - booking.totalAmount);
-  const requiresPaymentMethod = estimatedDifference > 0;
-  const datesUnchanged = checkIn === booking.checkIn && checkOut === booking.checkOut;
+  const datesUnchanged = checkIn === bookingCheckIn && checkOut === bookingCheckOut;
+  const showPaymentSection =
+    !datesUnchanged && dateValidation.ok && estimatedDifference > 0;
 
   async function handleSave() {
     if (!dateValidation.ok) {
@@ -95,7 +106,7 @@ function EditDatesModal({
 
     try {
       const payload: Record<string, unknown> = { checkIn, checkOut };
-      if (requiresPaymentMethod) {
+      if (showPaymentSection) {
         payload.paymentMethod = paymentMethod;
       }
 
@@ -191,7 +202,7 @@ function EditDatesModal({
                 min={
                   isCheckedIn
                     ? (() => {
-                        const min = new Date(`${booking.checkOut}T00:00:00.000Z`);
+                        const min = new Date(`${bookingCheckOut}T00:00:00.000Z`);
                         min.setUTCDate(min.getUTCDate() + 1);
                         return min.toISOString().slice(0, 10);
                       })()
@@ -218,7 +229,7 @@ function EditDatesModal({
             </p>
           </div>
 
-          {requiresPaymentMethod && (
+          {showPaymentSection && (
             <div className="mt-6 flex flex-col gap-3 rounded-md border border-brand-border bg-brand-surface px-5 py-4">
               <p className="text-sm text-brand-body">
                 Additional amount due: <span className="font-semibold">{formatThb(estimatedDifference)}</span>
@@ -283,6 +294,7 @@ function EditDatesModal({
 export function BookingDatesSection({ booking, catalog }: BookingDatesSectionProps) {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const canEdit = isAdminBookingEditable(booking.status);
+  const modalKey = `${booking.id}-${toDateInputValue(booking.checkIn)}-${toDateInputValue(booking.checkOut)}-${booking.totalAmount}-${booking.roomSubtotal}`;
 
   return (
     <>
@@ -310,7 +322,12 @@ export function BookingDatesSection({ booking, catalog }: BookingDatesSectionPro
       </div>
 
       {isEditOpen && (
-        <EditDatesModal booking={booking} catalog={catalog} onClose={() => setIsEditOpen(false)} />
+        <EditDatesModal
+          key={modalKey}
+          booking={booking}
+          catalog={catalog}
+          onClose={() => setIsEditOpen(false)}
+        />
       )}
     </>
   );
