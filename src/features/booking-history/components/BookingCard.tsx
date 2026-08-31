@@ -37,7 +37,8 @@ export function BookingCard({ booking, onCancel }: BookingCardProps) {
             {booking.roomTypeName}
           </h2>
           <div className="shrink-0 text-sm text-[#9AA1B9] sm:text-right">
-            <p>Booking date: {formatBookingDate(booking.bookingCreatedAt)}</p>
+            <p>Booking code: {booking.bookingCode}</p>
+            <p className="mt-1">Booking date: {formatBookingDate(booking.bookingCreatedAt)}</p>
             {booking.status === "cancelled" && booking.cancelledAt ? (
               <p className="mt-1">Cancellation date: {formatBookingDate(booking.cancelledAt)}</p>
             ) : null}

@@ -111,6 +111,12 @@ export function BookingSuccessView({
         <div className="flex w-full flex-col items-end gap-10 px-4 pt-6 pb-10 lg:px-10">
           <div className="flex w-full flex-col gap-6 rounded bg-[#5D7B6A] p-4 lg:flex-row lg:gap-10 lg:p-6">
             <div className="flex flex-1 flex-col gap-2">
+              <p className="[font-family:var(--font-inter)] text-sm leading-[150%] tracking-[-0.02em] text-[#D5DFDA]">
+                Booking code
+              </p>
+              <p className="[font-family:var(--font-inter)] text-base leading-[150%] font-semibold tracking-[-0.02em] text-white">
+                {booking.bookingCode}
+              </p>
               <p className="[font-family:var(--font-inter)] text-base leading-[150%] font-semibold tracking-[-0.02em] text-white">
                 {formatDateLabel(booking.checkIn)} &ndash; {formatDateLabel(booking.checkOut)}
               </p>
