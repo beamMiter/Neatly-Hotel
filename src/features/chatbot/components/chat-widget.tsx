@@ -91,6 +91,16 @@ function supportStatusDescription(conversation: SupportSessionResponse["conversa
   return locale === "th" ? "คำขอของคุณกำลังรอเจ้าหน้าที่" : "Your request is waiting for an agent.";
 }
 
+function updateWelcomeMessage(
+  messages: ChatMessage[],
+  locale: WidgetLocale,
+  greetingMessage: string,
+  greetingMessages?: Partial<Record<WidgetLocale, string>>,
+) {
+  if (messages.length !== 1 || messages[0].id !== "welcome") return messages;
+  return [{ ...messages[0], content: greetingMessages?.[locale] ?? greetingMessage }];
+}
+
 function formatBookingDate(value: string) {
   const [year, month, day] = value.split("-").map(Number);
   if (!year || !month || !day) return value;
@@ -335,20 +345,21 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
 
   useEffect(() => {
     const savedLocale = window.localStorage.getItem(CHATBOT_LOCALE_KEY);
-    if (savedLocale === "th" || savedLocale === "en") setLocale(savedLocale);
-    else if (navigator.language.toLowerCase().startsWith("th")) setLocale("th");
-  }, []);
+    const nextLocale = savedLocale === "th" || savedLocale === "en"
+      ? savedLocale
+      : navigator.language.toLowerCase().startsWith("th") ? "th" : "en";
+    const timeoutId = window.setTimeout(() => {
+      setLocale(nextLocale);
+      setMessages((current) => updateWelcomeMessage(current, nextLocale, greetingMessage, greetingMessages));
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [greetingMessage, greetingMessages]);
 
   function changeLocale(nextLocale: WidgetLocale) {
     setLocale(nextLocale);
+    setMessages((current) => updateWelcomeMessage(current, nextLocale, greetingMessage, greetingMessages));
     window.localStorage.setItem(CHATBOT_LOCALE_KEY, nextLocale);
   }
-
-  useEffect(() => {
-    if (messages.length !== 1 || hasRequestedLiveSupport) return;
-    const greeting = greetingMessages?.[locale] ?? greetingMessage;
-    setMessages([{ id: "welcome", role: "assistant", content: greeting }]);
-  }, [greetingMessage, greetingMessages, hasRequestedLiveSupport, locale, messages.length]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -865,7 +876,11 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
                 {message.suggestion?.format === "Room type" && !message.rooms?.length && message.suggestion.rooms.length > 0 && (
                   <div className="mt-3 flex max-w-[320px] flex-wrap gap-2">
                     {message.suggestion.rooms.map((room) => (
-                      <button className="rounded-full border border-[#ABC0B4] bg-white px-3 py-2 text-sm text-[#465C50]" key={room} type="button" onClick={() => { setHasSelectedRoom(true); startsBooking(message.suggestion) ? openMainBooking(room) : void sendMessage(room); }}>
+                      <button className="rounded-full border border-[#ABC0B4] bg-white px-3 py-2 text-sm text-[#465C50]" key={room} type="button" onClick={() => {
+                        setHasSelectedRoom(true);
+                        if (startsBooking(message.suggestion)) openMainBooking(room);
+                        else void sendMessage(room);
+                      }}>
                         {room}{message.suggestion?.button_name ? ` · ${message.suggestion.button_name}` : ""}
                       </button>
                     ))}
