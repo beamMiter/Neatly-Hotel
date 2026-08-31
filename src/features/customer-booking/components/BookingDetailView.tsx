@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { format } from "date-fns";
 import { ArrowLeftIcon } from "@/components/icons/ArrowLeftIcon";
+import { BookingDatesSection } from "@/features/customer-booking/components/BookingDatesSection";
 import { BookingPaymentBreakdown } from "@/features/customer-booking/components/BookingPaymentBreakdown";
 import { BookingSpecialRequestsSection } from "@/features/customer-booking/components/BookingSpecialRequestsSection";
 import { BookingStayActions } from "@/features/customer-booking/components/BookingStayActions";
@@ -60,8 +61,7 @@ export function BookingDetailView({
           />
           <Field label="Amount" value={`${booking.amount} room${booking.amount === 1 ? "" : "s"}`} />
           <Field label="Bed type" value={booking.bedType} />
-          <Field label="Check-in" value={formatDate(booking.checkIn)} />
-          <Field label="Check-out" value={formatDate(booking.checkOut)} />
+          <BookingDatesSection booking={booking} catalog={specialRequestCatalog} />
           <Field label="Stay (total)" value={`${booking.nights} night${booking.nights === 1 ? "" : "s"}`} />
           <Field label="Booking date" value={formatDate(booking.bookingDate)} />
 
