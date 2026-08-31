@@ -2,8 +2,11 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
-import { nightsBetween } from "@/features/booking/date-rules";
+import { useRouter } from "next/navigation";
+import { isChangeDateEligible, isRefundEligible, nightsBetween } from "@/features/booking/date-rules";
 import { formatDateLabel, formatThb } from "@/features/booking/format";
+import { CancelBookingModal } from "@/features/booking-history/components/CancelBookingModal";
+import type { BookingCancelType } from "@/lib/booking-actions";
 import type { BookingRecord } from "@/types/booking";
 
 const INPUT_CLASSNAME =
@@ -109,10 +112,56 @@ export function BookingLookupView() {
   );
 }
 
+// Booking is done — no more changes possible, view-only from here.
+const FINALIZED_STATUSES: BookingRecord["status"][] = ["checked_in", "completed", "cancelled", "refunded"];
+
+type CancelBookingResponse = {
+  message: string;
+  refunded: boolean;
+};
+
 function BookingLookupResult({ booking }: { booking: BookingRecord }) {
+  const router = useRouter();
   const nights = Math.max(nightsBetween(booking.checkIn, booking.checkOut), 1);
   const statusLabel = booking.status.replaceAll("_", " ");
   const paymentLabel = booking.paymentStatus.replaceAll("_", " ");
+
+  const [isCancelOpen, setIsCancelOpen] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+
+  const isFinalized = FINALIZED_STATUSES.includes(booking.status);
+  const canChangeDate = !isFinalized && isChangeDateEligible(booking.createdAt);
+  const canCancel = !isFinalized;
+  const cancelType: BookingCancelType = isRefundEligible(booking.checkIn) ? "refundable" : "non-refundable";
+
+  function closeCancelModal() {
+    if (isCancelling) return;
+    setIsCancelOpen(false);
+    setCancelError(null);
+  }
+
+  async function handleConfirmCancel() {
+    setIsCancelling(true);
+    setCancelError(null);
+
+    try {
+      const response = await fetch(`/api/bookings/${booking.id}/cancel`, { method: "POST" });
+      const data = (await response.json().catch(() => null)) as CancelBookingResponse | { message?: string } | null;
+
+      if (!response.ok) {
+        setCancelError(data?.message ?? "Unable to cancel this booking. Please try again.");
+        return;
+      }
+
+      const refunded = Boolean((data as CancelBookingResponse)?.refunded);
+      router.push(refunded ? `/refund?bookingId=${booking.id}` : `/cancel-booking?bookingId=${booking.id}`);
+    } catch {
+      setCancelError("Unable to cancel this booking. Please try again.");
+    } finally {
+      setIsCancelling(false);
+    }
+  }
 
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-[#E4E6ED] bg-white p-8">
@@ -131,6 +180,40 @@ function BookingLookupResult({ booking }: { booking: BookingRecord }) {
       />
       <ResultRow label="Guests" value={String(booking.guests)} />
       <ResultRow label="Total" value={formatThb(booking.totalAmount)} />
+
+      {(canChangeDate || canCancel) && (
+        <div className="mt-2 flex flex-col gap-4 border-t border-[#E4E6ED] pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            {canCancel && (
+              <button
+                type="button"
+                onClick={() => setIsCancelOpen(true)}
+                className="cursor-pointer [font-family:var(--font-open-sans)] text-base font-semibold text-[#C14817] hover:text-[#A93F13]"
+              >
+                Cancel Booking
+              </button>
+            )}
+          </div>
+
+          {canChangeDate && (
+            <Link
+              href={`/change-date?bookingId=${booking.id}`}
+              className="flex h-12 items-center justify-center rounded-sm bg-[#C14817] px-8 [font-family:var(--font-open-sans)] text-base font-semibold text-white transition-colors hover:bg-[#A93F13]"
+            >
+              Change Date
+            </Link>
+          )}
+        </div>
+      )}
+
+      <CancelBookingModal
+        open={isCancelOpen}
+        variant={cancelType}
+        isSubmitting={isCancelling}
+        error={cancelError}
+        onClose={closeCancelModal}
+        onConfirm={handleConfirmCancel}
+      />
     </div>
   );
 }
