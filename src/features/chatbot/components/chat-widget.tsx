@@ -50,8 +50,8 @@ const CHATBOT_LOCALE_KEY = "neatly-chatbot-locale";
 const LIVE_SUPPORT_POLL_INTERVAL_MS = 5_000;
 
 const widgetCopy: Record<WidgetLocale, Record<string, string>> = {
-  th: { back: "ย้อนกลับ", reset: "เริ่มแชทใหม่", booking: "การจอง", conversation: "บทสนทนา", checkIn: "เข้า", checkOut: "ออก", guests: "ท่าน", budget: "บาท", bookNow: "จองเลย", viewDetails: "ดูรายละเอียด", retry: "ลองถามใหม่", liveSupport: "คุยกับเจ้าหน้าที่", helpRoom: "ต้องการให้เจ้าหน้าที่ช่วยแนะนำห้องนี้ไหม?", help: "ยังต้องการความช่วยเหลือเพิ่มเติมไหม?", phone: "เบอร์โทรศัพท์สำหรับติดต่อกลับ (ไม่บังคับ)", startSupport: "เริ่มคุยกับเจ้าหน้าที่", otp: "รหัสยืนยันจาก SMS", verifyPhone: "ยืนยันเบอร์โทรศัพท์", typing: "กำลังพิมพ์", messagePlaceholder: "พิมพ์ข้อความ", close: "ปิดหน้าต่างแชท", open: "เปิดแชทกับ Neatly Hotel" },
-  en: { back: "Back", reset: "Reset chat", booking: "Booking", conversation: "Conversation", checkIn: "Check-in", checkOut: "Check-out", guests: "guests", budget: "THB", bookNow: "Book Now", viewDetails: "View Details", retry: "Ask again", liveSupport: "Talk to an agent", helpRoom: "Would you like an agent to help with this room?", help: "Do you need more help?", phone: "Phone number for a callback (optional)", startSupport: "Start live support", otp: "SMS verification code", verifyPhone: "Verify phone number", typing: "Typing", messagePlaceholder: "Write your message", close: "Close chat", open: "Open chat with Neatly Hotel" },
+  th: { back: "ย้อนกลับ", reset: "เริ่มแชทใหม่", booking: "การจอง", conversation: "บทสนทนา", checkIn: "เข้า", checkOut: "ออก", guests: "ท่าน", budget: "บาท", bookNow: "จองเลย", viewDetails: "ดูรายละเอียด", retry: "ลองถามใหม่", liveSupport: "คุยกับเจ้าหน้าที่", helpRoom: "ต้องการให้เจ้าหน้าที่ช่วยแนะนำห้องนี้ไหม?", help: "ยังต้องการความช่วยเหลือเพิ่มเติมไหม?", phone: "เบอร์โทรศัพท์สำหรับติดต่อกลับ (ไม่บังคับ)", phonePrompt: "หากต้องการให้เจ้าหน้าที่ติดต่อกลับ สามารถกรอกเบอร์โทรศัพท์ได้ (ไม่บังคับ)", phoneExample: "เช่น 081 234 5678", startSupport: "เริ่มคุยกับเจ้าหน้าที่", otp: "รหัสยืนยันจาก SMS", otpPlaceholder: "กรอกรหัส OTP", verifyPhone: "ยืนยันเบอร์โทรศัพท์", typing: "กำลังพิมพ์", messagePlaceholder: "พิมพ์ข้อความ", close: "ปิดหน้าต่างแชท", open: "เปิดแชทกับ Neatly Hotel" },
+  en: { back: "Back", reset: "Reset chat", booking: "Booking", conversation: "Conversation", checkIn: "Check-in", checkOut: "Check-out", guests: "guests", budget: "THB", bookNow: "Book Now", viewDetails: "View Details", retry: "Ask again", liveSupport: "Talk to an agent", helpRoom: "Would you like an agent to help with this room?", help: "Do you need more help?", phone: "Phone number for a callback (optional)", phonePrompt: "Enter a phone number if you would like an agent to call you back (optional).", phoneExample: "e.g. 081 234 5678", startSupport: "Start live support", otp: "SMS verification code", otpPlaceholder: "Enter the OTP", verifyPhone: "Verify phone number", typing: "Typing", messagePlaceholder: "Write your message", close: "Close chat", open: "Open chat with Neatly Hotel" },
 };
 
 function toChatMessage(message: SupportMessageResponse): ChatMessage {
@@ -541,7 +541,7 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
       {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: "หากต้องการให้เจ้าหน้าที่ติดต่อกลับ สามารถกรอกเบอร์โทรศัพท์ได้ (ไม่บังคับ)",
+        content: widgetCopy[locale].phonePrompt,
       },
     ]);
   }
@@ -891,7 +891,7 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
             {shouldOfferLiveSupport && (
               <div className="relative z-[1] w-full rounded-xl border border-[#F3C7B8] bg-[#FFF8F5] p-3">
                 <p className="m-0 text-sm font-medium text-[#7B472F]">
-                  {hasSelectedRoom ? "ต้องการให้เจ้าหน้าที่ช่วยแนะนำห้องนี้ไหม?" : "ยังต้องการความช่วยเหลือเพิ่มเติมไหม?"}
+                  {hasSelectedRoom ? t.helpRoom : t.help}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {hasUnresolvedQuestion && (
@@ -900,7 +900,7 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
                       type="button"
                       onClick={retryQuestion}
                     >
-                      ลองถามใหม่
+                      {t.retry}
                     </button>
                   )}
                   <button
@@ -912,7 +912,7 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
                       <path d="M5 18.5 3.5 21l3.6-1.1A8.5 8.5 0 1 0 3.5 13" strokeLinecap="round" strokeLinejoin="round" />
                       <path d="M8 11.5h.01M12 11.5h.01M16 11.5h.01" strokeLinecap="round" strokeWidth="2.5" />
                     </svg>
-                    คุยกับเจ้าหน้าที่
+                    {t.liveSupport}
                   </button>
                 </div>
               </div>
@@ -920,14 +920,14 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
             {isCollectingPhone && (
               <form className="relative z-[1] w-full rounded-xl border border-[#F3C7B8] bg-[#FFF8F5] p-3" onSubmit={startLiveSupport}>
                 <label className="grid gap-2 text-sm font-medium text-[#7B472F]">
-                  เบอร์โทรศัพท์สำหรับติดต่อกลับ (ไม่บังคับ)
+                  {t.phone}
                   <input
                     type="tel"
                     inputMode="tel"
                     autoComplete="tel"
                     value={contactPhone}
                     onChange={(event) => setContactPhone(event.target.value)}
-                    placeholder="เช่น 081 234 5678"
+                    placeholder={t.phoneExample}
                     className="h-10 rounded-lg border border-[#E8B8A5] bg-white px-3 text-base text-[#3F3F46] outline-none placeholder:text-[#A1A1AA] focus:border-[#C14817] focus:ring-2 focus:ring-[#C14817]/15"
                   />
                 </label>
@@ -936,21 +936,21 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
                   type="submit"
                   disabled={isLoading}
                 >
-                  เริ่มคุยกับเจ้าหน้าที่
+                  {t.startSupport}
                 </button>
               </form>
             )}
             {supportConversation?.phone_verification_status === "pending" && (
               <form className="relative z-[1] w-full rounded-xl border border-[#B9D5C5] bg-[#F3FAF6] p-3" onSubmit={submitPhoneVerification}>
                 <label className="grid gap-2 text-sm font-medium text-[#365A46]">
-                  รหัสยืนยันจาก SMS
+                  {t.otp}
                   <input
                     type="text"
                     inputMode="numeric"
                     autoComplete="one-time-code"
                     value={otpCode}
                     onChange={(event) => setOtpCode(event.target.value.replace(/\D/g, "").slice(0, 10))}
-                    placeholder="กรอกรหัส OTP"
+                    placeholder={t.otpPlaceholder}
                     className="h-10 rounded-lg border border-[#A9C8B6] bg-white px-3 text-center text-lg tracking-[0.25em] text-[#244333] outline-none focus:border-[#648C76] focus:ring-2 focus:ring-[#648C76]/15"
                     required
                   />
@@ -961,13 +961,13 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
                   type="submit"
                   disabled={isLoading || otpCode.length < 4}
                 >
-                  ยืนยันเบอร์โทรศัพท์
+                  {t.verifyPhone}
                 </button>
               </form>
             )}
             {isLoading && (
               <div className="flex w-full justify-start">
-                <div className="flex gap-1 rounded-[9px] bg-white px-[15px] py-[13px]" aria-label="กำลังพิมพ์"><span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#98a59e]" /><span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#98a59e] [animation-delay:.15s]" /><span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#98a59e] [animation-delay:.3s]" /></div>
+                <div className="flex gap-1 rounded-[9px] bg-white px-[15px] py-[13px]" aria-label={t.typing}><span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#98a59e]" /><span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#98a59e] [animation-delay:.15s]" /><span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#98a59e] [animation-delay:.3s]" /></div>
               </div>
             )}
           </div>

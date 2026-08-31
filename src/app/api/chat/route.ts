@@ -20,6 +20,7 @@ import {
   detectExplicitFaqTopic,
   findHandoffReason,
   normalizeSearchState as normalizeIntentSearchState,
+  resolveChatbotAnalysis,
   type ChatbotAnalysis as Analysis,
   type ChatbotIntent as Intent,
   type FaqTopic,
@@ -64,6 +65,7 @@ const chatRequestSchema = z
   .strict();
 
 type ResponseMode = "managed_suggestion" | "room_information" | "gemini" | "gemini_fallback" | "demo";
+type ChatbotLocale = "th" | "en";
 
 class GeminiAnalysisError extends Error {
   constructor(readonly reason: "gemini_timeout" | "gemini_quota" | "gemini_unavailable") {
@@ -94,19 +96,26 @@ const intentSchema = {
   required: ["intent", "faqTopic", "confidence", "checkIn", "checkOut", "guests", "budget"],
 } as const;
 
-const faqAnswers: Record<FaqTopic, string> = {
-  check_in: "เวลาเช็กอินมาตรฐานคือ 14:00 น. และเช็กเอาต์ภายใน 12:00 น. หากต้องการเข้าพักก่อนเวลา กรุณาแจ้งล่วงหน้าเพื่อให้เจ้าหน้าที่ตรวจสอบค่ะ",
-  facilities: "Neatly Hotel มี Wi‑Fi ฟรี ที่จอดรถ อาหารเช้า และบริการทำความสะอาดรายวันค่ะ หากต้องการสอบถามสิ่งอำนวยความสะดวกเฉพาะ แจ้งมาได้เลยนะคะ",
-  location: "ข้อมูลแผนที่และที่อยู่จริงยังไม่ได้เชื่อมในระบบทดลองนี้ กรุณาติดต่อเจ้าหน้าที่เพื่อยืนยันเส้นทางก่อนเดินทางค่ะ",
-  contact: "ขณะนี้ช่องทางติดต่อจริงยังไม่ได้ตั้งค่าในระบบทดลอง กรุณาฝากชื่อและช่องทางติดต่อไว้เพื่อให้เจ้าหน้าที่ติดต่อกลับค่ะ",
-  other: "ยินดีช่วยตอบข้อมูลทั่วไปเกี่ยวกับ Neatly Hotel ค่ะ คุณสามารถถามเรื่องเวลาเช็กอิน สิ่งอำนวยความสะดวก หรือค้นหาห้องพักได้เลย",
+const faqAnswers: Record<ChatbotLocale, Record<FaqTopic, string>> = {
+  th: {
+    check_in: "เวลาเช็กอินมาตรฐานคือ 14:00 น. และเช็กเอาต์ภายใน 12:00 น. หากต้องการเข้าพักก่อนเวลา กรุณาแจ้งล่วงหน้าเพื่อให้เจ้าหน้าที่ตรวจสอบค่ะ",
+    facilities: "Neatly Hotel มี Wi‑Fi ฟรี ที่จอดรถ อาหารเช้า และบริการทำความสะอาดรายวันค่ะ หากต้องการสอบถามสิ่งอำนวยความสะดวกเฉพาะ แจ้งมาได้เลยนะคะ",
+    location: "ข้อมูลแผนที่และที่อยู่จริงยังไม่ได้เชื่อมในระบบทดลองนี้ กรุณาติดต่อเจ้าหน้าที่เพื่อยืนยันเส้นทางก่อนเดินทางค่ะ",
+    contact: "ขณะนี้ช่องทางติดต่อจริงยังไม่ได้ตั้งค่าในระบบทดลอง กรุณาฝากชื่อและช่องทางติดต่อไว้เพื่อให้เจ้าหน้าที่ติดต่อกลับค่ะ",
+    other: "ยินดีช่วยตอบข้อมูลทั่วไปเกี่ยวกับ Neatly Hotel ค่ะ คุณสามารถถามเรื่องเวลาเช็กอิน สิ่งอำนวยความสะดวก หรือค้นหาห้องพักได้เลย",
+  },
+  en: {
+    check_in: "Standard check-in is at 2:00 PM and check-out is by 12:00 PM. If you need early check-in, please let us know in advance so our staff can check availability.",
+    facilities: "Neatly Hotel offers free Wi-Fi, parking, breakfast, and daily housekeeping. Let me know if you would like to ask about a specific facility.",
+    location: "Map and address details are not connected to this demo yet. Please contact our staff to confirm directions before travelling.",
+    contact: "Contact details have not been configured in this demo yet. Please leave your name and contact details so our staff can get back to you.",
+    other: "I can help with general information about Neatly Hotel, including check-in times, facilities, and room searches.",
+  },
 };
 
-const fieldLabels: Record<keyof ChatbotSearchState, string> = {
-  checkIn: "วันเช็กอิน",
-  checkOut: "วันเช็กเอาต์",
-  guests: "จำนวนผู้เข้าพัก",
-  budget: "งบประมาณต่อคืน",
+const fieldLabels: Record<ChatbotLocale, Record<keyof ChatbotSearchState, string>> = {
+  th: { checkIn: "วันเช็กอิน", checkOut: "วันเช็กเอาต์", guests: "จำนวนผู้เข้าพัก", budget: "งบประมาณต่อคืน" },
+  en: { checkIn: "check-in date", checkOut: "check-out date", guests: "number of guests", budget: "budget per night" },
 };
 
 async function getChatbotContent(): Promise<{ autoReplyTh: string | null; autoReplyEn: string | null }> {
@@ -193,6 +202,7 @@ confidence อยู่ระหว่าง 0 ถึง 1 หากคำถา
 ถ้ากำลังเก็บข้อมูลค้นหาห้องอยู่ ให้คง intent เป็น search_room แม้ข้อความล่าสุดเป็นเพียงวันที่หรือตัวเลข
 faqTopic ใช้ check_in, facilities, location, contact หรือ other
 คำถามนโยบายที่ไม่มีหมวด เช่น สัตว์เลี้ยง สูบบุหรี่ เด็ก หรือเงินมัดจำ ให้เป็น unknown ห้ามจัดรวมเป็น facilities
+คำถามเกี่ยวกับการจอง การสำรองห้อง วิธีจอง หรือเริ่มจอง เช่น book a room, book the room, reserve a room, make a reservation ให้เป็น search_room
 คืนเฉพาะข้อมูลที่ผู้ใช้ระบุจริง ห้ามเดาห้อง ราคา หรือจำนวนผู้เข้าพัก
 search state ปัจจุบัน: ${JSON.stringify(state)}
 
@@ -220,7 +230,7 @@ ${redactedConversation}`,
   return parsed;
 }
 
-async function searchResponse(analysis: Analysis, current: ChatbotSearchState) {
+async function searchResponse(analysis: Analysis, current: ChatbotSearchState, locale: ChatbotLocale) {
   const search = mergeChatbotSearchState(current, {
     checkIn: analysis.checkIn,
     checkOut: analysis.checkOut,
@@ -231,7 +241,9 @@ async function searchResponse(analysis: Analysis, current: ChatbotSearchState) {
   if (!isValidChatbotDateRange(search)) {
     return {
       intent: "search_room" as const,
-      message: "วันเช็กเอาต์ต้องอยู่หลังวันเช็กอินค่ะ กรุณาระบุวันที่ใหม่อีกครั้ง",
+      message: locale === "en"
+        ? "The check-out date must be after the check-in date. Please enter the dates again."
+        : "วันเช็กเอาต์ต้องอยู่หลังวันเช็กอินค่ะ กรุณาระบุวันที่ใหม่อีกครั้ง",
       search: { ...search, checkIn: null, checkOut: null },
       rooms: [],
     };
@@ -239,10 +251,12 @@ async function searchResponse(analysis: Analysis, current: ChatbotSearchState) {
 
   const missing = getMissingChatbotSearchFields(search);
   if (missing.length > 0) {
-    const labels = missing.map((field) => fieldLabels[field]);
+    const labels = missing.map((field) => fieldLabels[locale][field]);
     return {
       intent: "search_room" as const,
-      message: `ได้เลยค่ะ เพื่อค้นหาห้องที่เหมาะสม ขอข้อมูลเพิ่ม: ${labels.join(", ")}\nตัวอย่าง: 10/09/2026 - 12/09/2026, 2 คน, งบ 4,000 บาทต่อคืน`,
+      message: locale === "en"
+        ? `Certainly. To find a suitable room, please provide: ${labels.join(", ")}\nExample: 10/09/2026 - 12/09/2026, 2 guests, THB 4,000 per night`
+        : `ได้เลยค่ะ เพื่อค้นหาห้องที่เหมาะสม ขอข้อมูลเพิ่ม: ${labels.join(", ")}\nตัวอย่าง: 10/09/2026 - 12/09/2026, 2 คน, งบ 4,000 บาทต่อคืน`,
       search,
       rooms: [],
     };
@@ -251,9 +265,13 @@ async function searchResponse(analysis: Analysis, current: ChatbotSearchState) {
   const rooms = await searchAvailableChatbotRooms(search);
   return {
     intent: "search_room" as const,
-    message: rooms.length
-      ? `พบห้องว่าง ${rooms.length} แบบ สำหรับ ${search.guests} ท่าน งบไม่เกิน ${search.budget?.toLocaleString("th-TH")} บาทต่อคืนค่ะ`
-      : "ไม่พบห้องที่รองรับจำนวนผู้เข้าพักภายในงบประมาณนี้ ลองเพิ่มงบประมาณหรือปรับจำนวนผู้เข้าพักได้ค่ะ",
+    message: locale === "en"
+      ? rooms.length
+        ? `I found ${rooms.length} available room type${rooms.length === 1 ? "" : "s"} for ${search.guests} guest${search.guests === 1 ? "" : "s"}, within a budget of THB ${search.budget?.toLocaleString("en-US")} per night.`
+        : "I couldn't find a room for this number of guests within your budget. Try increasing the budget or changing the number of guests."
+      : rooms.length
+        ? `พบห้องว่าง ${rooms.length} แบบ สำหรับ ${search.guests} ท่าน งบไม่เกิน ${search.budget?.toLocaleString("th-TH")} บาทต่อคืนค่ะ`
+        : "ไม่พบห้องที่รองรับจำนวนผู้เข้าพักภายในงบประมาณนี้ ลองเพิ่มงบประมาณหรือปรับจำนวนผู้เข้าพักได้ค่ะ",
     search,
     rooms,
   };
@@ -279,6 +297,7 @@ export async function POST(request: Request) {
     }
 
     const body = parsedBody.data;
+    const locale: ChatbotLocale = body.language === "en" ? "en" : "th";
     const validMessages: Message[] = body.messages.slice(-12);
     const lastMessage = validMessages.at(-1);
     if (!lastMessage || lastMessage.role !== "user") {
@@ -291,7 +310,9 @@ export async function POST(request: Request) {
     if (ruleBasedHandoff) {
       return responseWithEvent({
         intent: "unknown",
-        message: "ฉันจะส่งต่อเรื่องนี้ให้เจ้าหน้าที่ช่วยดูแลต่อค่ะ กด “คุยกับเจ้าหน้าที่” ด้านล่างเพื่อเริ่ม Live Support ได้เลย",
+        message: locale === "en"
+          ? "I'll pass this to our staff. Select “Talk to an agent” below to start live support."
+          : "ฉันจะส่งต่อเรื่องนี้ให้เจ้าหน้าที่ช่วยดูแลต่อค่ะ กด “คุยกับเจ้าหน้าที่” ด้านล่างเพื่อเริ่ม Live Support ได้เลย",
         search: normalizeIntentSearchState(body.search),
         rooms: [],
         mode: "demo",
@@ -349,7 +370,7 @@ export async function POST(request: Request) {
     if (roomInformation) {
       return responseWithEvent({
         intent: "faq",
-        message: `${roomInformation.name}\n${roomInformation.description || "ดูรายละเอียดห้อง ราคา ขนาด เตียง และสิ่งอำนวยความสะดวกได้ด้านล่างค่ะ"}`,
+        message: `${roomInformation.name}\n${roomInformation.description || (locale === "en" ? "See the room details, price, size, bed, and facilities below." : "ดูรายละเอียดห้อง ราคา ขนาด เตียง และสิ่งอำนวยความสะดวกได้ด้านล่างค่ะ")}`,
         search: currentSearch,
         rooms: [roomInformation],
         mode: "room_information",
@@ -363,17 +384,19 @@ export async function POST(request: Request) {
     const chatbotContent = await getChatbotContent();
     const hasStoredSearchState = Object.values(currentSearch).some(Boolean);
     const hasSearchHistory = validMessages.slice(0, -1).some((message) =>
-      ["ค้นหาห้อง", "หาห้อง", "ห้องว่าง", "จอง", "ข้อมูลเพิ่ม"].some((word) =>
+      ["ค้นหาห้อง", "หาห้อง", "ห้องว่าง", "จอง", "ข้อมูลเพิ่ม", "room", "availability", "book"].some((word) =>
         message.content.toLowerCase().includes(word),
       ),
     );
     const localAnalysis = analyzeIntentLocally(lastMessage.content, hasStoredSearchState || hasSearchHistory);
     let analysis: Analysis;
+    let geminiAnalysis: Analysis | null = null;
     let mode: ResponseMode = "demo";
     let fallbackReason: string | null = null;
     if (process.env.GEMINI_API_KEY) {
       try {
-        analysis = await analyzeWithGemini(validMessages, currentSearch);
+        geminiAnalysis = await analyzeWithGemini(validMessages, currentSearch);
+        analysis = geminiAnalysis;
         mode = "gemini";
       } catch (error) {
         logApiFailure("chat:gemini", id, error);
@@ -385,13 +408,33 @@ export async function POST(request: Request) {
       analysis = localAnalysis;
     }
 
+    const resolved = resolveChatbotAnalysis(analysis, localAnalysis, mode === "gemini");
+    analysis = resolved.analysis;
     const passesConfidence = analysis.confidence >= 0.8;
-    const hasVerifiedSearchIntent = localAnalysis.intent === "search_room";
     const hasVerifiedFaqTopic =
       analysis.faqTopic !== "other" && detectExplicitFaqTopic(lastMessage.content) === analysis.faqTopic;
 
-    if (analysis.intent === "search_room" && passesConfidence && hasVerifiedSearchIntent) {
-      return responseWithEvent({ ...(await searchResponse(analysis, currentSearch)), mode }, {
+    console.info("[chat:intent]", {
+      requestId: id,
+      mode,
+      gemini: geminiAnalysis ? {
+        intent: geminiAnalysis.intent,
+        faqTopic: geminiAnalysis.faqTopic,
+        confidence: geminiAnalysis.confidence,
+        extracted: {
+          checkIn: Boolean(geminiAnalysis.checkIn),
+          checkOut: Boolean(geminiAnalysis.checkOut),
+          guests: Boolean(geminiAnalysis.guests),
+          budget: Boolean(geminiAnalysis.budget),
+        },
+      } : null,
+      local: { intent: localAnalysis.intent, faqTopic: localAnalysis.faqTopic, confidence: localAnalysis.confidence },
+      resolved: { intent: analysis.intent, confidence: analysis.confidence, searchVerified: resolved.isSearchVerified },
+      fallbackReason,
+    });
+
+    if (analysis.intent === "search_room" && passesConfidence && resolved.isSearchVerified) {
+      return responseWithEvent({ ...(await searchResponse(analysis, currentSearch, locale)), mode }, {
         requestId: id,
         intent: "search_room",
         mode,
@@ -401,7 +444,7 @@ export async function POST(request: Request) {
     if (analysis.intent === "faq" && passesConfidence && hasVerifiedFaqTopic) {
       return responseWithEvent({
         intent: "faq",
-        message: faqAnswers[analysis.faqTopic],
+        message: faqAnswers[locale][analysis.faqTopic],
         search: emptyChatbotSearchState,
         rooms: [],
         mode,
