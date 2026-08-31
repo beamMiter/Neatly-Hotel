@@ -29,6 +29,8 @@ export type AnalyticsDashboardData = {
   paymentMethod: PaymentMethodBreakdown;
   checkInOutAverages: CheckInOutAverages;
   websiteTraffic: TrafficPoint[];
+  checkInTimeLabel: string;
+  checkOutTimeLabel: string;
   defaultFrom: Date;
   defaultTo: Date;
 };
@@ -56,7 +58,11 @@ export function AnalyticsDashboardView({ data }: { data: AnalyticsDashboardData 
         initialTo={data.defaultTo}
       />
 
-      <CheckInOutCard averages={data.checkInOutAverages} />
+      <CheckInOutCard
+        averages={data.checkInOutAverages}
+        checkInTimeLabel={data.checkInTimeLabel}
+        checkOutTimeLabel={data.checkOutTimeLabel}
+      />
 
       <WebsiteTrafficCard initialData={data.websiteTraffic} />
     </div>

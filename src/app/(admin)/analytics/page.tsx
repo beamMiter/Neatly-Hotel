@@ -14,6 +14,8 @@ import {
   overviewRangeFor,
 } from "@/server/queries/analytics.query";
 import { AnalyticsDashboardView } from "@/features/analytics/components/AnalyticsDashboardView";
+import { loadHotelInformation } from "@/server/queries/hotel.query";
+import { formatCheckTimeLabel } from "@/types/hotel";
 
 export const metadata: Metadata = {
   title: "Analytics Dashboard | Neatly Hotel Admin",
@@ -38,6 +40,7 @@ export default async function AnalyticsPage() {
     paymentMethod,
     checkInOutAverages,
     websiteTraffic,
+    hotel,
   ] = await Promise.all([
     getDashboardKpis(),
     getRoomAvailabilityBreakdown(thisMonth),
@@ -49,6 +52,7 @@ export default async function AnalyticsPage() {
     getPaymentMethodBreakdown(defaultRange),
     getCheckInOutAverages(),
     getWebsiteTraffic("realtime"),
+    loadHotelInformation(),
   ]);
 
   return (
@@ -70,6 +74,8 @@ export default async function AnalyticsPage() {
             paymentMethod,
             checkInOutAverages,
             websiteTraffic,
+            checkInTimeLabel: formatCheckTimeLabel(hotel.checkInTime),
+            checkOutTimeLabel: formatCheckTimeLabel(hotel.checkOutTime),
             defaultFrom,
             defaultTo,
           }}
