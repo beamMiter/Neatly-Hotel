@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { format } from "date-fns";
 import { ArrowLeftIcon } from "@/components/icons/ArrowLeftIcon";
+import { BookingRoomUpgradeSection } from "@/features/customer-booking/components/BookingRoomUpgradeSection";
 import { BookingDatesSection } from "@/features/customer-booking/components/BookingDatesSection";
 import { BookingPaymentBreakdown } from "@/features/customer-booking/components/BookingPaymentBreakdown";
 import { BookingSpecialRequestsSection } from "@/features/customer-booking/components/BookingSpecialRequestsSection";
 import { BookingStayActions } from "@/features/customer-booking/components/BookingStayActions";
+import type { AdminRoomUpgradeOption } from "@/types/admin-booking-edit";
 import type { SpecialRequestOption } from "@/types/booking";
 import type { BookingStatus } from "@/types/booking";
 import type { CustomerBookingDetail } from "@/types/customer-booking";
@@ -29,9 +31,11 @@ function Field({ label, value }: { label: string; value: string }) {
 export function BookingDetailView({
   booking,
   specialRequestCatalog,
+  upgradeOptions,
 }: {
   booking: CustomerBookingDetail;
   specialRequestCatalog: SpecialRequestOption[];
+  upgradeOptions: AdminRoomUpgradeOption[];
 }) {
   return (
     <div className="flex h-full flex-col">
@@ -54,7 +58,7 @@ export function BookingDetailView({
           <Field label="Status" value={formatStatus(booking.status)} />
           <Field label="Customer name" value={booking.customerName} />
           <Field label="Guest(s)" value={String(booking.guests)} />
-          <Field label="Room type" value={booking.roomType} />
+          <BookingRoomUpgradeSection booking={booking} upgradeOptions={upgradeOptions} />
           <Field
             label="Room no."
             value={booking.roomNos.length > 0 ? booking.roomNos.join(", ") : "-"}

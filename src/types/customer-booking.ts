@@ -28,6 +28,7 @@ export type CustomerBookingDetail = {
   customerName: string;
   guests: number;
   roomType: string;
+  roomTypeId: string | null;
   amount: number;
   bedType: string;
   checkIn: string;

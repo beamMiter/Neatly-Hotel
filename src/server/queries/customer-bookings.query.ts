@@ -10,7 +10,7 @@ import type { CustomerBookingSummary, CustomerBookingDetail } from "@/types/cust
 export const CUSTOMER_BOOKINGS_PAGE_SIZE = 10;
 
 const BOOKING_SELECT =
-  "id, booking_code, customer_id, check_in, check_out, guests, status, payment_status, total_amount, created_at, guest_first_name, guest_last_name, guest_email, booking_rooms(price_per_night, rooms(room_no, room_type, bed_type))";
+  "id, booking_code, customer_id, check_in, check_out, guests, status, payment_status, total_amount, created_at, guest_first_name, guest_last_name, guest_email, booking_rooms(price_per_night, rooms(room_no, room_type, bed_type, room_type_id))";
 
 // PostgREST's .or() takes a raw filter-string DSL (column.operator.value,
 // comma-separated conditions) — splicing user input into it unescaped lets
@@ -32,7 +32,7 @@ const CHECK_OUT_ROOM_STATUS = "Vacant Dirty";
 
 type BookingRoomRow = {
   price_per_night: number | string;
-  rooms: { room_no: string; room_type: string; bed_type: string } | null;
+  rooms: { room_no: string; room_type: string; bed_type: string; room_type_id: string } | null;
 };
 
 type BookingRow = {
@@ -215,6 +215,7 @@ async function toDetail(
     customerName,
     guests: row.guests,
     roomType: summarizeDistinct(rooms.map((room) => room.rooms?.room_type)),
+    roomTypeId: rooms.find((room) => room.rooms?.room_type_id)?.rooms?.room_type_id ?? null,
     amount: rooms.length,
     bedType: summarizeDistinct(rooms.map((room) => room.rooms?.bed_type)),
     checkIn: row.check_in,

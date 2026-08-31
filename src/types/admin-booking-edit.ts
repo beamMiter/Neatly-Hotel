@@ -20,6 +20,16 @@ export type AdminUpgradeRoomInput = {
   paymentMethod?: AdminBookingEditPaymentMethod;
 };
 
+export type AdminRoomUpgradeOption = {
+  roomTypeId: string;
+  roomTypeName: string;
+  pricePerNight: number;
+  newRoomSubtotal: number;
+  estimatedTotal: number;
+  totalDifference: number;
+  available: boolean;
+};
+
 export type AdminBookingEditPricing = {
   roomSubtotal: number;
   addonsTotal: number;
