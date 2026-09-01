@@ -1,14 +1,11 @@
 export type SupportConversationStatus = "waiting" | "active" | "resolved";
 export type SupportMessageSender = "visitor" | "agent" | "system";
-export type PhoneVerificationStatus = "not_requested" | "pending" | "verified";
 
 export type SupportConversation = {
   id: string;
   visitor_token: string;
   customer_name: string | null;
   customer_phone: string | null;
-  phone_verification_status: PhoneVerificationStatus;
-  phone_verified_at: string | null;
   customer_id: string | null;
   booking_id: string | null;
   status: SupportConversationStatus;
@@ -44,11 +41,6 @@ export type SupportCustomer = {
   email: string | null;
   phone: string | null;
   country: string | null;
-};
-
-export type SupportMemberMatch = SupportCustomer & {
-  customerId: string;
-  matchedBy: "conversation" | "phone" | "email";
 };
 
 export type SupportBooking = {

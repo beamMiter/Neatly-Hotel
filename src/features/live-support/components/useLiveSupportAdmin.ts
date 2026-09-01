@@ -90,6 +90,23 @@ export function useLiveSupportAdmin(selectedThreadId: string | null, onInitialSe
     return data.conversation;
   }
 
+  async function markConversationRead(conversationId: string) {
+    const response = await fetch("/api/live-support/admin/read", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ conversationId }),
+    });
+    if (!response.ok) return false;
+
+    const data = await response.json() as { lastReadAt: string };
+    setConversations((current) => current.map((conversation) => (
+      conversation.id === conversationId
+        ? { ...conversation, last_read_at: data.lastReadAt }
+        : conversation
+    )));
+    return true;
+  }
+
   function appendSupportMessage(message: SupportMessage) {
     setSupportMessages((current) => (
       current.some((item) => item.id === message.id) ? current : [...current, message]
@@ -98,5 +115,5 @@ export function useLiveSupportAdmin(selectedThreadId: string | null, onInitialSe
 
   const isConversationLoading = Boolean(selectedThreadId && loadedConversationId !== selectedThreadId);
 
-  return { conversations, supportMessages, agents, currentAdminId, customer, bookings, isSending, isConversationLoading, sendReply, updateConversation, appendSupportMessage, refresh };
+  return { conversations, supportMessages, agents, currentAdminId, customer, bookings, isSending, isConversationLoading, sendReply, updateConversation, markConversationRead, appendSupportMessage, refresh };
 }

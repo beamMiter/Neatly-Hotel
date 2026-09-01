@@ -1,27 +1,15 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
 import BookingSearch from "@/components/shared/BookingSearch";
 import { buildBookingHref } from "@/features/booking-flow/utils";
-import { resolveAddOnQuantity } from "@/lib/addon-pricing";
+import { ChatMessageList } from "@/features/chatbot/components/ChatMessageList";
+import { isBookingConfirmationMessage } from "@/features/chatbot/components/support-booking-card";
+import type { ChatMessage, Intent, SupportSessionResponse, WidgetLocale } from "@/features/chatbot/components/chat-widget.types";
+import { useLiveSupportVisitor } from "@/features/chatbot/components/useLiveSupportVisitor";
 import type { ChatbotRoomResult, ChatbotSearchState, ChatbotSuggestion } from "@/types/chatbot";
-import type { SpecialRequestOption } from "@/types/booking";
-import type { SupportBooking, SupportConversation } from "@/types/live-support";
-
-type Intent = "faq" | "search_room" | "unknown";
-type WidgetLocale = "th" | "en";
-
-type ChatMessage = {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  intent?: Intent;
-  rooms?: ChatbotRoomResult[];
-  suggestion?: ChatbotSuggestion;
-};
 
 type ChatResponse = {
   message?: string;
@@ -32,50 +20,19 @@ type ChatResponse = {
   suggestion?: ChatbotSuggestion;
 };
 
-type SupportMessageResponse = {
-  id: string;
-  sender: "visitor" | "agent" | "system";
-  content: string;
-  created_at: string;
-};
 
-type SupportSessionResponse = {
-  conversation: Pick<SupportConversation, "id" | "status" | "assigned_agent_id" | "phone_verification_status" | "booking_id"> | null;
-  messages: SupportMessageResponse[];
-  booking?: SupportBooking | null;
-  specialRequestOptions?: SpecialRequestOption[];
-};
-
-const LIVE_SUPPORT_TOKEN_KEY = "neatly-live-support-token";
 const CHATBOT_LOCALE_KEY = "neatly-chatbot-locale";
-const LIVE_SUPPORT_POLL_INTERVAL_MS = 5_000;
 
 const widgetCopy: Record<WidgetLocale, Record<string, string>> = {
   th: { back: "ย้อนกลับ", reset: "เริ่มแชทใหม่", booking: "การจอง", conversation: "บทสนทนา", checkIn: "เข้า", checkOut: "ออก", guests: "ท่าน", budget: "บาท", bookNow: "จองเลย", viewDetails: "ดูรายละเอียด", retry: "ลองถามใหม่", liveSupport: "คุยกับเจ้าหน้าที่", helpRoom: "ต้องการให้เจ้าหน้าที่ช่วยแนะนำห้องนี้ไหม?", help: "ยังต้องการความช่วยเหลือเพิ่มเติมไหม?", phone: "เบอร์โทรศัพท์สำหรับติดต่อกลับ (ไม่บังคับ)", phonePrompt: "หากต้องการให้เจ้าหน้าที่ติดต่อกลับ สามารถกรอกเบอร์โทรศัพท์ได้ (ไม่บังคับ)", phoneExample: "เช่น 081 234 5678", startSupport: "เริ่มคุยกับเจ้าหน้าที่", supportRequest: "ต้องการพูดคุยกับเจ้าหน้าที่ Live Support", otp: "รหัสยืนยันจาก SMS", otpPlaceholder: "กรอกรหัส OTP", verifyPhone: "ยืนยันเบอร์โทรศัพท์", typing: "กำลังพิมพ์", messagePlaceholder: "พิมพ์ข้อความ", close: "ปิดหน้าต่างแชท", open: "เปิดแชทกับ Neatly Hotel" },
   en: { back: "Back", reset: "Reset chat", booking: "Booking", conversation: "Conversation", checkIn: "Check-in", checkOut: "Check-out", guests: "guests", budget: "THB", bookNow: "Book Now", viewDetails: "View Details", retry: "Ask again", liveSupport: "Talk to an agent", helpRoom: "Would you like an agent to help with this room?", help: "Do you need more help?", phone: "Phone number for a callback (optional)", phonePrompt: "Enter a phone number if you would like an agent to call you back (optional).", phoneExample: "e.g. 081 234 5678", startSupport: "Start live support", supportRequest: "I would like to speak with a live support agent.", otp: "SMS verification code", otpPlaceholder: "Enter the OTP", verifyPhone: "Verify phone number", typing: "Typing", messagePlaceholder: "Write your message", close: "Close chat", open: "Open chat with Neatly Hotel" },
 };
 
-function toChatMessage(message: SupportMessageResponse): ChatMessage {
-  return {
-    id: message.id,
-    role: message.sender === "visitor" ? "user" : "assistant",
-    content: message.content,
-  };
-}
-
-function mergeSupportMessages(current: ChatMessage[], incoming: SupportMessageResponse[]) {
-  const knownIds = new Set(current.map((message) => message.id));
-  const additions = incoming
-    .filter((message) => !knownIds.has(message.id))
-    .map(toChatMessage);
-  return additions.length > 0 ? [...current, ...additions] : current;
-}
-
-function supportStatusLabel(conversation: SupportSessionResponse["conversation"]) {
+function supportStatusLabel(conversation: SupportSessionResponse["conversation"], locale: WidgetLocale) {
   if (!conversation) return null;
-  if (conversation.status === "resolved") return "Resolved";
-  if (conversation.status === "active" || conversation.assigned_agent_id) return "Assigned";
-  return "Waiting";
+  if (conversation.status === "resolved") return locale === "th" ? "ปิดการสนทนาแล้ว" : "Resolved";
+  if (conversation.status === "active" || conversation.assigned_agent_id) return locale === "th" ? "เจ้าหน้าที่รับเรื่องแล้ว" : "Assigned";
+  return locale === "th" ? "กำลังรอเจ้าหน้าที่" : "Waiting";
 }
 
 function supportStatusDescription(conversation: SupportSessionResponse["conversation"], locale: WidgetLocale) {
@@ -99,166 +56,6 @@ function updateWelcomeMessage(
 ) {
   if (messages.length !== 1 || messages[0].id !== "welcome") return messages;
   return [{ ...messages[0], content: greetingMessages?.[locale] ?? greetingMessage }];
-}
-
-function formatBookingDate(value: string) {
-  const [year, month, day] = value.split("-").map(Number);
-  if (!year || !month || !day) return value;
-  return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })
-    .format(new Date(Date.UTC(year, month - 1, day)));
-}
-
-function isBookingConfirmationMessage(message: ChatMessage, booking: SupportBooking | null) {
-  return Boolean(booking && message.role === "assistant" && message.content.startsWith(`Booking ${booking.bookingCode} is ready for confirmation`));
-}
-
-function addOnPriceLabel(option: SpecialRequestOption) {
-  if (option.billingType === "per_night") return " / night";
-  if (option.billingType === "per_leg") return " / trip";
-  if (option.billingType === "per_day_guest") return " / guest / day";
-  return " / stay";
-}
-
-function SupportBookingCard({
-  booking,
-  specialRequestOptions,
-  visitorToken,
-  onConfirmed,
-}: {
-  booking: SupportBooking;
-  specialRequestOptions: SpecialRequestOption[];
-  visitorToken: string | null;
-  onConfirmed: () => void;
-}) {
-  const isPending = booking.status === "pending_payment";
-  const isCancelled = booking.status === "cancelled" || booking.status === "refunded";
-  const statusLabel = booking.status === "pending_payment"
-    ? "Pending"
-    : booking.status === "refunded" ? "Cancelled · Refunded" : booking.status.replaceAll("_", " ");
-  const nights = Math.max(
-    Math.round((Date.parse(`${booking.checkOut}T00:00:00Z`) - Date.parse(`${booking.checkIn}T00:00:00Z`)) / 86_400_000),
-    1,
-  );
-  const [selectedCounts, setSelectedCounts] = useState<Record<string, number>>(() => Object.fromEntries(
-    booking.specialRequests.map((selected) => {
-      const option = specialRequestOptions.find((item) => item.code === selected.code);
-      const count = option?.billingType === "per_day_guest"
-        ? Math.max(Math.round(selected.quantity / nights), 1)
-        : option?.billingType === "per_leg" ? selected.quantity : 1;
-      return [selected.code, count];
-    }),
-  ));
-  const [isConfirming, setIsConfirming] = useState(false);
-  const [confirmError, setConfirmError] = useState("");
-  const addonsTotal = useMemo(() => specialRequestOptions.reduce((sum, option) => {
-    const count = selectedCounts[option.code];
-    return count
-      ? sum + option.price * resolveAddOnQuantity(option.billingType, count, nights)
-      : sum;
-  }, 0), [nights, selectedCounts, specialRequestOptions]);
-  const previewTotal = booking.totalAmount - booking.addonsTotal + addonsTotal;
-
-  function toggleSpecialRequest(code: string) {
-    setSelectedCounts((current) => {
-      const next = { ...current };
-      if (next[code]) delete next[code];
-      else next[code] = 1;
-      return next;
-    });
-    setConfirmError("");
-  }
-
-  async function confirmBooking() {
-    if (isConfirming) return;
-    if (specialRequestOptions.length > 0) {
-      if (!visitorToken) {
-        setConfirmError("Live Support session is unavailable. Please reset the chat and try again.");
-        return;
-      }
-      setIsConfirming(true);
-      setConfirmError("");
-      try {
-        const response = await fetch("/api/live-support/visitor/booking", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            visitorToken,
-            bookingId: booking.id,
-            specialRequests: Object.entries(selectedCounts).map(([code, count]) => ({ code, count })),
-          }),
-        });
-        const data = await response.json().catch(() => ({})) as { error?: string };
-        if (!response.ok) throw new Error(data.error ?? "Unable to save special requests");
-      } catch (error) {
-        setConfirmError(error instanceof Error ? error.message : "Unable to save special requests");
-        setIsConfirming(false);
-        return;
-      }
-    }
-    onConfirmed();
-  }
-
-  return (
-    <article className="w-full shrink-0 overflow-hidden rounded-xl border border-[#E7C6BA] bg-white shadow-[0_5px_18px_rgba(91,60,48,.1)]" aria-label={`Booking ${booking.bookingCode}`}>
-      <div className="flex items-center justify-between bg-[#FFF1EB] px-4 py-3">
-        <div>
-          <p className={`m-0 text-xs font-semibold uppercase tracking-[.08em] ${isCancelled ? "text-[#B42318]" : "text-[#A84A25]"}`}>
-            {isCancelled ? "Booking cancelled" : "Booking ready"}
-          </p>
-          <h3 className="m-0 mt-0.5 text-base font-semibold text-[#2A2E3F]">Order {booking.bookingCode}</h3>
-        </div>
-        <span className={`rounded-full bg-white px-2.5 py-1 text-xs font-semibold capitalize ${isCancelled ? "text-[#B42318]" : "text-[#A84A25]"}`}>{statusLabel}</span>
-      </div>
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-3 px-4 py-4 text-sm">
-        <div className="col-span-2"><dt className="text-xs text-[#8A91A7]">Room</dt><dd className="m-0 mt-0.5 font-medium text-[#2A2E3F]">{booking.roomType}</dd></div>
-        <div><dt className="text-xs text-[#8A91A7]">Check-in</dt><dd className="m-0 mt-0.5 font-medium text-[#2A2E3F]">{formatBookingDate(booking.checkIn)}</dd></div>
-        <div><dt className="text-xs text-[#8A91A7]">Check-out</dt><dd className="m-0 mt-0.5 font-medium text-[#2A2E3F]">{formatBookingDate(booking.checkOut)}</dd></div>
-        {isPending && specialRequestOptions.length > 0 && (
-          <div className="col-span-2 border-t border-[#EEF0F4] pt-3">
-            <dt className="text-xs font-semibold uppercase tracking-[.06em] text-[#8A91A7]">Special requests</dt>
-            <dd className="m-0 mt-2 grid gap-2">
-              {specialRequestOptions.map((option) => {
-                const selected = Boolean(selectedCounts[option.code]);
-                const allowsCount = option.billingType === "per_leg" || option.billingType === "per_day_guest";
-                return (
-                  <div className={`rounded-lg border p-2.5 ${selected ? "border-[#E5A98F] bg-[#FFF8F5]" : "border-[#E4E6ED] bg-white"}`} key={option.code}>
-                    <label className="flex cursor-pointer items-start gap-2.5">
-                      <input className="mt-0.5 h-4 w-4 accent-[#C14817]" type="checkbox" checked={selected} onChange={() => toggleSpecialRequest(option.code)} />
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-medium text-[#2A2E3F]">{option.label}</span>
-                        <span className="block text-xs text-[#8A91A7]">THB {option.price.toLocaleString("en-US")}{addOnPriceLabel(option)}</span>
-                      </span>
-                    </label>
-                    {selected && allowsCount && (
-                      <label className="mt-2 flex items-center justify-between border-t border-[#F0DDD5] pt-2 text-xs text-[#646D89]">
-                        {option.billingType === "per_leg" ? "Trips" : "Guests"}
-                        <select className="h-8 rounded-md border border-[#D6D9E4] bg-white px-2 text-sm text-[#2A2E3F]" value={selectedCounts[option.code]} onChange={(event) => setSelectedCounts((current) => ({ ...current, [option.code]: Number(event.target.value) }))}>
-                          <option value={1}>1</option>
-                          <option value={2}>2</option>
-                        </select>
-                      </label>
-                    )}
-                  </div>
-                );
-              })}
-            </dd>
-          </div>
-        )}
-        <div className="col-span-2 flex items-end justify-between border-t border-[#EEF0F4] pt-3"><dt className="text-sm font-medium text-[#646D89]">Total</dt><dd className="m-0 text-base font-semibold text-[#C14817]">THB {previewTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}</dd></div>
-      </dl>
-      {isPending && confirmError && <p className="m-0 border-t border-[#F3D4C8] bg-[#FFF8F5] px-4 py-2 text-xs text-[#B42318]">{confirmError}</p>}
-      {isPending ? <div className="border-t border-[#EEF0F4] p-3">
-        <button
-          type="button"
-          onClick={() => void confirmBooking()}
-          disabled={isConfirming}
-          className="w-full rounded-lg bg-[#C14817] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#A93F13] focus:outline-2 focus:outline-offset-2 focus:outline-[#C14817]"
-        >
-          {isConfirming ? "Saving requests..." : "Confirm booking"}
-        </button>
-      </div> : null}
-    </article>
-  );
 }
 
 const initialSearch: ChatbotSearchState = {
@@ -300,15 +97,6 @@ function localizeSuggestion(suggestion: ChatbotSuggestion, locale: WidgetLocale)
   } : suggestion;
 }
 
-function isSpecialBookingOption(optionName: string) {
-  const label = optionName.trim().toLowerCase();
-  return label.includes("seminar") || label.includes("group") || label.includes("bulk");
-}
-
-function specialBookingRequest(optionName: string) {
-  return `สนใจ${optionName}`;
-}
-
 const defaultGreeting = "Welcome to Neatly Hotel! 🌟\nI’m your virtual assistant.\nChoose a topic you’d like to know more about. I’m here to help! 😊";
 
 export default function ChatWidget({ greetingMessage = defaultGreeting, greetingMessages, suggestions = [] }: { greetingMessage?: string; greetingMessages?: Partial<Record<WidgetLocale, string>>; suggestions?: ChatbotSuggestion[] }) {
@@ -331,17 +119,30 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
   const [isLoading, setIsLoading] = useState(false);
   const [isBooking, setIsBooking] = useState(false);
   const [hasSelectedRoom, setHasSelectedRoom] = useState(false);
-  const [hasRequestedLiveSupport, setHasRequestedLiveSupport] = useState(false);
-  const [visitorToken, setVisitorToken] = useState<string | null>(null);
-  const [supportConversation, setSupportConversation] = useState<SupportSessionResponse["conversation"]>(null);
-  const [supportBooking, setSupportBooking] = useState<SupportBooking | null>(null);
-  const [specialRequestOptions, setSpecialRequestOptions] = useState<SpecialRequestOption[]>([]);
-  const [isCollectingPhone, setIsCollectingPhone] = useState(false);
-  const [contactPhone, setContactPhone] = useState("");
-  const [otpCode, setOtpCode] = useState("");
-  const [verificationError, setVerificationError] = useState("");
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const liveSupport = useLiveSupportVisitor({
+    initialMessage,
+    locale,
+    setMessages,
+    setInput,
+    setIsLoading,
+    onReset: () => setHasSelectedRoom(false),
+  });
+  const {
+    hasRequestedLiveSupport,
+    visitorToken,
+    supportConversation,
+    supportBooking,
+    specialRequestOptions,
+    isCollectingPhone,
+    contactPhone,
+    setContactPhone,
+    requestLiveSupport: beginLiveSupportRequest,
+    createLiveSupport: createLiveSupportRequest,
+    sendLiveSupportMessage,
+    resetLiveSupport,
+  } = liveSupport;
 
   useEffect(() => {
     const savedLocale = window.localStorage.getItem(CHATBOT_LOCALE_KEY);
@@ -372,69 +173,6 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
   useEffect(() => {
     if (isOpen) inputRef.current?.focus();
   }, [isOpen]);
-
-  useEffect(() => {
-    const savedToken = window.localStorage.getItem(LIVE_SUPPORT_TOKEN_KEY);
-    if (!savedToken) return;
-
-    let cancelled = false;
-    void fetch(`/api/live-support/visitor?visitorToken=${savedToken}`, { cache: "no-store" })
-      .then(async (response) => {
-        if (!response.ok) throw new Error("Unable to restore live support");
-        return (await response.json()) as SupportSessionResponse;
-      })
-      .then((data) => {
-        if (cancelled) return;
-        if (!data.conversation) {
-          window.localStorage.removeItem(LIVE_SUPPORT_TOKEN_KEY);
-          return;
-        }
-
-        setVisitorToken(savedToken);
-        setHasRequestedLiveSupport(true);
-        setSupportConversation(data.conversation);
-        setSupportBooking(data.booking ?? null);
-        setSpecialRequestOptions(data.specialRequestOptions ?? []);
-        setMessages(data.messages.map(toChatMessage));
-      })
-      .catch(() => {
-        // Keep the token so the visitor can reconnect when the network is available again.
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!hasRequestedLiveSupport || !visitorToken) return;
-
-    let cancelled = false;
-    const refreshSupportConversation = async () => {
-      try {
-        const response = await fetch(`/api/live-support/visitor?visitorToken=${visitorToken}`, {
-          cache: "no-store",
-        });
-        if (!response.ok) return;
-        const data = (await response.json()) as SupportSessionResponse;
-        if (cancelled || !data.conversation) return;
-
-        setSupportConversation(data.conversation);
-        setSupportBooking(data.booking ?? null);
-        setSpecialRequestOptions(data.specialRequestOptions ?? []);
-        setMessages((current) => mergeSupportMessages(current, data.messages));
-      } catch {
-        // Polling is the current secure transport; the next interval retries transient failures.
-      }
-    };
-
-    void refreshSupportConversation();
-    const intervalId = window.setInterval(() => void refreshSupportConversation(), LIVE_SUPPORT_POLL_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      window.clearInterval(intervalId);
-    };
-  }, [hasRequestedLiveSupport, visitorToken]);
 
   async function sendMessage(text: string, searchOverride: ChatbotSearchState = search, suggestionId?: string) {
     const content = text.trim();
@@ -523,46 +261,13 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
     }
   }
 
-  async function submitPhoneVerification(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!visitorToken || !/^\d{4,10}$/.test(otpCode.trim()) || isLoading) return;
-
-    setIsLoading(true);
-    setVerificationError("");
-    try {
-      const response = await fetch("/api/live-support/visitor/verification", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ visitorToken, code: otpCode.trim() }),
-      });
-      const data = (await response.json()) as {
-        conversation?: SupportSessionResponse["conversation"];
-        error?: string;
-      };
-      if (!response.ok || !data.conversation) {
-        throw new Error(data.error ?? "Unable to verify phone number");
-      }
-      setSupportConversation(data.conversation);
-      setOtpCode("");
-    } catch (error) {
-      setVerificationError(error instanceof Error ? error.message : "Unable to verify phone number");
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
   function requestLiveSupport() {
-    if (isLoading || hasRequestedLiveSupport || isCollectingPhone) return;
-
-    setIsCollectingPhone(true);
-    setMessages((current) => [
-      ...current,
-      {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content: widgetCopy[locale].phonePrompt,
-      },
-    ]);
+    if (!beginLiveSupportRequest(isLoading)) return;
+    setMessages((current) => [...current, {
+      id: crypto.randomUUID(),
+      role: "assistant",
+      content: widgetCopy[locale].phonePrompt,
+    }]);
   }
 
   function retryQuestion() {
@@ -576,55 +281,8 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
 
   function createLiveSupport(content: string, phone: string | null = null) {
     if (isLoading || hasRequestedLiveSupport) return;
-    const normalizedPhone = phone?.trim() ?? "";
     const contextMessage = messages.findLast((message) => message.role === "user")?.content ?? content;
-    const savedToken = window.localStorage.getItem(LIVE_SUPPORT_TOKEN_KEY);
-    const token = savedToken ?? crypto.randomUUID();
-    if (!savedToken) window.localStorage.setItem(LIVE_SUPPORT_TOKEN_KEY, token);
-
-    setIsLoading(true);
-    void fetch("/api/live-support/visitor", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        visitorToken: token,
-        contactPhone: normalizedPhone || null,
-        content,
-        locale,
-        contextMessage,
-      }),
-    })
-      .then(async (response) => {
-        if (!response.ok) throw new Error("Unable to start live support");
-        const data = (await response.json()) as {
-          conversation: SupportSessionResponse["conversation"];
-          message: SupportMessageResponse;
-          systemMessage: SupportMessageResponse | null;
-        };
-        setVisitorToken(token);
-        setHasRequestedLiveSupport(true);
-        setSupportConversation(data.conversation);
-        setIsCollectingPhone(false);
-        setMessages([
-          {
-            id: data.message.id,
-            role: "user",
-            content,
-          },
-          ...(data.systemMessage ? [toChatMessage(data.systemMessage)] : []),
-        ]);
-      })
-      .catch(() => {
-        setMessages((current) => [
-          ...current,
-          {
-            id: crypto.randomUUID(),
-            role: "assistant",
-            content: "ไม่สามารถเชื่อมต่อเจ้าหน้าที่ได้ในขณะนี้ กรุณาลองใหม่อีกครั้งค่ะ",
-          },
-        ]);
-      })
-      .finally(() => setIsLoading(false));
+    createLiveSupportRequest(content, phone?.trim() || null, contextMessage);
   }
 
   function startLiveSupport(event: FormEvent<HTMLFormElement>) {
@@ -635,76 +293,10 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
     createLiveSupport(widgetCopy[locale].supportRequest, phone);
   }
 
-  async function sendLiveSupportMessage(content: string) {
-    if (!visitorToken) return;
-
-    const messageId = crypto.randomUUID();
-    setMessages((current) => [
-      ...current,
-      { id: messageId, role: "user", content },
-    ]);
-    setInput("");
-    setIsLoading(true);
-
-    try {
-      const response = await fetch("/api/live-support/visitor", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ visitorToken, content, locale }),
-      });
-      const data = (await response.json()) as {
-        conversation: SupportSessionResponse["conversation"];
-        message: SupportMessageResponse;
-        systemMessage?: SupportMessageResponse | null;
-        expired?: boolean;
-      };
-      if (!response.ok) {
-        if (data.expired) {
-          resetLiveSupport();
-          return;
-        }
-        throw new Error("Unable to send support message");
-      }
-      setSupportConversation(data.conversation);
-      setMessages((current) => [
-        ...current.map((message) => (
-          message.id === messageId ? toChatMessage(data.message) : message
-        )),
-        ...(data.systemMessage ? [toChatMessage(data.systemMessage)] : []),
-      ]);
-    } catch {
-      setMessages((current) => [
-        ...current,
-        {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: "ส่งข้อความไม่สำเร็จ กรุณาลองใหม่อีกครั้งค่ะ",
-        },
-      ]);
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     void sendMessage(input);
   }
-
-  function resetLiveSupport() {
-    window.localStorage.removeItem(LIVE_SUPPORT_TOKEN_KEY);
-    setVisitorToken(null);
-    setHasRequestedLiveSupport(false);
-    setSupportConversation(null);
-    setSupportBooking(null);
-    setSpecialRequestOptions([]);
-    setIsCollectingPhone(false);
-    setContactPhone("");
-    setInput("");
-    setHasSelectedRoom(false);
-    setMessages([initialMessage]);
-  }
-
   function handleBack() {
     if (view === "filter") {
       setView("chat");
@@ -726,8 +318,6 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
     setSearch(initialSearch);
     setInput("");
     setHasSelectedRoom(false);
-    setIsCollectingPhone(false);
-    setContactPhone("");
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
@@ -748,7 +338,7 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
     !hasRequestedLiveSupport && !isCollectingPhone && (
       hasRoomTypeSuggestion || hasSelectedRoom || completedUserTurns >= 3 || hasUnresolvedQuestion
     );
-  const liveSupportStatus = supportStatusLabel(supportConversation);
+  const liveSupportStatus = supportStatusLabel(supportConversation, locale);
   const liveSupportStatusDescription = supportStatusDescription(supportConversation, locale);
   const isSupportResolved = supportConversation?.status === "resolved";
   const hasBookingConfirmationMessage = messages.some((message) => isBookingConfirmationMessage(message, supportBooking));
@@ -811,91 +401,28 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
                 <span className="font-semibold">{liveSupportStatus}</span> · {liveSupportStatusDescription}
               </div>
             )}
-            {messages.map((message) => isBookingConfirmationMessage(message, supportBooking) && supportBooking && !isSupportResolved ? (
-              <SupportBookingCard
-                key={message.id}
-                booking={supportBooking}
-                specialRequestOptions={specialRequestOptions}
-                visitorToken={visitorToken}
-                onConfirmed={() => router.push(`/booking/payment?bookingId=${supportBooking.id}`)}
-              />
-            ) : (
-              <div key={message.id} className="w-full">
-                <div className={`flex w-full ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <p className={`m-0 max-w-[255px] whitespace-pre-line rounded-lg px-4 py-2 text-base leading-6 tracking-[-.02em] ${message.role === "user" ? "bg-[#C14817] text-white" : "bg-white text-[#646D89]"}`}>{message.content}</p>
-                </div>
-                {!!message.rooms?.length && (
-                  <div className="relative z-[1] -mr-4 mt-4 flex snap-x gap-2 overflow-x-auto pr-4 pb-2">
-                    {message.rooms.map((room, index) => (
-                      <article className="h-[317px] w-[255px] min-w-[255px] snap-start overflow-hidden rounded-lg bg-white shadow-[0_5px_18px_rgba(52,61,78,.08)]" key={room.id}>
-                        <div className={`relative h-[155px] overflow-hidden bg-cover bg-center ${index % 3 === 0 ? "bg-[linear-gradient(155deg,transparent_0_30%,rgba(52,74,65,.25)_31%),linear-gradient(18deg,#ccb28e_0_28%,#e7edf2_29%_62%,#98b6c9_63%)]" : index % 3 === 1 ? "bg-[linear-gradient(90deg,rgba(81,68,57,.72)_0_24%,transparent_25%),linear-gradient(160deg,#d9d3ca_0_45%,#f2eee8_46%_70%,#a5b6bd_71%)]" : "bg-[linear-gradient(25deg,#8eaa94_0_26%,transparent_27%),linear-gradient(150deg,#e9d5b8_0_48%,#bfd4e0_49%)]"}`} role="img" aria-label={`ภาพห้อง ${room.name}`}>
-                          {room.imageUrl && <Image src={room.imageUrl} alt={room.name} fill className="object-cover" sizes="255px" />}
-                        </div>
-                        <div className="flex h-[122px] flex-col justify-center gap-1.5 px-4 pt-2.5 pb-4">
-                          <div>
-                            <h3 className="m-0 text-base leading-6 font-semibold tracking-[-.02em] text-[#2A2E3F]">{room.name}</h3>
-                            <p className="m-0 text-base leading-6 font-semibold tracking-[-.02em] text-[#E76B39]">THB {room.price.toLocaleString("en-US", { minimumFractionDigits: 2 })}</p>
-                          </div>
-                          <p className="m-0 line-clamp-2 min-h-[42px] text-sm leading-[21px] font-medium tracking-[-.02em] text-[#9AA1B9]">{room.size} with {room.bed.toLowerCase()}, bathroom and space for {room.capacity} guests. {room.description}</p>
-                        </div>
-                        <div className="flex h-10 items-center bg-[#FAEDE8] p-2">
-                          {startsBooking(message.suggestion) ? (
-                            <button
-                              className="flex w-full cursor-pointer items-center justify-center px-2 py-1 [font-family:var(--font-open-sans)] text-base leading-4 font-semibold text-[#E76B39] disabled:cursor-wait disabled:opacity-60"
-                              type="button"
-                              disabled={isBooking}
-                              onClick={() => void startBooking(room)}
-                            >
-                              {isBooking ? "Checking..." : t.bookNow}
-                            </button>
-                          ) : (
-                            <Link className="flex w-full cursor-pointer items-center justify-between px-2 py-1 [font-family:var(--font-open-sans)] text-base leading-4 font-semibold text-[#E76B39]" href={room.detailHref}>
-                              {t.viewDetails}
-                              <span className="text-2xl font-light leading-4" aria-hidden="true">›</span>
-                            </Link>
-                          )}
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                )}
-                {message.suggestion?.format === "Option with details" && message.suggestion.options.length > 0 && (
-                  <div className="mt-3 grid max-w-[300px] gap-2">
-                    {message.suggestion.options.map((option) => isSpecialBookingOption(option.name) ? (
-                      <button className="flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border border-[#DDE3E0] bg-white px-4 py-2 text-left font-semibold text-[#465C50] hover:border-[#ABC0B4] hover:bg-[#F4F8F5]" key={option.name} type="button" onClick={() => createLiveSupport(specialBookingRequest(option.name))}>
-                        <span aria-hidden="true">▶</span>{option.name}
-                      </button>
-                    ) : (
-                      <details className="rounded-lg border border-[#DDE3E0] bg-white px-4 py-2 text-[#646D89]" key={option.name}>
-                        <summary className="cursor-pointer font-semibold text-[#465C50]">{option.name}</summary>
-                        <p className="mt-2 text-sm leading-5">{option.details}</p>
-                      </details>
-                    ))}
-                  </div>
-                )}
-                {message.suggestion?.format === "Room type" && !message.rooms?.length && message.suggestion.rooms.length > 0 && (
-                  <div className="mt-3 flex max-w-[320px] flex-wrap gap-2">
-                    {message.suggestion.rooms.map((room) => (
-                      <button className="rounded-full border border-[#ABC0B4] bg-white px-3 py-2 text-sm text-[#465C50]" key={room} type="button" onClick={() => {
-                        setHasSelectedRoom(true);
-                        if (startsBooking(message.suggestion)) openMainBooking(room);
-                        else void sendMessage(room);
-                      }}>
-                        {room}{message.suggestion?.button_name ? ` · ${message.suggestion.button_name}` : ""}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-            {supportBooking && !isSupportResolved && !hasBookingConfirmationMessage && (
-              <SupportBookingCard
-                booking={supportBooking}
-                specialRequestOptions={specialRequestOptions}
-                visitorToken={visitorToken}
-                onConfirmed={() => router.push(`/booking/payment?bookingId=${supportBooking.id}`)}
-              />
-            )}
+            <ChatMessageList
+              messages={messages}
+              supportBooking={supportBooking}
+              specialRequestOptions={specialRequestOptions}
+              visitorToken={visitorToken}
+              locale={locale}
+              isSupportResolved={isSupportResolved}
+              hasBookingConfirmationMessage={hasBookingConfirmationMessage}
+              isBooking={isBooking}
+              bookNowLabel={t.bookNow}
+              viewDetailsLabel={t.viewDetails}
+              onStartBooking={(room) => void startBooking(room)}
+              onOpenMainBooking={openMainBooking}
+              onSelectSuggestedRoom={(room) => {
+                setHasSelectedRoom(true);
+                void sendMessage(room);
+              }}
+              onCreateLiveSupport={createLiveSupport}
+              onPayment={() => {
+                if (supportBooking) router.push("/booking/payment?bookingId=" + supportBooking.id);
+              }}
+            />
             {messages.length === 1 && (
               <div className="relative z-[1] w-full">
                 <div className="flex flex-wrap gap-2" aria-label="หัวข้อยอดนิยม">
@@ -968,31 +495,6 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
                   disabled={isLoading}
                 >
                   {t.startSupport}
-                </button>
-              </form>
-            )}
-            {supportConversation?.phone_verification_status === "pending" && (
-              <form className="relative z-[1] w-full rounded-xl border border-[#B9D5C5] bg-[#F3FAF6] p-3" onSubmit={submitPhoneVerification}>
-                <label className="grid gap-2 text-sm font-medium text-[#365A46]">
-                  {t.otp}
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    value={otpCode}
-                    onChange={(event) => setOtpCode(event.target.value.replace(/\D/g, "").slice(0, 10))}
-                    placeholder={t.otpPlaceholder}
-                    className="h-10 rounded-lg border border-[#A9C8B6] bg-white px-3 text-center text-lg tracking-[0.25em] text-[#244333] outline-none focus:border-[#648C76] focus:ring-2 focus:ring-[#648C76]/15"
-                    required
-                  />
-                </label>
-                {verificationError ? <p className="mt-2 text-xs text-[#B42318]">{verificationError}</p> : null}
-                <button
-                  className="mt-3 h-10 w-full rounded-lg bg-[#527865] text-sm font-semibold text-white hover:bg-[#426554] disabled:cursor-default disabled:opacity-60"
-                  type="submit"
-                  disabled={isLoading || otpCode.length < 4}
-                >
-                  {t.verifyPhone}
                 </button>
               </form>
             )}

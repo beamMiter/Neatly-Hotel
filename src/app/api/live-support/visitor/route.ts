@@ -46,6 +46,11 @@ const waitingMessage = {
   en: "Your message has been sent to our team. Please wait a moment.",
 } as const;
 
+const handoffContextLabel = {
+  th: "บริบทที่ส่งให้เจ้าหน้าที่:",
+  en: "Context shared with our team:",
+} as const;
+
 function normalizePhone(value: string | null | undefined) {
   if (!value) return null;
   const digits = value.replace(/\D/g, "");
@@ -164,6 +169,15 @@ export async function POST(request: Request) {
     const systemMessage = started
       ? await addSupportMessage(conversation.id, "system", waitingMessage[parsed.data.locale ?? "en"])
       : null;
+    const contextMessage = started
+      && parsed.data.contextMessage
+      && parsed.data.contextMessage !== parsed.data.content
+      ? await addSupportMessage(
+        conversation.id,
+        "system",
+        `${handoffContextLabel[parsed.data.locale ?? "en"]}\n${parsed.data.contextMessage}`,
+      )
+      : null;
     if (started && parsed.data.contextMessage) {
       try {
         await recordChatbotEvent({
@@ -179,7 +193,7 @@ export async function POST(request: Request) {
         logApiFailure("live-support:handoff-event", id, error);
       }
     }
-    return Response.json({ conversation, message, systemMessage }, { status: 201 });
+    return Response.json({ conversation, message, systemMessage, contextMessage }, { status: 201 });
   } catch (error) {
     if (error instanceof ExpiredSupportConversationError) {
       return Response.json(
