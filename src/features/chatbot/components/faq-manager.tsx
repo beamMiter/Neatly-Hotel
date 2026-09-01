@@ -281,7 +281,8 @@ export default function FaqManager({ initialSettings, initialSuggestions, roomTy
     try {
       const result = await saveChatbotSettings({
         greeting_message: settings.greeting_message.trim(),
-        auto_reply_message: settings.auto_reply_message.trim(),
+        // Keep the legacy, non-localized column in sync for older consumers.
+        auto_reply_message: settings.auto_reply_message_th.trim(),
         greeting_message_th: settings.greeting_message_th.trim(),
         greeting_message_en: settings.greeting_message_en.trim(),
         auto_reply_message_th: settings.auto_reply_message_th.trim(),
@@ -342,15 +343,10 @@ export default function FaqManager({ initialSettings, initialSuggestions, roomTy
               ) : (
                 <label className="grid w-full gap-1 text-base leading-6 text-[#2A2E3F]">Greeting message (English) *<textarea className="h-24 w-full resize-none rounded-sm border border-[#D6D9E4] bg-white px-3 pt-3 pr-4 text-base leading-6 text-black outline-none focus:border-[#729280]" required value={settings.greeting_message_en} onChange={(event) => { setSettings({ ...settings, greeting_message_en: event.target.value }); setSaveSuccess(""); }} /></label>
               )}
-              <label className="grid w-full gap-1 text-base leading-6 text-[#2A2E3F]">
-                ข้อความเมื่อไม่พบคำตอบ *
-                <textarea className="h-24 w-full resize-none rounded-sm border border-[#D6D9E4] bg-white px-3 pt-3 pr-4 text-base leading-6 text-black outline-none focus:border-[#729280] focus:ring-2 focus:ring-[#729280]/10" required value={settings.auto_reply_message} onChange={(event) => { setSettings({ ...settings, auto_reply_message: event.target.value }); setSaveSuccess(""); }} />
-                <span className="text-xs leading-5 text-[#646D89]">ระบบจะแสดงข้อความนี้ตามที่ตั้งไว้เมื่อไม่สามารถตอบคำถามได้ พร้อมปุ่มถามใหม่และคุยกับเจ้าหน้าที่</span>
-              </label>
               {messageLocale === "th" ? (
-                <label className="grid w-full gap-1 text-base leading-6 text-[#2A2E3F]">Fallback message (ไทย) *<textarea className="h-24 w-full resize-none rounded-sm border border-[#D6D9E4] bg-white px-3 pt-3 pr-4 text-base leading-6 text-black outline-none focus:border-[#729280]" required value={settings.auto_reply_message_th} onChange={(event) => { setSettings({ ...settings, auto_reply_message_th: event.target.value }); setSaveSuccess(""); }} /></label>
+                <label className="grid w-full gap-1 text-base leading-6 text-[#2A2E3F]">ข้อความเมื่อไม่พบคำตอบ *<textarea className="h-24 w-full resize-none rounded-sm border border-[#D6D9E4] bg-white px-3 pt-3 pr-4 text-base leading-6 text-black outline-none focus:border-[#729280]" required value={settings.auto_reply_message_th} onChange={(event) => { setSettings({ ...settings, auto_reply_message_th: event.target.value }); setSaveSuccess(""); }} /><span className="text-xs leading-5 text-[#646D89]">ระบบจะแสดงข้อความนี้เมื่อไม่สามารถตอบคำถามได้ พร้อมปุ่มถามใหม่และคุยกับเจ้าหน้าที่</span></label>
               ) : (
-                <label className="grid w-full gap-1 text-base leading-6 text-[#2A2E3F]">Fallback message (English) *<textarea className="h-24 w-full resize-none rounded-sm border border-[#D6D9E4] bg-white px-3 pt-3 pr-4 text-base leading-6 text-black outline-none focus:border-[#729280]" required value={settings.auto_reply_message_en} onChange={(event) => { setSettings({ ...settings, auto_reply_message_en: event.target.value }); setSaveSuccess(""); }} /></label>
+                <label className="grid w-full gap-1 text-base leading-6 text-[#2A2E3F]">Fallback message *<textarea className="h-24 w-full resize-none rounded-sm border border-[#D6D9E4] bg-white px-3 pt-3 pr-4 text-base leading-6 text-black outline-none focus:border-[#729280]" required value={settings.auto_reply_message_en} onChange={(event) => { setSettings({ ...settings, auto_reply_message_en: event.target.value }); setSaveSuccess(""); }} /><span className="text-xs leading-5 text-[#646D89]">This message appears when the chatbot cannot answer a question.</span></label>
               )}
               <div className="flex flex-wrap items-center gap-4">
                 <button className="h-12 w-fit cursor-pointer rounded-sm bg-[#C14817] px-8 text-base font-semibold text-white disabled:cursor-wait disabled:opacity-50" type="submit" disabled={isSaving}>{isSaving ? "Saving..." : "Save Messages"}</button>
