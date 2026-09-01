@@ -9,7 +9,7 @@ const TOAST_DURATION_MS = 3000;
 export function ExportButton({ href, fileName }: { href: string; fileName: string }) {
   const [isDownloading, setIsDownloading] = useState(false);
   const [showToast, setShowToast] = useState(false);
-  const [error, setError] = useErrorMessage();
+  const [error, setError, isErrorLeaving] = useErrorMessage();
 
   useEffect(() => {
     if (!showToast) return;
@@ -51,7 +51,7 @@ export function ExportButton({ href, fileName }: { href: string; fileName: strin
         {isDownloading ? "Exporting..." : "Export"}
       </button>
 
-      {error && <ErrorToast message={error} />}
+      {error && <ErrorToast message={error} isLeaving={isErrorLeaving} />}
 
       {showToast && (
         <div className="fixed right-6 top-6 z-50 flex items-center gap-2 rounded-lg border border-brand-border bg-white px-4 py-3 text-sm font-medium text-brand-body shadow-lg animate-[fade-slide_0.2s_ease-out]">

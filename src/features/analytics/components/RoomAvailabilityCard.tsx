@@ -24,7 +24,7 @@ export function RoomAvailabilityCard({ initialData }: { initialData: RoomAvailab
   const [period, setPeriod] = useState<OverviewPeriodKey>("month");
   const [data, setData] = useState(initialData);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useErrorMessage();
+  const [error, setError, isErrorLeaving] = useErrorMessage();
 
   async function handlePeriodChange(nextPeriod: OverviewPeriodKey) {
     setPeriod(nextPeriod);
@@ -56,7 +56,7 @@ export function RoomAvailabilityCard({ initialData }: { initialData: RoomAvailab
 
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-brand-border bg-white p-5">
-      {error && <ErrorToast message={error} />}
+      {error && <ErrorToast message={error} isLeaving={isErrorLeaving} />}
 
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-brand-primary">Room Availability</h2>

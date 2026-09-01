@@ -500,6 +500,26 @@ body { color: var(--ink); background: #edf0eb; font-family: var(--font-sans), Ar
 	}
 }
 
+@keyframes fade-in {
+	from {
+		opacity: 0;
+	}
+
+	to {
+		opacity: 1;
+	}
+}
+
+@keyframes fade-out {
+	from {
+		opacity: 1;
+	}
+
+	to {
+		opacity: 0;
+	}
+}
+
 /* ── Analytics date picker (react-day-picker) ──────────────────── */
 /* react-day-picker sets its CSS vars directly on .rdp-root, so an ancestor
    override doesn't win by inheritance alone — .rdp-root's own declaration
