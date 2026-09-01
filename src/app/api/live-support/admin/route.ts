@@ -84,7 +84,7 @@ export async function PATCH(request: Request) {
   }
 
   const action = body.action === "claim" || body.action === "takeover" ? body.action : null;
-  const status = body.status === "active" || body.status === "resolved" ? body.status : null;
+  const status = body.status === "active" || body.status === "resolved" ? body.status : undefined;
   if (!action && !status) {
     return Response.json({ error: "No update supplied" }, { status: 400 });
   }
