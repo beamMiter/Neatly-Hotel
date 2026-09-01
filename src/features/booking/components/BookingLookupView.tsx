@@ -133,7 +133,7 @@ function BookingLookupResult({ booking }: { booking: BookingRecord }) {
   const isFinalized = FINALIZED_STATUSES.includes(booking.status);
   const canChangeDate = !isFinalized && isChangeDateEligible(booking.createdAt);
   const canCancel = !isFinalized;
-  const cancelType: BookingCancelType = isRefundEligible(booking.checkIn) ? "refundable" : "non-refundable";
+  const cancelType: BookingCancelType = isRefundEligible(booking.createdAt) ? "refundable" : "non-refundable";
 
   function closeCancelModal() {
     if (isCancelling) return;
