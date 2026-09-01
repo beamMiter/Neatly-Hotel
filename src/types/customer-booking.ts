@@ -28,6 +28,7 @@ export type CustomerBookingDetail = {
   customerName: string;
   guests: number;
   roomType: string;
+  roomTypeId: string | null;
   amount: number;
   bedType: string;
   checkIn: string;
@@ -43,8 +44,12 @@ export type CustomerBookingDetail = {
   cardLast4: string | null;
   roomSubtotal: number;
   standardRequests: string[];
+  standardRequestCodes: string[];
   specialRequests: CustomerBookingSpecialRequest[];
+  specialRequestSelections: Record<string, number>;
   additionalRequest: string | null;
   promoCode: string | null;
   discountAmount: number;
+  paidAmount: number;
+  amountDue: number;
 };

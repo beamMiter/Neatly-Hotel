@@ -17,6 +17,26 @@ export const MAX_ADD_ON_COUNT = 2;
  * per_stay/per_night, which are priced from `nights` alone. Returns the
  * final multiplier: the line total is always `price * quantity`.
  */
+// Reverse of resolveAddOnQuantity for edit forms — turns the stored line
+// quantity back into the 1-or-2 count the UI picker uses.
+export function selectionCountFromStoredQuantity(
+  billingType: AddOnBillingType,
+  quantity: number,
+  nights: number,
+): number {
+  const clampedNights = Math.max(Math.trunc(nights), 1);
+  const clampedQuantity = Math.max(Math.trunc(quantity), 1);
+
+  switch (billingType) {
+    case "per_leg":
+      return Math.min(clampedQuantity, MAX_ADD_ON_COUNT);
+    case "per_day_guest":
+      return Math.min(Math.max(Math.round(clampedQuantity / clampedNights), 1), MAX_ADD_ON_COUNT);
+    default:
+      return 1;
+  }
+}
+
 export function resolveAddOnQuantity(
   billingType: AddOnBillingType,
   count: number | undefined,
