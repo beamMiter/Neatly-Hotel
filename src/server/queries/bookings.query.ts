@@ -3,7 +3,12 @@ import crypto from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { supabaseAdmin } from "@/server/db/supabase-admin";
-import { isChangeDateEligible, isRefundEligible, nightsBetween } from "@/features/booking/date-rules";
+import {
+  isChangeDateEligible,
+  isRefundEligible,
+  nightsBetween,
+  validateStayDates,
+} from "@/features/booking/date-rules";
 import { validatePromotionCode } from "@/server/queries/promo.query";
 import {
   getSpecialRequestCatalog,
@@ -743,7 +748,7 @@ export async function cancelBooking(
 
   let paymentIntentId: string | null = null;
 
-  if (isRefundEligible(booking.checkIn) && booking.paymentMethod === "credit_card" && booking.paymentStatus === "paid") {
+  if (isRefundEligible(booking.createdAt) && booking.paymentMethod === "credit_card" && booking.paymentStatus === "paid") {
     const { data: payment, error } = await supabaseAdmin
       .from("payments")
       .select("stripe_payment_intent_id")
@@ -794,9 +799,17 @@ function toDateOnly(isoDate: string): Date {
 
 // Changes a confirmed booking's stay dates — only within the change-date
 // window (isChangeDateEligible), only for the same number of nights (no
-// re-pricing needed, matches the "locked-nights" picker UI), and only if
-// this booking's own rooms are actually free for the new range (excludes
-// its own row from the overlap check, same pattern as extendBookingHold).
+// re-pricing needed, matches the "locked-nights" picker UI), only onto
+// dates that actually pass the same validation booking creation uses (not
+// in the past), and only if this booking's own rooms are actually free for
+// the new range (excludes its own row from the overlap check).
+//
+// Double-booking guard: the room-lock + conflict-check + update run inside
+// one transaction, locking this booking's rooms with `for update of r`
+// before checking for conflicts — same pattern extendBookingHold already
+// uses. Without this, two concurrent change-date requests for two
+// bookings that share a room could both read "no conflict" before either
+// commits, and both succeed onto the same overlapping dates.
 export async function changeBookingDates(
   bookingId: string,
   customerId: string | null,
@@ -814,6 +827,11 @@ export async function changeBookingDates(
     throw new InvalidBookingTransitionError("Date changes are only allowed within 24 hours of booking");
   }
 
+  const dateError = validateStayDates(checkIn, checkOut);
+  if (dateError) {
+    throw new InvalidBookingTransitionError(dateError);
+  }
+
   const originalNights = nightsBetween(booking.checkIn, booking.checkOut);
   const requestedNights = nightsBetween(checkIn, checkOut);
   if (requestedNights !== originalNights) {
@@ -822,24 +840,36 @@ export async function changeBookingDates(
     );
   }
 
-  const conflicts = await prisma.$queryRaw<{ count: bigint }[]>`
-    select count(*) as count
-    from booking_rooms br
-    join bookings b on b.id = br.booking_id
-    where br.room_id in (select room_id from booking_rooms where booking_id = ${bookingId}::uuid)
-      and b.id <> ${bookingId}::uuid
-      and b.status not in (${Prisma.join(NON_BLOCKING_BOOKING_STATUSES)})
-      and (b.expires_at is null or b.expires_at > now())
-      and b.check_in < ${checkOut}::date
-      and b.check_out > ${checkIn}::date
-  `;
-  if (Number(conflicts[0]?.count ?? 0) > 0) {
-    throw new BookingConflictError();
-  }
+  await prisma.$transaction(async (tx) => {
+    const rooms = await tx.$queryRaw<{ room_id: string }[]>`
+      select br.room_id
+      from booking_rooms br
+      join rooms r on r.id = br.room_id
+      where br.booking_id = ${bookingId}::uuid
+      for update of r
+    `;
 
-  await prisma.booking.update({
-    where: { id: bookingId },
-    data: { checkIn: toDateOnly(checkIn), checkOut: toDateOnly(checkOut) },
+    if (rooms.length > 0) {
+      const conflicts = await tx.$queryRaw<{ count: bigint }[]>`
+        select count(*) as count
+        from booking_rooms br
+        join bookings b on b.id = br.booking_id
+        where br.room_id = any(array[${Prisma.join(rooms.map((room) => room.room_id))}]::uuid[])
+          and b.id <> ${bookingId}::uuid
+          and b.status not in (${Prisma.join(NON_BLOCKING_BOOKING_STATUSES)})
+          and (b.expires_at is null or b.expires_at > now())
+          and b.check_in < ${checkOut}::date
+          and b.check_out > ${checkIn}::date
+      `;
+      if (Number(conflicts[0]?.count ?? 0) > 0) {
+        throw new BookingConflictError();
+      }
+    }
+
+    await tx.booking.update({
+      where: { id: bookingId },
+      data: { checkIn: toDateOnly(checkIn), checkOut: toDateOnly(checkOut) },
+    });
   });
 
   const updated = await getBookingById(bookingId, customerId);

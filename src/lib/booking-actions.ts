@@ -62,7 +62,7 @@ export function getBookingActions(
     };
   }
 
-  const cancelType: BookingCancelType = isRefundEligible(booking.checkInDate, now)
+  const cancelType: BookingCancelType = isRefundEligible(booking.bookingCreatedAt, now)
     ? "refundable"
     : "non-refundable";
 
