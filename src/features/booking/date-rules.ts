@@ -46,6 +46,11 @@ export function isChangeDateEligible(createdAt: string, now: Date = new Date()):
   return now.getTime() - createdTime <= DAY_MS;
 }
 
+// Matches common OTA conventions (Agoda, Booking.com, AirAsia SNAP) — stays
+// longer than this go through direct/long-stay contracts instead of a
+// single self-service booking.
+const MAX_STAY_NIGHTS = 30;
+
 export function validateStayDates(
   checkIn: string,
   checkOut: string,
@@ -62,6 +67,10 @@ export function validateStayDates(
   const nights = nightsBetween(checkIn, checkOut);
   if (nights < 1) {
     return "Check-out must be at least one night after check-in";
+  }
+
+  if (nights > MAX_STAY_NIGHTS) {
+    return `Stay cannot exceed ${MAX_STAY_NIGHTS} nights — please contact the hotel directly for long-stay bookings`;
   }
 
   return null;
