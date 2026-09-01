@@ -107,6 +107,11 @@ const AccountMenu = ({ account, isAdmin }: { account: AccountSummary; isAdmin: b
 
 				{isOpen && (
 					<>
+						{/* z-50 (not the old z-20): this dropdown sits below the navbar's
+						    own <header>, which has no z-index of its own — so it lost to any
+						    page content with a higher stacking value than the old z-20, e.g.
+						    the search page's sticky filter bar (z-30). z-50 matches every
+						    other dropdown/toast in the app (see room-status-select.tsx etc.). */}
 						<div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
 						<div
 							role="menu"
