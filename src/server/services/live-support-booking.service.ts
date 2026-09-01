@@ -6,36 +6,16 @@ import { assertEmailVerificationToken } from "@/server/queries/email-otp.query";
 import {
   addSupportMessage,
   findVisitorConversation,
-  findSupportMemberMatches,
   getSupportConversation,
   listConversationMessages,
   listSupportBookings,
   updateSupportConversation,
 } from "@/server/queries/live-support.query";
-import type { SupportMemberMatch } from "@/types/live-support";
 
 export class AdminBookingValidationError extends Error {}
 
-export class SupportMemberSelectionError extends Error {
-  constructor(public readonly matches: SupportMemberMatch[]) {
-    super("Multiple members match these details. Select the correct member.");
-  }
-}
-
-export async function getSupportBookingIdentity(conversationId: string, phone: string | null, email: string | null) {
-  const conversation = await getSupportConversation(conversationId);
-  if (!conversation) throw new AdminBookingValidationError("Support conversation was not found");
-  const matches = await findSupportMemberMatches({ customerId: conversation.customer_id, phone, email });
-  return {
-    kind: matches.length === 0 ? "guest" as const : matches.length === 1 ? "member" as const : "ambiguous" as const,
-    matches,
-    selectedCustomerId: matches.length === 1 ? matches[0].customerId : null,
-  };
-}
-
 export async function createBookingForSupportConversation(input: {
   conversationId: string;
-  selectedCustomerId?: string | null;
   emailVerificationToken?: string;
   booking: unknown;
   allowSpecialRequests?: boolean;
@@ -49,23 +29,9 @@ export async function createBookingForSupportConversation(input: {
   const dateError = validateStayDates(data.checkIn, data.checkOut);
   if (dateError) throw new AdminBookingValidationError(dateError);
 
-  const matches = await findSupportMemberMatches({
-    customerId: conversation.customer_id,
-    phone: data.phone,
-    email: data.email,
-  });
-  let customerId = conversation.customer_id;
-  if (!customerId && input.selectedCustomerId) {
-    if (!matches.some((match) => match.customerId === input.selectedCustomerId)) {
-      throw new AdminBookingValidationError("The selected member does not match the booking details");
-    }
-    customerId = input.selectedCustomerId;
-  } else if (!customerId && matches.length === 1) {
-    customerId = matches[0].customerId;
-  } else if (!customerId && matches.length > 1) {
-    throw new SupportMemberSelectionError(matches);
-  }
-
+  const customerId = conversation.customer_id;
+  // Callback contact details never identify a member. Only a customer who
+  // authenticated before starting this conversation receives a member booking.
   if (!customerId && (!input.emailVerificationToken || !assertEmailVerificationToken(data.email, input.emailVerificationToken))) {
     throw new AdminBookingValidationError("Please verify the guest email before creating a booking");
   }
@@ -94,7 +60,11 @@ export async function createBookingForSupportConversation(input: {
     paymentMethod: "credit_card",
   });
 
-  await updateSupportConversation(conversation.id, { booking_id: booking.id, customer_id: customerId });
+  await updateSupportConversation(conversation.id, {
+    booking_id: booking.id,
+    customer_id: customerId,
+    customer_name: `${data.firstName} ${data.lastName}`.trim() || null,
+  });
   const supportMessage = await addSupportMessage(
     conversation.id,
     "system",

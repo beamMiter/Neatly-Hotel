@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { EmailOtpVerification } from "@/features/booking/components/EmailOtpVerification";
-import type { SupportBooking, SupportConversation, SupportConversationStatus, SupportCustomer, SupportMemberMatch, SupportMessage } from "@/types/live-support";
+import type { SupportBooking, SupportConversation, SupportConversationStatus, SupportCustomer, SupportMessage } from "@/types/live-support";
 import { useLiveSupportAdmin } from "@/features/live-support/components/useLiveSupportAdmin";
 import { COUNTRIES } from "@/lib/countries";
 
@@ -48,8 +48,11 @@ export function LiveSupportPage() {
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>("conversations");
   const [isChatAtBottom, setIsChatAtBottom] = useState(true);
   const [hasNewMessagesBelow, setHasNewMessagesBelow] = useState(false);
+  const [isDocumentVisible, setIsDocumentVisible] = useState(true);
+  const [isDesktopChatVisible, setIsDesktopChatVisible] = useState(false);
   const chatViewportRef = useRef<HTMLDivElement>(null);
   const previousLastMessageIdRef = useRef<string | null>(null);
+  const lastMarkedReadMessageRef = useRef<string | null>(null);
   const {
     conversations,
     supportMessages,
@@ -58,9 +61,11 @@ export function LiveSupportPage() {
     customer,
     bookings,
     isSending,
+    supportError,
     isConversationLoading,
     sendReply: sendSupportReply,
     updateConversation: updateSupportConversation,
+    markConversationRead,
     appendSupportMessage,
     refresh,
   } = useLiveSupportAdmin(selectedThreadId, setSelectedThreadId);
@@ -111,7 +116,30 @@ export function LiveSupportPage() {
   const currentThread = threads.find((thread) => thread.id === selectedThreadId) ?? null;
   const currentConversation = conversations.find((conversation) => conversation.id === currentThread?.id) ?? null;
   const isCurrentConversationResolved = currentConversation?.status === "resolved";
+  const isAssignedToCurrentAdmin = Boolean(
+    currentConversation?.assigned_agent_id && currentConversation.assigned_agent_id === currentAdminId,
+  );
+  const assignedAgent = agents.find((agent) => agent.id === currentConversation?.assigned_agent_id) ?? null;
   const lastSupportMessageId = supportMessages.at(-1)?.id ?? null;
+  const latestVisitorMessageId = supportMessages.reduce<string | null>((latestMessageId, message) => (
+    message.sender === "visitor" ? message.id : latestMessageId
+  ), null);
+  const isChatPaneVisible = mobilePanel === "chat" || isDesktopChatVisible;
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(min-width: 1280px)");
+    const updateDesktopVisibility = () => setIsDesktopChatVisible(mediaQuery.matches);
+    const updateDocumentVisibility = () => setIsDocumentVisible(document.visibilityState === "visible");
+
+    updateDesktopVisibility();
+    updateDocumentVisibility();
+    mediaQuery.addEventListener("change", updateDesktopVisibility);
+    document.addEventListener("visibilitychange", updateDocumentVisibility);
+    return () => {
+      mediaQuery.removeEventListener("change", updateDesktopVisibility);
+      document.removeEventListener("visibilitychange", updateDocumentVisibility);
+    };
+  }, []);
 
   function scrollChatToBottom(behavior: ScrollBehavior = "smooth") {
     const viewport = chatViewportRef.current;
@@ -143,6 +171,35 @@ export function LiveSupportPage() {
     setHasNewMessagesBelow(true);
   }, [isChatAtBottom, lastSupportMessageId]);
 
+  useEffect(() => {
+    if (
+      !currentConversation
+      || !latestVisitorMessageId
+      || isConversationLoading
+      || !isChatPaneVisible
+      || !isDocumentVisible
+      || !isChatAtBottom
+    ) return;
+
+    const readKey = `${currentConversation.id}:${latestVisitorMessageId}`;
+    if (lastMarkedReadMessageRef.current === readKey) return;
+
+    lastMarkedReadMessageRef.current = readKey;
+    void markConversationRead(currentConversation.id).then((marked) => {
+      if (!marked && lastMarkedReadMessageRef.current === readKey) {
+        lastMarkedReadMessageRef.current = null;
+      }
+    });
+  }, [
+    currentConversation,
+    isChatAtBottom,
+    isChatPaneVisible,
+    isConversationLoading,
+    isDocumentVisible,
+    latestVisitorMessageId,
+    markConversationRead,
+  ]);
+
   async function sendReply(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const content = reply.trim();
@@ -155,8 +212,12 @@ export function LiveSupportPage() {
   }
 
   async function updateConversation(update: {
-    assignedAgentId?: string | null;
-    status?: SupportConversationStatus;
+    action: "claim";
+  } | {
+    action: "takeover";
+    expectedAssignedAgentId: string;
+  } | {
+    status: Extract<SupportConversationStatus, "active" | "resolved">;
   }) {
     if (!currentConversation) return;
 
@@ -370,30 +431,52 @@ export function LiveSupportPage() {
             </div>
 
             <div className="flex w-full flex-nowrap items-center gap-2 overflow-x-auto pb-0.5 scrollbar-hide sm:gap-3">
-              <select
-                value={currentConversation?.assigned_agent_id ?? ""}
-                onChange={(event) => void updateConversation({ assignedAgentId: event.target.value || null })}
-                disabled={!currentConversation}
-                className="h-10 min-w-48 max-w-56 rounded-xl border border-[#d9deea] bg-white px-3 text-[13px] font-medium text-[#344054] outline-none focus:border-[#91a6ff] disabled:opacity-50"
-                aria-label="Assign admin"
-              >
-                <option value="">Unassigned</option>
-                {agents.map((agent) => (
-                  <option key={agent.id} value={agent.id}>{agent.label}</option>
-                ))}
-              </select>
-              <select
-                value={currentConversation?.status ?? "waiting"}
-                onChange={(event) => void updateConversation({ status: event.target.value as SupportConversationStatus })}
-                disabled={!currentConversation}
-                className="h-10 rounded-xl border border-[#d9deea] bg-white px-3 text-[13px] font-medium capitalize text-[#344054] outline-none focus:border-[#91a6ff] disabled:opacity-50"
-                aria-label="Conversation status"
-              >
-                <option value="waiting">Waiting</option>
-                <option value="active">Active</option>
-                <option value="resolved">Resolved</option>
-              </select>
+              {!currentConversation?.assigned_agent_id ? (
+                <button
+                  type="button"
+                  onClick={() => void updateConversation({ action: "claim" })}
+                  disabled={!currentConversation || isConversationLoading || isCurrentConversationResolved}
+                  className="h-10 rounded-xl bg-[#2f6bff] px-4 text-[13px] font-semibold text-white hover:bg-[#2458d8] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Claim conversation
+                </button>
+              ) : isAssignedToCurrentAdmin ? (
+                <span className="inline-flex h-10 items-center rounded-xl border border-[#b9e7c9] bg-[#effaf2] px-3 text-[13px] font-semibold text-[#176b3a]">
+                  Assigned to you
+                </span>
+              ) : (
+                <>
+                  <span className="inline-flex h-10 items-center rounded-xl border border-[#d9deea] bg-[#fbfcfe] px-3 text-[13px] font-medium text-[#475467]">
+                    Assigned to {assignedAgent?.label ?? "another agent"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (currentConversation.assigned_agent_id && window.confirm("Take over this conversation? The current agent will no longer be able to reply.")) {
+                        void updateConversation({ action: "takeover", expectedAssignedAgentId: currentConversation.assigned_agent_id });
+                      }
+                    }}
+                    disabled={isConversationLoading || isCurrentConversationResolved}
+                    className="h-10 rounded-xl border border-[#2f6bff] px-4 text-[13px] font-semibold text-[#2f6bff] hover:bg-[#eff5ff] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Take over
+                  </button>
+                </>
+              )}
+              {isAssignedToCurrentAdmin ? (
+                <select
+                  value={currentConversation?.status ?? "active"}
+                  onChange={(event) => void updateConversation({ status: event.target.value as Extract<SupportConversationStatus, "active" | "resolved"> })}
+                  disabled={!currentConversation || isConversationLoading}
+                  className="h-10 rounded-xl border border-[#d9deea] bg-white px-3 text-[13px] font-medium capitalize text-[#344054] outline-none focus:border-[#91a6ff] disabled:opacity-50"
+                  aria-label="Conversation status"
+                >
+                  <option value="active">Active</option>
+                  <option value="resolved">Resolved</option>
+                </select>
+              ) : null}
             </div>
+            {supportError ? <p role="alert" className="text-[13px] font-medium text-[#b42318]">{supportError}</p> : null}
           </div>
 
           <div
@@ -469,7 +552,6 @@ export function LiveSupportPage() {
                         }`}
                       >
                         {new Intl.DateTimeFormat("th-TH", { hour: "2-digit", minute: "2-digit" }).format(new Date(message.created_at))}
-                        {isAgent ? " Ã¢Å“â€œÃ¢Å“â€œ" : null}
                       </div>
                     </div>
                   </div>
@@ -493,15 +575,23 @@ export function LiveSupportPage() {
             <div className="flex shrink-0 flex-col gap-3 border-t border-[#edf0f5] bg-[#fbfcfe] px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-[14px] font-semibold text-[#344054]">This conversation is resolved</p>
-                <p className="mt-0.5 text-[12px] text-[#667085]">Reopen it before sending another message.</p>
+                <p className="mt-0.5 text-[12px] text-[#667085]">{isAssignedToCurrentAdmin ? "Reopen it before sending another message." : "Only the assigned agent can reopen this conversation."}</p>
               </div>
-              <button
-                type="button"
-                onClick={() => void updateConversation({ status: "active" })}
-                className="h-10 rounded-xl bg-[#2f6bff] px-4 text-[13px] font-semibold text-white hover:bg-[#2458d8]"
-              >
-                Reopen conversation
-              </button>
+              {isAssignedToCurrentAdmin ? (
+                <button
+                  type="button"
+                  onClick={() => void updateConversation({ status: "active" })}
+                  className="h-10 rounded-xl bg-[#2f6bff] px-4 text-[13px] font-semibold text-white hover:bg-[#2458d8]"
+                >
+                  Reopen conversation
+                </button>
+              ) : null}
+            </div>
+          ) : !isAssignedToCurrentAdmin && currentConversation && !isConversationLoading ? (
+            <div className="shrink-0 border-t border-[#edf0f5] bg-[#fbfcfe] px-4 py-4 text-[13px] text-[#667085]">
+              {currentConversation.assigned_agent_id
+                ? `Read-only: this conversation is assigned to ${assignedAgent?.label ?? "another agent"}. Take over to reply.`
+                : "Claim this conversation to reply."}
             </div>
           ) : (
           <form className="shrink-0 border-t border-[#edf0f5] bg-white px-3 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] sm:px-4 sm:py-4" onSubmit={sendReply}>
@@ -515,17 +605,6 @@ export function LiveSupportPage() {
                 disabled={!currentConversation || isConversationLoading || isSending}
               />
 
-              <div className="hidden items-center gap-2 text-[#667085] sm:flex">
-                <IconButton ariaLabel="Attach file">
-                  <PaperclipIcon className="h-5 w-5" />
-                </IconButton>
-                <IconButton ariaLabel="Insert image">
-                  <ImageIcon className="h-5 w-5" />
-                </IconButton>
-                <IconButton ariaLabel="Emoji">
-                  <SmileIcon className="h-5 w-5" />
-                </IconButton>
-              </div>
               <button
                 type="submit"
                 disabled={!reply.trim() || !currentConversation || isConversationLoading || isSending}
@@ -539,10 +618,7 @@ export function LiveSupportPage() {
         </section>
 
         <aside className={`${mobilePanel === "details" ? "flex" : "hidden"} min-h-0 flex-col gap-4 overflow-y-auto pb-[max(8px,env(safe-area-inset-bottom))] scrollbar-hide xl:flex`}>
-          <PanelCard
-            title="Customer Info"
-            action={<PanelEditButton>Edit</PanelEditButton>}
-          >
+          <PanelCard title="Customer Info">
             <div className="flex items-center gap-3">
               <Avatar initials={currentThread?.initials ?? "?"} accent={currentThread?.accent ?? "from-[#eef2f7] to-[#f8fafc]"} size="lg" />
               <div className="min-w-0 flex-1">
@@ -566,10 +642,7 @@ export function LiveSupportPage() {
             <p className="mt-4 text-[14px] text-[#667085]">{customer ? "Registered customer" : "Guest conversation"}</p>
           </PanelCard>
 
-          <PanelCard
-            title="Booking History"
-            action={<PanelEditButton>View all</PanelEditButton>}
-          >
+          <PanelCard title="Booking History">
             <div className="grid gap-3">
               {bookings.length === 0 ? (
                 <p className="rounded-[16px] border border-dashed border-[#d9deea] p-4 text-center text-[14px] text-[#667085]">
@@ -643,11 +716,6 @@ export function LiveSupportPage() {
 }
 
 type RoomOption = { id: string; name: string; guests: number; discountedPrice: number };
-type BookingIdentity = {
-  kind: "member" | "guest" | "ambiguous";
-  matches: SupportMemberMatch[];
-  selectedCustomerId: string | null;
-};
 
 function CreateBookingDialog({ conversation, customer, onClose, onCreated }: {
   conversation: SupportConversation;
@@ -668,38 +736,11 @@ function CreateBookingDialog({ conversation, customer, onClose, onCreated }: {
   const [phone, setPhone] = useState(customer?.phone ?? conversation.customer_phone ?? "");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [country, setCountry] = useState(customer?.country ?? "Thailand");
-  const [identity, setIdentity] = useState<BookingIdentity | null>(null);
-  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(conversation.customer_id);
   const [emailVerificationToken, setEmailVerificationToken] = useState<string | null>(null);
   const [emailVerificationError, setEmailVerificationError] = useState<string | undefined>();
   const [allowSpecialRequests, setAllowSpecialRequests] = useState(false);
-  const [isMatching, setIsMatching] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    let cancelled = false;
-    const timeoutId = window.setTimeout(async () => {
-      setIsMatching(true);
-      try {
-        const params = new URLSearchParams({ conversationId: conversation.id, phone, email });
-        const response = await fetch(`/api/live-support/admin/booking?${params}`, { cache: "no-store" });
-        const data = await response.json() as { identity?: BookingIdentity; error?: string };
-        if (!response.ok || !data.identity) throw new Error(data.error ?? "Unable to identify customer");
-        if (cancelled) return;
-        setIdentity(data.identity);
-        setSelectedCustomerId((current) => {
-          if (data.identity?.selectedCustomerId) return data.identity.selectedCustomerId;
-          return data.identity?.matches.some((match) => match.customerId === current) ? current : null;
-        });
-      } catch (cause) {
-        if (!cancelled) setError(cause instanceof Error ? cause.message : "Unable to identify customer");
-      } finally {
-        if (!cancelled) setIsMatching(false);
-      }
-    }, 450);
-    return () => { cancelled = true; window.clearTimeout(timeoutId); };
-  }, [conversation.id, email, phone]);
 
   function updateAvailabilityCriteria(update: () => void) {
     update();
@@ -735,7 +776,6 @@ function CreateBookingDialog({ conversation, customer, onClose, onCreated }: {
   async function createBooking(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!roomTypeId) { setError("Check availability and select a room type first."); return; }
-    if (identity?.kind === "ambiguous" && !selectedCustomerId) { setError("Select the correct member."); return; }
     setIsLoading(true); setError("");
     try {
       const response = await fetch("/api/live-support/admin/booking", {
@@ -743,20 +783,16 @@ function CreateBookingDialog({ conversation, customer, onClose, onCreated }: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           conversationId: conversation.id,
-          selectedCustomerId,
           allowSpecialRequests,
-          ...(identity?.kind === "guest" && emailVerificationToken
-            ? { emailVerificationToken }
-            : {}),
+          ...(conversation.customer_id ? {} : { emailVerificationToken }),
           booking: {
             roomTypeId, checkIn, checkOut, guests, rooms, firstName, lastName, email, phone,
             dateOfBirth, country, standardRequests: [], specialRequests: [], paymentMethod: "cash",
           },
         }),
       });
-      const data = await response.json() as { error?: string; matches?: SupportMemberMatch[]; supportMessage?: SupportMessage };
+      const data = await response.json() as { error?: string; supportMessage?: SupportMessage };
       if (!response.ok) {
-        if (data.matches) setIdentity({ kind: "ambiguous", matches: data.matches, selectedCustomerId: null });
         throw new Error(data.error ?? "Unable to create booking");
       }
       onCreated(data.supportMessage);
@@ -771,23 +807,23 @@ function CreateBookingDialog({ conversation, customer, onClose, onCreated }: {
     <div className="fixed inset-0 z-50 grid place-items-center bg-[#101828]/45 p-2 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="create-booking-title">
       <form onSubmit={createBooking} className="max-h-[calc(100dvh-16px)] w-full max-w-3xl overflow-y-auto rounded-[16px] bg-white p-4 pb-[max(16px,env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[92vh] sm:rounded-[22px] sm:p-6">
         <div className="flex items-start justify-between gap-4">
-          <div><h2 id="create-booking-title" className="text-xl font-semibold text-[#111827]">Create Booking</h2><p className="mt-1 text-sm text-[#667085]">Customer identity is checked automatically. The customer chooses payment on the Neatly Hotel website.</p></div>
+          <div><h2 id="create-booking-title" className="text-xl font-semibold text-[#111827]">Create Booking</h2><p className="mt-1 text-sm text-[#667085]">Guest bookings require email verification. The customer chooses payment on the Neatly Hotel website.</p></div>
           <button type="button" onClick={onClose} className="text-2xl text-[#667085]" aria-label="Close">Ãƒâ€”</button>
         </div>
 
         <div className="mt-5 rounded-xl border border-[#e2e8f0] bg-[#f8fafc] p-4">
-          {isMatching ? <p className="text-sm text-[#667085]">Checking member details...</p> : identity?.kind === "member" ? (
-            <div><p className="text-sm font-semibold text-[#18794e]">Member found automatically</p><p className="mt-1 text-sm text-[#475467]">{identity.matches[0]?.name} Ã‚Â· matched by {identity.matches[0]?.matchedBy}</p></div>
-          ) : identity?.kind === "ambiguous" ? (
-            <label className="grid gap-2 text-sm font-semibold text-[#9a6617]">Multiple members found
-              <select value={selectedCustomerId ?? ""} onChange={(event) => setSelectedCustomerId(event.target.value || null)} className="h-10 rounded-lg border border-[#d0d5dd] bg-white px-3 font-normal text-[#344054]">
-                <option value="">Select the correct member</option>
-                {identity.matches.map((match) => <option key={match.customerId} value={match.customerId}>{match.name} Ã‚Â· {match.email ?? match.phone}</option>)}
-              </select>
-            </label>
-          ) : <div><p className="text-sm font-semibold text-[#475467]">Guest booking</p><p className="mt-1 text-sm text-[#667085]">No member matched this phone or email.</p></div>}
+          {conversation.customer_id ? (
+            <div>
+              <p className="text-sm font-semibold text-[#18794e]">Signed-in customer</p>
+              <p className="mt-1 text-sm text-[#475467]">This booking remains linked to the customer who started this conversation.</p>
+            </div>
+          ) : (
+            <div>
+              <p className="text-sm font-semibold text-[#475467]">Guest booking</p>
+              <p className="mt-1 text-sm text-[#667085]">The callback phone number is not used to find or link a member account. Verify the guest email before creating the booking.</p>
+            </div>
+          )}
         </div>
-
         <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <BookingField label="Check-in"><input required type="date" value={checkIn} onChange={(event) => updateAvailabilityCriteria(() => setCheckIn(event.target.value))} /></BookingField>
           <BookingField label="Check-out"><input required type="date" value={checkOut} onChange={(event) => updateAvailabilityCriteria(() => setCheckOut(event.target.value))} /></BookingField>
@@ -806,7 +842,7 @@ function CreateBookingDialog({ conversation, customer, onClose, onCreated }: {
           <BookingField label="Country"><select required value={country} onChange={(event) => setCountry(event.target.value)}>{COUNTRIES.map((item) => <option key={item} value={item}>{item}</option>)}</select></BookingField>
         </div>
 
-        {identity?.kind === "guest" && (
+        {!conversation.customer_id && (
           <div className="mt-5">
             <EmailOtpVerification
               email={email.trim()}
@@ -839,7 +875,7 @@ function CreateBookingDialog({ conversation, customer, onClose, onCreated }: {
         </label>
 
         {error && <p className="mt-4 rounded-lg bg-[#fef3f2] px-4 py-3 text-sm text-[#b42318]">{error}</p>}
-        <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3"><button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-semibold text-[#475467]">Cancel</button><button disabled={isLoading || isMatching || !roomTypeId || (identity?.kind === "ambiguous" && !selectedCustomerId) || (identity?.kind === "guest" && !emailVerificationToken)} className="rounded-lg bg-[#2f6bff] px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">{isLoading ? "Creating..." : "Create booking"}</button></div>
+        <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3"><button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-semibold text-[#475467]">Cancel</button><button disabled={isLoading || !roomTypeId || (!conversation.customer_id && !emailVerificationToken)} className="rounded-lg bg-[#2f6bff] px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">{isLoading ? "Creating..." : "Create booking"}</button></div>
       </form>
     </div>
   );
@@ -934,50 +970,16 @@ function ConversationBookingCard({
 
 function PanelCard({
   title,
-  action,
   children,
 }: {
   title: string;
-  action?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <section className="rounded-[22px] border border-[#e7ebf2] bg-white p-5 shadow-[0_14px_40px_rgba(15,23,42,0.04)]">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-[18px] font-semibold text-[#111827]">{title}</h2>
-        {action}
-      </div>
+      <h2 className="text-[18px] font-semibold text-[#111827]">{title}</h2>
       <div className="mt-4">{children}</div>
     </section>
-  );
-}
-
-function PanelEditButton({ children }: { children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      className="text-[14px] font-medium text-[#2f6bff] transition-colors hover:text-[#1f54e8]"
-    >
-      {children}
-    </button>
-  );
-}
-
-function IconButton({
-  children,
-  ariaLabel,
-}: {
-  children: React.ReactNode;
-  ariaLabel: string;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={ariaLabel}
-      className="grid h-10 w-10 place-items-center rounded-full border border-[#dde3ee] bg-white text-[#667085] transition-colors hover:bg-[#f7f9fc]"
-    >
-      {children}
-    </button>
   );
 }
 
@@ -1133,59 +1135,6 @@ function BellIcon({ className }: { className?: string }) {
         strokeWidth="1.5"
         strokeLinejoin="round"
       />
-    </svg>
-  );
-}
-
-function PaperclipIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="m8.5 12.5 5.8-5.8a2.5 2.5 0 0 1 3.5 3.5l-7.1 7.1a4 4 0 0 1-5.7-5.7l6.7-6.7"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function ImageIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <rect
-        x="4"
-        y="5"
-        width="16"
-        height="14"
-        rx="2"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      />
-      <path
-        d="m7 15 3.2-3.2a1.5 1.5 0 0 1 2.1 0L18 17"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <circle cx="10" cy="9" r="1.3" fill="currentColor" />
-    </svg>
-  );
-}
-
-function SmileIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.5" />
-      <path
-        d="M9 14.3c.7 1 1.8 1.7 3 1.7s2.3-.7 3-1.7"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-      <path d="M9.2 10h.01M14.8 10h.01" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
     </svg>
   );
 }
