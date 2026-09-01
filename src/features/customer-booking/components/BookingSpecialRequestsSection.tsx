@@ -82,10 +82,6 @@ function EditSpecialRequestsModal({ booking, catalog, onClose }: EditSpecialRequ
 
   const showPaymentSection = !requestsUnchanged && estimatedDifference > 0;
 
-  useEffect(() => {
-    setError(null);
-  }, [standardRequests, specialRequestSelections, additionalRequest]);
-
   async function handleSave() {
     if (requestsUnchanged) {
       setError("No changes to save");
@@ -162,12 +158,14 @@ function EditSpecialRequestsModal({ booking, catalog, onClose }: EditSpecialRequ
             specialRequestSelections={specialRequestSelections}
             nights={booking.nights}
             additionalRequest={additionalRequest}
-            onToggleStandard={(code) =>
+            onToggleStandard={(code) => {
+              setError(null);
               setStandardRequests((current) =>
                 current.includes(code) ? current.filter((item) => item !== code) : [...current, code],
-              )
-            }
-            onSpecialCountChange={(code, count) =>
+              );
+            }}
+            onSpecialCountChange={(code, count) => {
+              setError(null);
               setSpecialRequestSelections((current) => {
                 const next = { ...current };
                 if (count <= 0) {
@@ -176,9 +174,12 @@ function EditSpecialRequestsModal({ booking, catalog, onClose }: EditSpecialRequ
                   next[code] = count;
                 }
                 return next;
-              })
-            }
-            onAdditionalRequestChange={setAdditionalRequest}
+              });
+            }}
+            onAdditionalRequestChange={(value) => {
+              setError(null);
+              setAdditionalRequest(value);
+            }}
             onBack={onClose}
             onNext={handleSave}
             showActions={false}

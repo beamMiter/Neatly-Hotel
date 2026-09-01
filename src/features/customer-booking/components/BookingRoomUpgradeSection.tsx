@@ -52,10 +52,6 @@ function UpgradeRoomModal({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isSubmitting, onClose]);
 
-  useEffect(() => {
-    setError(null);
-  }, [selectedRoomTypeId]);
-
   async function handleSave() {
     if (!selectedOption) {
       setError("Select an available upgrade option");
@@ -147,7 +143,10 @@ function UpgradeRoomModal({
                       name="roomTypeId"
                       value={option.roomTypeId}
                       checked={selectedRoomTypeId === option.roomTypeId}
-                      onChange={() => setSelectedRoomTypeId(option.roomTypeId)}
+                      onChange={() => {
+                        setSelectedRoomTypeId(option.roomTypeId);
+                        setError(null);
+                      }}
                       disabled={isSubmitting}
                     />
                     <span className="font-medium text-brand-body">{option.roomTypeName}</span>

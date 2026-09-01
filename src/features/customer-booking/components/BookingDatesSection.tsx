@@ -54,10 +54,6 @@ function EditDatesModal({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setError(null);
-  }, [checkIn, checkOut]);
-
-  useEffect(() => {
     if (isSubmitting) return;
 
     function onKeyDown(event: KeyboardEvent) {
@@ -188,6 +184,7 @@ function EditDatesModal({
                   onChange={(event) => {
                     const nextCheckIn = event.target.value;
                     setCheckIn(nextCheckIn);
+                    setError(null);
                     const currentNights = Math.max(nightsBetween(nextCheckIn, checkOut), 1);
                     if (currentNights < booking.nights) {
                       const minCheckOut = new Date(`${nextCheckIn}T00:00:00.000Z`);
@@ -219,7 +216,10 @@ function EditDatesModal({
                         return min.toISOString().slice(0, 10);
                       })()
                 }
-                onChange={(event) => setCheckOut(event.target.value)}
+                onChange={(event) => {
+                  setCheckOut(event.target.value);
+                  setError(null);
+                }}
                 disabled={isSubmitting}
                 className="rounded border border-brand-border px-3 py-2 text-sm text-brand-body"
               />
