@@ -3,6 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import type { SupportAgent, SupportBooking, SupportConversation, SupportConversationStatus, SupportCustomer, SupportMessage } from "@/types/live-support";
 
+type ConversationUpdate =
+  | { action: "claim" }
+  | { action: "takeover"; expectedAssignedAgentId: string }
+  | { status: Extract<SupportConversationStatus, "active" | "resolved"> };
+
 export function useLiveSupportAdmin(selectedThreadId: string | null, onInitialSelection?: (id: string) => void) {
   const [conversations, setConversations] = useState<SupportConversation[]>([]);
   const [supportMessages, setSupportMessages] = useState<SupportMessage[]>([]);
@@ -11,6 +16,7 @@ export function useLiveSupportAdmin(selectedThreadId: string | null, onInitialSe
   const [customer, setCustomer] = useState<SupportCustomer | null>(null);
   const [bookings, setBookings] = useState<SupportBooking[]>([]);
   const [isSending, setIsSending] = useState(false);
+  const [supportError, setSupportError] = useState<string | null>(null);
   const [loadedConversationId, setLoadedConversationId] = useState<string | null>(null);
 
   const refresh = useCallback(async (reset = false) => {
@@ -68,25 +74,35 @@ export function useLiveSupportAdmin(selectedThreadId: string | null, onInitialSe
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ conversationId, content: content.trim() }),
       });
-      if (!response.ok) return false;
+      if (!response.ok) {
+        const data = await response.json().catch(() => null) as { error?: string } | null;
+        setSupportError(data?.error ?? "Unable to send support message");
+        return false;
+      }
       const data = await response.json() as { message: SupportMessage };
       setSupportMessages((current) => [...current, data.message]);
+      setSupportError(null);
       return true;
     } finally {
       setIsSending(false);
     }
   }
 
-  async function updateConversation(conversation: SupportConversation | null, update: { assignedAgentId?: string | null; status?: SupportConversationStatus }) {
+  async function updateConversation(conversation: SupportConversation | null, update: ConversationUpdate) {
     if (!conversation) return null;
     const response = await fetch("/api/live-support/admin", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ conversationId: conversation.id, ...update }),
     });
-    if (!response.ok) return null;
+    if (!response.ok) {
+      const data = await response.json().catch(() => null) as { error?: string } | null;
+      setSupportError(data?.error ?? "Unable to update support conversation");
+      return null;
+    }
     const data = await response.json() as { conversation: SupportConversation };
     setConversations((current) => current.map((item) => item.id === data.conversation.id ? data.conversation : item));
+    setSupportError(null);
     return data.conversation;
   }
 
@@ -115,5 +131,5 @@ export function useLiveSupportAdmin(selectedThreadId: string | null, onInitialSe
 
   const isConversationLoading = Boolean(selectedThreadId && loadedConversationId !== selectedThreadId);
 
-  return { conversations, supportMessages, agents, currentAdminId, customer, bookings, isSending, isConversationLoading, sendReply, updateConversation, markConversationRead, appendSupportMessage, refresh };
+  return { conversations, supportMessages, agents, currentAdminId, customer, bookings, isSending, supportError, isConversationLoading, sendReply, updateConversation, markConversationRead, appendSupportMessage, refresh };
 }

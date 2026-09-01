@@ -256,6 +256,38 @@ export async function updateSupportConversation(
   return data as SupportConversation;
 }
 
+export async function claimSupportConversation(conversationId: string, agentId: string) {
+  const { data, error } = await supabaseAdmin
+    .from("support_conversations")
+    .update({ assigned_agent_id: agentId, status: "active", resolved_at: null })
+    .eq("id", conversationId)
+    .is("assigned_agent_id", null)
+    .in("status", ["waiting", "active"])
+    .select("*")
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  return data as SupportConversation | null;
+}
+
+export async function takeOverSupportConversation(
+  conversationId: string,
+  agentId: string,
+  expectedAssignedAgentId: string,
+) {
+  const { data, error } = await supabaseAdmin
+    .from("support_conversations")
+    .update({ assigned_agent_id: agentId, status: "active", resolved_at: null })
+    .eq("id", conversationId)
+    .eq("assigned_agent_id", expectedAssignedAgentId)
+    .in("status", ["waiting", "active"])
+    .select("*")
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  return data as SupportConversation | null;
+}
+
 export async function listActiveSupportAgents(): Promise<SupportAgent[]> {
   const [{ data: staffMembers, error: staffError }, { data: users, error: usersError }] = await Promise.all([
     supabaseAdmin.from("staff_members").select("user_id").eq("role", "admin").eq("is_active", true),

@@ -61,6 +61,7 @@ export function LiveSupportPage() {
     customer,
     bookings,
     isSending,
+    supportError,
     isConversationLoading,
     sendReply: sendSupportReply,
     updateConversation: updateSupportConversation,
@@ -115,6 +116,10 @@ export function LiveSupportPage() {
   const currentThread = threads.find((thread) => thread.id === selectedThreadId) ?? null;
   const currentConversation = conversations.find((conversation) => conversation.id === currentThread?.id) ?? null;
   const isCurrentConversationResolved = currentConversation?.status === "resolved";
+  const isAssignedToCurrentAdmin = Boolean(
+    currentConversation?.assigned_agent_id && currentConversation.assigned_agent_id === currentAdminId,
+  );
+  const assignedAgent = agents.find((agent) => agent.id === currentConversation?.assigned_agent_id) ?? null;
   const lastSupportMessageId = supportMessages.at(-1)?.id ?? null;
   const latestVisitorMessageId = supportMessages.reduce<string | null>((latestMessageId, message) => (
     message.sender === "visitor" ? message.id : latestMessageId
@@ -207,8 +212,12 @@ export function LiveSupportPage() {
   }
 
   async function updateConversation(update: {
-    assignedAgentId?: string | null;
-    status?: SupportConversationStatus;
+    action: "claim";
+  } | {
+    action: "takeover";
+    expectedAssignedAgentId: string;
+  } | {
+    status: Extract<SupportConversationStatus, "active" | "resolved">;
   }) {
     if (!currentConversation) return;
 
@@ -422,30 +431,52 @@ export function LiveSupportPage() {
             </div>
 
             <div className="flex w-full flex-nowrap items-center gap-2 overflow-x-auto pb-0.5 scrollbar-hide sm:gap-3">
-              <select
-                value={currentConversation?.assigned_agent_id ?? ""}
-                onChange={(event) => void updateConversation({ assignedAgentId: event.target.value || null })}
-                disabled={!currentConversation}
-                className="h-10 min-w-48 max-w-56 rounded-xl border border-[#d9deea] bg-white px-3 text-[13px] font-medium text-[#344054] outline-none focus:border-[#91a6ff] disabled:opacity-50"
-                aria-label="Assign admin"
-              >
-                <option value="">Unassigned</option>
-                {agents.map((agent) => (
-                  <option key={agent.id} value={agent.id}>{agent.label}</option>
-                ))}
-              </select>
-              <select
-                value={currentConversation?.status ?? "waiting"}
-                onChange={(event) => void updateConversation({ status: event.target.value as SupportConversationStatus })}
-                disabled={!currentConversation}
-                className="h-10 rounded-xl border border-[#d9deea] bg-white px-3 text-[13px] font-medium capitalize text-[#344054] outline-none focus:border-[#91a6ff] disabled:opacity-50"
-                aria-label="Conversation status"
-              >
-                <option value="waiting">Waiting</option>
-                <option value="active">Active</option>
-                <option value="resolved">Resolved</option>
-              </select>
+              {!currentConversation?.assigned_agent_id ? (
+                <button
+                  type="button"
+                  onClick={() => void updateConversation({ action: "claim" })}
+                  disabled={!currentConversation || isConversationLoading || isCurrentConversationResolved}
+                  className="h-10 rounded-xl bg-[#2f6bff] px-4 text-[13px] font-semibold text-white hover:bg-[#2458d8] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Claim conversation
+                </button>
+              ) : isAssignedToCurrentAdmin ? (
+                <span className="inline-flex h-10 items-center rounded-xl border border-[#b9e7c9] bg-[#effaf2] px-3 text-[13px] font-semibold text-[#176b3a]">
+                  Assigned to you
+                </span>
+              ) : (
+                <>
+                  <span className="inline-flex h-10 items-center rounded-xl border border-[#d9deea] bg-[#fbfcfe] px-3 text-[13px] font-medium text-[#475467]">
+                    Assigned to {assignedAgent?.label ?? "another agent"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (currentConversation.assigned_agent_id && window.confirm("Take over this conversation? The current agent will no longer be able to reply.")) {
+                        void updateConversation({ action: "takeover", expectedAssignedAgentId: currentConversation.assigned_agent_id });
+                      }
+                    }}
+                    disabled={isConversationLoading || isCurrentConversationResolved}
+                    className="h-10 rounded-xl border border-[#2f6bff] px-4 text-[13px] font-semibold text-[#2f6bff] hover:bg-[#eff5ff] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Take over
+                  </button>
+                </>
+              )}
+              {isAssignedToCurrentAdmin ? (
+                <select
+                  value={currentConversation?.status ?? "active"}
+                  onChange={(event) => void updateConversation({ status: event.target.value as Extract<SupportConversationStatus, "active" | "resolved"> })}
+                  disabled={!currentConversation || isConversationLoading}
+                  className="h-10 rounded-xl border border-[#d9deea] bg-white px-3 text-[13px] font-medium capitalize text-[#344054] outline-none focus:border-[#91a6ff] disabled:opacity-50"
+                  aria-label="Conversation status"
+                >
+                  <option value="active">Active</option>
+                  <option value="resolved">Resolved</option>
+                </select>
+              ) : null}
             </div>
+            {supportError ? <p role="alert" className="text-[13px] font-medium text-[#b42318]">{supportError}</p> : null}
           </div>
 
           <div
@@ -544,15 +575,23 @@ export function LiveSupportPage() {
             <div className="flex shrink-0 flex-col gap-3 border-t border-[#edf0f5] bg-[#fbfcfe] px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-[14px] font-semibold text-[#344054]">This conversation is resolved</p>
-                <p className="mt-0.5 text-[12px] text-[#667085]">Reopen it before sending another message.</p>
+                <p className="mt-0.5 text-[12px] text-[#667085]">{isAssignedToCurrentAdmin ? "Reopen it before sending another message." : "Only the assigned agent can reopen this conversation."}</p>
               </div>
-              <button
-                type="button"
-                onClick={() => void updateConversation({ status: "active" })}
-                className="h-10 rounded-xl bg-[#2f6bff] px-4 text-[13px] font-semibold text-white hover:bg-[#2458d8]"
-              >
-                Reopen conversation
-              </button>
+              {isAssignedToCurrentAdmin ? (
+                <button
+                  type="button"
+                  onClick={() => void updateConversation({ status: "active" })}
+                  className="h-10 rounded-xl bg-[#2f6bff] px-4 text-[13px] font-semibold text-white hover:bg-[#2458d8]"
+                >
+                  Reopen conversation
+                </button>
+              ) : null}
+            </div>
+          ) : !isAssignedToCurrentAdmin && currentConversation && !isConversationLoading ? (
+            <div className="shrink-0 border-t border-[#edf0f5] bg-[#fbfcfe] px-4 py-4 text-[13px] text-[#667085]">
+              {currentConversation.assigned_agent_id
+                ? `Read-only: this conversation is assigned to ${assignedAgent?.label ?? "another agent"}. Take over to reply.`
+                : "Claim this conversation to reply."}
             </div>
           ) : (
           <form className="shrink-0 border-t border-[#edf0f5] bg-white px-3 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] sm:px-4 sm:py-4" onSubmit={sendReply}>
