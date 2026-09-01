@@ -48,7 +48,7 @@ export function DateField({
         <button
           type="button"
           onClick={() => setIsOpen((open) => !open)}
-          className="flex items-center gap-1.5 rounded-md border border-brand-border px-2 py-1 text-xs text-brand-body hover:bg-brand-surface-alt"
+          className="flex items-center gap-1.5 rounded-md border border-brand-border px-2 py-1 text-xs text-brand-body transition-[background-color,transform] duration-150 hover:bg-brand-surface-alt active:scale-95"
         >
           {format(value, "d MMM yyyy")}
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="shrink-0 text-brand-muted">
@@ -60,7 +60,7 @@ export function DateField({
 
       {isOpen && (
         <div
-          className="fixed top-24 left-1/2 z-20 max-w-[calc(100vw-2rem)] -translate-x-1/2 overflow-x-auto rounded-md
+          className="fixed top-24 left-1/2 z-20 max-w-[calc(100vw-2rem)] -translate-x-1/2 origin-top animate-[dropdown-in_150ms_ease-out] overflow-x-auto rounded-md
             border border-brand-border bg-white p-2 shadow-lg sm:absolute sm:top-auto sm:left-auto sm:right-0
             sm:mt-1 sm:translate-x-0"
         >
