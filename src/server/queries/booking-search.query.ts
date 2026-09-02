@@ -167,8 +167,11 @@ export async function searchRoomTypes(query: SearchQuery): Promise<RoomSearchRes
     availableByType.set(room.room_type_id, (availableByType.get(room.room_type_id) ?? 0) + 1);
   }
 
+  // A room type qualifies if its guests can be split across the requested
+  // room count (e.g. 4 guests / 4 rooms can book a capacity-2 type as 2
+  // rooms x 2 guests each) — not just if one room alone fits everyone.
   let results = ((typeRows ?? []) as unknown as RoomTypeRow[])
-    .filter((row) => (row.capacity ?? 0) >= query.guests)
+    .filter((row) => (row.capacity ?? 0) * query.rooms >= query.guests)
     .filter((row) => (availableByType.get(row.id) ?? 0) >= query.rooms)
     .map(mapRoomType);
 

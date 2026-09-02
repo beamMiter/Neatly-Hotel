@@ -90,8 +90,9 @@ async function computePricing(input: CreateBookingInput): Promise<PricingContext
   if (!roomType) throw new RoomTypeNotFoundError();
 
   const capacity = roomType.capacity ?? 0;
-  if (input.guests > capacity) {
-    throw new InvalidGuestsError(`This room fits a maximum of ${capacity} guests`);
+  // Guests can be split across the requested rooms (see booking-search.query.ts).
+  if (input.guests > capacity * input.rooms) {
+    throw new InvalidGuestsError(`This room fits a maximum of ${capacity} guests per room`);
   }
 
   const nights = nightsBetween(input.checkIn, input.checkOut);
