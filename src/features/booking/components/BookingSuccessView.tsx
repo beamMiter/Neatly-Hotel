@@ -56,31 +56,50 @@ export function BookingSuccessView({
         const updated = data.booking as BookingRecord;
         setBooking(updated);
         if (updated.paymentStatus === "paid") setTimedOut(false);
-        if (updated.paymentStatus === "failed") {
-          router.push(`/booking/failed?bookingId=${bookingId}`);
-        }
       } catch {
         // keep polling — a transient network error shouldn't stop the loop
       }
     }, POLL_INTERVAL_MS);
 
     return () => clearInterval(interval);
-  }, [bookingId, booking.paymentMethod, booking.paymentStatus, router]);
+  }, [bookingId, booking.paymentMethod, booking.paymentStatus]);
 
-  const isConfirming = booking.paymentMethod === "credit_card" && booking.paymentStatus === "pending" && !timedOut;
+  // A failed webhook can land *before* this page's own first fetch — the
+  // client-side PromptPay/card confirm calls are advisory-only and can push
+  // here even when the payment didn't actually succeed (confirmed case: an
+  // expired PromptPay QR resolves with no Stripe error at all, so the guest
+  // still landed on /booking/success while the DB row was already
+  // `payment_status: "failed"`). The poll loop above only catches a failure
+  // that arrives *during* polling — this effect is what catches "already
+  // failed by the time we got here", which is not covered by any render
+  // branch below otherwise.
+  useEffect(() => {
+    if (booking.paymentStatus === "failed") {
+      router.push(`/booking/failed?bookingId=${bookingId}`);
+    }
+  }, [bookingId, booking.paymentStatus, router]);
 
-  if (isConfirming || timedOut) {
+  const isConfirming = booking.paymentMethod !== "cash" && booking.paymentStatus === "pending" && !timedOut;
+  const isFailed = booking.paymentStatus === "failed";
+
+  if (isConfirming || timedOut || isFailed) {
     return (
       <div className="mx-auto max-w-[738px] pb-6 lg:px-4 lg:py-20">
         <div className="overflow-hidden lg:rounded bg-[#465C50] shadow-[4px_4px_16px_rgba(0,0,0,0.08)]">
           <div className={HEAD_CLASSNAME}>
             <h1 className={HEADLINE_CLASSNAME}>
-              {isConfirming ? "Confirming your payment..." : "We're confirming your payment"}
+              {isFailed
+                ? "This payment wasn't completed"
+                : isConfirming
+                  ? "Confirming your payment..."
+                  : "We're confirming your payment"}
             </h1>
             <p className={SUBTEXT_CLASSNAME}>
-              {isConfirming
-                ? "This usually takes a few seconds. Please don't close this page."
-                : `Booking ${booking.bookingCode} has been received. We'll email you once payment is confirmed.`}
+              {isFailed
+                ? "Taking you to the booking failed page..."
+                : isConfirming
+                  ? "This usually takes a few seconds. Please don't close this page."
+                  : `Booking ${booking.bookingCode} has been received. We'll email you once payment is confirmed.`}
             </p>
           </div>
         </div>
@@ -91,11 +110,13 @@ export function BookingSuccessView({
   const nights = Math.max(nightsBetween(booking.checkIn, booking.checkOut), 1);
   const addonsTotal = booking.specialRequests.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const roomSubtotal = booking.totalAmount - addonsTotal + booking.discountAmount;
-  const paidByLabel = booking.paymentMethod === "credit_card" ? "Payment success via" : "Payment method";
+  const paidByLabel = booking.paymentMethod === "cash" ? "Payment method" : "Payment success via";
   const paidByValue =
     booking.paymentMethod === "credit_card"
       ? `Credit Card${booking.cardLast4 ? ` - *${booking.cardLast4}` : ""}`
-      : "Cash (Pay at Hotel)";
+      : booking.paymentMethod === "promptpay"
+        ? "PromptPay"
+        : "Cash (Pay at Hotel)";
 
   return (
     <div className="mx-auto max-w-[738px] pb-6 lg:px-4 lg:py-20">
