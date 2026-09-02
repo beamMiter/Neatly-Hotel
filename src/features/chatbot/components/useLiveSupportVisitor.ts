@@ -5,19 +5,14 @@ import type { Dispatch, SetStateAction } from "react";
 import type { SpecialRequestOption } from "@/types/booking";
 import type { SupportBooking } from "@/types/live-support";
 import type { ChatMessage, SupportMessageResponse, SupportSessionResponse, WidgetLocale } from "@/features/chatbot/components/chat-widget.types";
+import {
+  mergeChatMessages,
+  mergeSupportMessages,
+  toChatMessage,
+} from "@/features/chatbot/components/live-support-message-order";
 
 const LIVE_SUPPORT_TOKEN_KEY = "neatly-live-support-token";
 const LIVE_SUPPORT_POLL_INTERVAL_MS = 5_000;
-
-function toChatMessage(message: SupportMessageResponse): ChatMessage {
-  return { id: message.id, role: message.sender === "visitor" ? "user" : "assistant", content: message.content };
-}
-
-function mergeSupportMessages(current: ChatMessage[], incoming: SupportMessageResponse[]) {
-  const knownIds = new Set(current.map((message) => message.id));
-  const additions = incoming.filter((message) => !knownIds.has(message.id)).map(toChatMessage);
-  return additions.length > 0 ? [...current, ...additions] : current;
-}
 
 export function useLiveSupportVisitor({
   initialMessage,
@@ -62,7 +57,7 @@ export function useLiveSupportVisitor({
         setSupportConversation(data.conversation);
         setSupportBooking(data.booking ?? null);
         setSpecialRequestOptions(data.specialRequestOptions ?? []);
-        setMessages(data.messages.map(toChatMessage));
+        setMessages(mergeSupportMessages([], data.messages));
       })
       .catch(() => {});
     return () => { cancelled = true; };
@@ -133,11 +128,11 @@ export function useLiveSupportVisitor({
         setHasRequestedLiveSupport(true);
         setSupportConversation(data.conversation);
         setIsCollectingPhone(false);
-        setMessages([
+        setMessages(mergeChatMessages([], [
           toChatMessage(data.message),
           ...(data.systemMessage ? [toChatMessage(data.systemMessage)] : []),
           ...(data.contextMessage ? [toChatMessage(data.contextMessage)] : []),
-        ]);
+        ]));
       })
       .catch(() => setMessages((current) => [...current, {
         id: crypto.randomUUID(),
@@ -150,7 +145,12 @@ export function useLiveSupportVisitor({
   async function sendLiveSupportMessage(content: string) {
     if (!visitorToken) return;
     const messageId = crypto.randomUUID();
-    setMessages((current) => [...current, { id: messageId, role: "user", content }]);
+    setMessages((current) => [...current, {
+      id: messageId,
+      role: "user",
+      content,
+      createdAt: new Date().toISOString(),
+    }]);
     setInput("");
     setIsLoading(true);
     try {
@@ -170,10 +170,10 @@ export function useLiveSupportVisitor({
         throw new Error("Unable to send support message");
       }
       setSupportConversation(data.conversation);
-      setMessages((current) => [
-        ...current.map((message) => message.id === messageId ? toChatMessage(data.message) : message),
-        ...(data.systemMessage ? [toChatMessage(data.systemMessage)] : []),
-      ]);
+      setMessages((current) => mergeChatMessages(
+        current.map((message) => message.id === messageId ? toChatMessage(data.message) : message),
+        data.systemMessage ? [toChatMessage(data.systemMessage)] : [],
+      ));
     } catch {
       setMessages((current) => [...current, {
         id: crypto.randomUUID(),

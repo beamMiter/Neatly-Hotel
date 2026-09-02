@@ -110,7 +110,8 @@ export async function listConversationMessages(conversationId: string) {
     .from("support_messages")
     .select("*")
     .eq("conversation_id", conversationId)
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: true })
+    .order("id", { ascending: true });
 
   if (error) throw new Error(error.message);
   return (data ?? []) as SupportMessage[];
