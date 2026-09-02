@@ -1,13 +1,16 @@
 // ── CancelBookingReceiptView ─────────────────────────────────────────
-// Client half of /cancel-booking — the cancellation itself already
-// happened inside CancelBookingModal before the redirect here. Pure
-// receipt screen, no submit button — unlike /refund, no refund amount
-// (this is the non-refundable path).
+// Client half of /cancel-booking — second (detailed) confirmation step for
+// a non-refundable cancellation. Mirrors RefundReceiptView; see that file
+// for why the success phase branches on the actual `refunded` result
+// rather than assuming based on the route.
 
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import Navbar from '@/components/layout/Navbar';
+import { BookingCancelConfirmCard } from '@/features/booking-history/components/BookingCancelConfirmCard';
 
 const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -19,16 +22,87 @@ const formatDate = (isoDate: string) => {
 	return `${weekday}, ${date.getDate()} ${month} ${date.getFullYear()}`;
 };
 
+const formatThb = (amount: number) =>
+	`THB ${amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+
+type CancelResponse = { message: string; refunded: boolean };
+
 type CancelBookingReceiptViewProps = {
+	bookingId: string;
 	roomName: string;
+	imageUrl: string;
+	bookingCreatedAt: string;
 	checkIn: string;
 	checkOut: string;
 	guests: number;
-	backHref: string;
+	totalAmount: number;
+	initialPhase: 'confirm' | 'success';
+	initialRefunded: boolean;
 };
 
-const CancelBookingReceiptView = ({ roomName, checkIn, checkOut, guests, backHref }: CancelBookingReceiptViewProps) => {
-	const backLabel = backHref === '/booking-history' ? 'Back to Booking History' : 'Back to Booking Lookup';
+const CancelBookingReceiptView = ({
+	bookingId,
+	roomName,
+	imageUrl,
+	bookingCreatedAt,
+	checkIn,
+	checkOut,
+	guests,
+	totalAmount,
+	initialPhase,
+	initialRefunded,
+}: CancelBookingReceiptViewProps) => {
+	const router = useRouter();
+	const [phase, setPhase] = useState<'confirm' | 'success'>(initialPhase);
+	const [refunded, setRefunded] = useState(initialRefunded);
+	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+
+	const handleConfirm = async () => {
+		setIsSubmitting(true);
+		setError(null);
+
+		try {
+			const response = await fetch(`/api/bookings/${bookingId}/cancel`, { method: 'POST' });
+			const data = (await response.json().catch(() => null)) as CancelResponse | { message?: string } | null;
+
+			if (!response.ok) {
+				setError(data?.message ?? 'Unable to cancel this booking. Please try again.');
+				return;
+			}
+
+			setRefunded(Boolean((data as CancelResponse)?.refunded));
+			setPhase('success');
+		} catch {
+			setError('Unable to cancel this booking. Please try again.');
+		} finally {
+			setIsSubmitting(false);
+		}
+	};
+
+	if (phase === 'confirm') {
+		return (
+			<div className="flex min-h-screen flex-col">
+				<Navbar />
+				<main className="flex-1 bg-[#F7F7FB] pb-20">
+					<BookingCancelConfirmCard
+						variant="non-refundable"
+						roomTypeName={roomName}
+						imageUrl={imageUrl}
+						bookingCreatedAt={bookingCreatedAt}
+						checkIn={checkIn}
+						checkOut={checkOut}
+						guests={guests}
+						totalAmount={totalAmount}
+						isSubmitting={isSubmitting}
+						error={error}
+						onCancel={() => router.push('/booking-history')}
+						onConfirm={handleConfirm}
+					/>
+				</main>
+			</div>
+		);
+	}
 
 	return (
 		<div className="flex min-h-screen flex-col">
@@ -39,10 +113,12 @@ const CancelBookingReceiptView = ({ roomName, checkIn, checkOut, guests, backHre
 					<div className="flex w-full max-w-184.5 flex-col items-start overflow-hidden rounded bg-[#465C50] shadow-[4px_4px_16px_rgba(0,0,0,0.08)]">
 						<div className="flex w-full flex-col items-center gap-3 bg-[#2F3E35] px-6 py-10 text-center">
 							<h1 className="[font-family:var(--font-noto-serif)] font-medium font-stretch-[87.5%] text-3xl leading-[125%] tracking-[-0.02em] text-white lg:text-[44px]">
-								The Cancellation is Complete
+								{refunded ? 'Your Refund has been Processed' : 'The Cancellation is Complete'}
 							</h1>
 							<p className="max-w-172.5 [font-family:var(--font-inter)] text-sm leading-[150%] tracking-[-0.02em] text-[#ABC0B4]">
-								Your booking has been cancelled. As it was cancelled more than 72 hours (3 days) after booking, no refund applies.
+								{refunded
+									? 'Your booking has been cancelled and the refund has been issued to your original payment method.'
+									: 'Your booking has been cancelled. As it was cancelled more than 72 hours (3 days) after booking, no refund applies.'}
 							</p>
 						</div>
 
@@ -62,13 +138,24 @@ const CancelBookingReceiptView = ({ roomName, checkIn, checkOut, guests, backHre
 										</p>
 									</div>
 								</div>
+
+								{refunded ? (
+									<div className="flex w-full items-baseline justify-between gap-6 border-t border-[#5D7B6A] pt-6">
+										<span className="[font-family:var(--font-inter)] text-base leading-[150%] tracking-[-0.02em] text-[#D5DFDA]">
+											Total Refund
+										</span>
+										<span className="[font-family:var(--font-inter)] text-xl leading-[150%] font-semibold tracking-[-0.02em] text-white">
+											{formatThb(totalAmount)}
+										</span>
+									</div>
+								) : null}
 							</div>
 
 							<Link
-								href={backHref}
+								href="/booking-history"
 								className="flex h-12 w-fit cursor-pointer items-center justify-center whitespace-nowrap rounded bg-[#C14817] px-8 py-4 [font-family:var(--font-open-sans)] text-base font-semibold text-white transition-transform duration-150 hover:bg-[#A93F13] active:scale-90"
 							>
-								{backLabel}
+								Back to Booking History
 							</Link>
 						</div>
 					</div>

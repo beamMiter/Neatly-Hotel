@@ -11,6 +11,7 @@ export type BookingActions = {
 };
 
 const BANGKOK_OFFSET = "+07:00";
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 const BANGKOK_DATE_FORMAT: Intl.DateTimeFormatOptions = {
   timeZone: "Asia/Bangkok",
@@ -41,7 +42,7 @@ export function formatPaymentMethod(payment: BookingPayment): string {
 }
 
 export function getBookingActions(
-  booking: Pick<BookingHistoryItem, "status" | "bookingCreatedAt" | "checkInDate" | "checkedInAt">,
+  booking: Pick<BookingHistoryItem, "status" | "bookingCreatedAt" | "checkInDate" | "checkOutDate">,
   now = new Date(),
 ): BookingActions {
   if (booking.status === "cancelled") {
@@ -53,7 +54,11 @@ export function getBookingActions(
     };
   }
 
-  if (booking.status === "checked_in") {
+  // Once the check-out day itself has fully passed, cancelling (or
+  // changing dates) no longer makes sense regardless of check-in status.
+  const pastCheckOut = now.getTime() >= parseLocalDate(booking.checkOutDate).getTime() + DAY_MS;
+
+  if (booking.status === "checked_in" || pastCheckOut) {
     return {
       showChangeDate: false,
       showCancel: false,

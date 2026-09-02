@@ -39,11 +39,12 @@ export function isRefundEligible(createdAt: string, now: Date = new Date()): boo
   return now.getTime() - createdTime <= REFUND_WINDOW_MS;
 }
 
-// Change-date policy: only allowed within 24h of when the booking was made
-// (createdAt is a full timestamp, not date-only).
+// Change-date policy: same 72h (3-day) grace period as refunds — allowed
+// only within 3 days of when the booking was made (createdAt is a full
+// timestamp, not date-only).
 export function isChangeDateEligible(createdAt: string, now: Date = new Date()): boolean {
   const createdTime = Date.parse(createdAt);
-  return now.getTime() - createdTime <= DAY_MS;
+  return now.getTime() - createdTime <= REFUND_WINDOW_MS;
 }
 
 // Matches common OTA conventions (Agoda, Booking.com, AirAsia SNAP) — stays

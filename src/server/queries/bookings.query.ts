@@ -719,7 +719,9 @@ export async function extendBookingHold(bookingId: string, customerId: string | 
   // 500 so the guest can simply try again.
 }
 
-const CANCELLABLE_STATUSES: BookingRecord["status"][] = ["pending_payment", "confirmed"];
+// Exported so the /refund and /cancel-booking pages can decide whether to
+// show the pre-cancel confirmation view without duplicating this list.
+export const CANCELLABLE_STATUSES: BookingRecord["status"][] = ["pending_payment", "confirmed"];
 const CHANGEABLE_STATUSES: BookingRecord["status"][] = ["pending_payment", "confirmed"];
 
 // Cancels a booking and, when the guest cancels within the refund window
@@ -767,10 +769,11 @@ export async function cancelBooking(
   }
 
   const finalStatus = paymentIntentId ? "refunded" : "cancelled";
+  const cancelledAt = new Date();
 
   const claim = await prisma.booking.updateMany({
     where: { id: bookingId, status: { in: CANCELLABLE_STATUSES } },
-    data: { status: finalStatus },
+    data: { status: finalStatus, cancelledAt },
   });
 
   if (claim.count === 0) {
@@ -783,7 +786,8 @@ export async function cancelBooking(
     } catch (error) {
       // We already claimed "refunded" but Stripe didn't actually refund —
       // roll back to "cancelled" rather than leave the booking claiming a
-      // refund that never happened.
+      // refund that never happened. Still genuinely cancelled at the same
+      // moment, so cancelledAt is unaffected.
       await prisma.booking.update({ where: { id: bookingId }, data: { status: "cancelled" } });
       throw error;
     }
@@ -835,7 +839,7 @@ export async function changeBookingDates(
   }
 
   if (!isChangeDateEligible(booking.createdAt)) {
-    throw new InvalidBookingTransitionError("Date changes are only allowed within 24 hours of booking");
+    throw new InvalidBookingTransitionError("Date changes are only allowed within 3 days of booking");
   }
 
   const dateError = validateStayDates(checkIn, checkOut);

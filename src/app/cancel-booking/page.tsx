@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/server/db/supabase-server";
 import { getBookingForCustomerPage } from "@/server/services/booking-access";
+import { CANCELLABLE_STATUSES } from "@/server/queries/bookings.query";
+import { getGuestRoomTypeById } from "@/server/queries/booking-search.query";
 import CancelBookingReceiptView from "@/app/cancel-booking/CancelBookingReceiptView";
 
 type CancelBookingPageProps = {
@@ -27,15 +29,34 @@ export default async function CancelBookingPage({ searchParams }: CancelBookingP
     console.error("[cancel-booking] Failed to load booking:", error);
     redirect(fallbackHref);
   }
-  if (!booking || booking.status !== "cancelled") redirect(fallbackHref);
+  if (!booking) redirect(fallbackHref);
+
+  // Already resolved (e.g. revisiting the link later — cancelled and
+  // refunded are both terminal outcomes of the same action): show the
+  // matching receipt directly. Still cancellable: show the confirm step.
+  // Anything else (checked in, completed) doesn't belong on this page.
+  const initialPhase =
+    booking.status === "cancelled" || booking.status === "refunded"
+      ? "success"
+      : CANCELLABLE_STATUSES.includes(booking.status)
+        ? "confirm"
+        : null;
+  if (!initialPhase) redirect(fallbackHref);
+
+  const room = await getGuestRoomTypeById(booking.roomTypeId);
 
   return (
     <CancelBookingReceiptView
+      bookingId={booking.id}
       roomName={booking.roomTypeName}
+      imageUrl={room?.imageUrls[0] ?? "/images/room-bg-preview/Superior.jpg"}
+      bookingCreatedAt={booking.createdAt}
       checkIn={booking.checkIn}
       checkOut={booking.checkOut}
       guests={booking.guests}
-      backHref={fallbackHref}
+      totalAmount={booking.totalAmount}
+      initialPhase={initialPhase}
+      initialRefunded={booking.status === "refunded"}
     />
   );
 }
