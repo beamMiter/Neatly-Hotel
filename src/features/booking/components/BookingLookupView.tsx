@@ -115,11 +115,6 @@ export function BookingLookupView() {
 // Booking is done — no more changes possible, view-only from here.
 const FINALIZED_STATUSES: BookingRecord["status"][] = ["checked_in", "completed", "cancelled", "refunded"];
 
-type CancelBookingResponse = {
-  message: string;
-  refunded: boolean;
-};
-
 function BookingLookupResult({ booking }: { booking: BookingRecord }) {
   const router = useRouter();
   const nights = Math.max(nightsBetween(booking.checkIn, booking.checkOut), 1);
@@ -127,8 +122,6 @@ function BookingLookupResult({ booking }: { booking: BookingRecord }) {
   const paymentLabel = booking.paymentStatus.replaceAll("_", " ");
 
   const [isCancelOpen, setIsCancelOpen] = useState(false);
-  const [isCancelling, setIsCancelling] = useState(false);
-  const [cancelError, setCancelError] = useState<string | null>(null);
 
   const isFinalized = FINALIZED_STATUSES.includes(booking.status);
   const canChangeDate = !isFinalized && isChangeDateEligible(booking.createdAt);
@@ -136,31 +129,15 @@ function BookingLookupResult({ booking }: { booking: BookingRecord }) {
   const cancelType: BookingCancelType = isRefundEligible(booking.createdAt) ? "refundable" : "non-refundable";
 
   function closeCancelModal() {
-    if (isCancelling) return;
     setIsCancelOpen(false);
-    setCancelError(null);
   }
 
-  async function handleConfirmCancel() {
-    setIsCancelling(true);
-    setCancelError(null);
-
-    try {
-      const response = await fetch(`/api/bookings/${booking.id}/cancel`, { method: "POST" });
-      const data = (await response.json().catch(() => null)) as CancelBookingResponse | { message?: string } | null;
-
-      if (!response.ok) {
-        setCancelError(data?.message ?? "Unable to cancel this booking. Please try again.");
-        return;
-      }
-
-      const refunded = Boolean((data as CancelBookingResponse)?.refunded);
-      router.push(refunded ? `/refund?bookingId=${booking.id}` : `/cancel-booking?bookingId=${booking.id}`);
-    } catch {
-      setCancelError("Unable to cancel this booking. Please try again.");
-    } finally {
-      setIsCancelling(false);
-    }
+  // First of two confirmation steps, same as BookingHistoryView — this just
+  // navigates to /refund or /cancel-booking for the real, detailed
+  // confirmation. It never calls the cancel API itself.
+  function handleConfirmCancel() {
+    const path = cancelType === "refundable" ? "/refund" : "/cancel-booking";
+    router.push(`${path}?bookingId=${booking.id}`);
   }
 
   return (
@@ -209,8 +186,6 @@ function BookingLookupResult({ booking }: { booking: BookingRecord }) {
       <CancelBookingModal
         open={isCancelOpen}
         variant={cancelType}
-        isSubmitting={isCancelling}
-        error={cancelError}
         onClose={closeCancelModal}
         onConfirm={handleConfirmCancel}
       />

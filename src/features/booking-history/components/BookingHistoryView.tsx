@@ -14,18 +14,11 @@ type BookingHistoryViewProps = {
   bookings: BookingHistoryItem[];
 };
 
-type CancelBookingResponse = {
-  message: string;
-  refunded: boolean;
-};
-
 export function BookingHistoryView({ bookings: initialBookings }: BookingHistoryViewProps) {
   const router = useRouter();
   const [bookings] = useState(initialBookings);
   const [page, setPage] = useState(1);
   const [cancelTarget, setCancelTarget] = useState<BookingHistoryItem | null>(null);
-  const [isCancelling, setIsCancelling] = useState(false);
-  const [cancelError, setCancelError] = useState<string | null>(null);
 
   const totalPages = Math.max(1, Math.ceil(bookings.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
@@ -38,37 +31,21 @@ export function BookingHistoryView({ bookings: initialBookings }: BookingHistory
   );
 
   function openCancelModal(booking: BookingHistoryItem) {
-    setCancelError(null);
     setCancelTarget(booking);
   }
 
   function closeCancelModal() {
-    if (isCancelling) return;
     setCancelTarget(null);
-    setCancelError(null);
   }
 
-  async function handleConfirmCancel() {
-    if (!cancelTarget) return;
-    setIsCancelling(true);
-    setCancelError(null);
-
-    try {
-      const response = await fetch(`/api/bookings/${cancelTarget.id}/cancel`, { method: "POST" });
-      const data = (await response.json().catch(() => null)) as CancelBookingResponse | { message?: string } | null;
-
-      if (!response.ok) {
-        setCancelError(data?.message ?? "Unable to cancel this booking. Please try again.");
-        return;
-      }
-
-      const refunded = Boolean((data as CancelBookingResponse)?.refunded);
-      router.push(refunded ? `/refund?bookingId=${cancelTarget.id}` : `/cancel-booking?bookingId=${cancelTarget.id}`);
-    } catch {
-      setCancelError("Unable to cancel this booking. Please try again.");
-    } finally {
-      setIsCancelling(false);
-    }
+  // This is only the first of two confirmations — it doesn't call the
+  // cancel API. It just routes to the detailed /refund or /cancel-booking
+  // confirmation page (same cancelType decides which), which does the
+  // actual cancellation when its own confirm button is pressed.
+  function handleConfirmCancel() {
+    if (!cancelTarget || !cancelType) return;
+    const path = cancelType === "refundable" ? "/refund" : "/cancel-booking";
+    router.push(`${path}?bookingId=${cancelTarget.id}`);
   }
 
   return (
@@ -131,12 +108,10 @@ export function BookingHistoryView({ bookings: initialBookings }: BookingHistory
         )}
       </div>
 
-      {cancelType ? (
+      {cancelTarget && cancelType ? (
         <CancelBookingModal
-          open={Boolean(cancelTarget)}
+          open
           variant={cancelType}
-          isSubmitting={isCancelling}
-          error={cancelError}
           onClose={closeCancelModal}
           onConfirm={handleConfirmCancel}
         />

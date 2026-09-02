@@ -719,7 +719,9 @@ export async function extendBookingHold(bookingId: string, customerId: string | 
   // 500 so the guest can simply try again.
 }
 
-const CANCELLABLE_STATUSES: BookingRecord["status"][] = ["pending_payment", "confirmed"];
+// Exported so the /refund and /cancel-booking pages can decide whether to
+// show the pre-cancel confirmation view without duplicating this list.
+export const CANCELLABLE_STATUSES: BookingRecord["status"][] = ["pending_payment", "confirmed"];
 const CHANGEABLE_STATUSES: BookingRecord["status"][] = ["pending_payment", "confirmed"];
 
 // Cancels a booking and, when the guest cancels within the refund window
