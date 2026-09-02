@@ -16,6 +16,7 @@
     "security:check-authorization": "node scripts/check-booking-access.mjs",
     "check:booking-lifecycle": "node --experimental-strip-types scripts/check-booking-lifecycle.mjs",
     "security:check-admin-booking-edit": "node scripts/check-admin-booking-edit.mjs",
+    "security:check-promo": "node scripts/check-promo-code.mjs",
     "check:chatbot-routing": "node --experimental-strip-types scripts/check-chatbot-routing.mjs",
     "postinstall": "prisma generate",
     "db:generate": "dotenv -e .env.local -- prisma generate",
