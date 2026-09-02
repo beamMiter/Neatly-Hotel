@@ -19,6 +19,12 @@ const suggestionSchema = z.object({
   button_name: z.string().trim().max(100).nullable(),
   rooms: z.array(z.string().trim().min(1).max(100)).max(20),
   options: z.array(z.object({ name: z.string().trim().min(1).max(100), details: z.string().trim().min(1).max(1000) }).strict()).max(20),
+  translations: z.record(z.enum(["th", "en"]), z.object({
+    topic: z.string().trim().min(1).max(200),
+    reply: z.string().trim().min(1).max(2000),
+    button_name: z.string().trim().max(100).nullable(),
+    options: z.array(z.object({ name: z.string().trim().min(1).max(100), details: z.string().trim().min(1).max(1000) }).strict()).max(20),
+  }).strict()).optional(),
   is_active: z.boolean(),
   sort_order: z.number().int().min(0).max(10000),
 }).strict();
@@ -26,6 +32,10 @@ const suggestionSchema = z.object({
 const settingsSchema = z.object({
   greeting_message: z.string().trim().min(3).max(2000),
   auto_reply_message: z.string().trim().min(3).max(2000),
+  greeting_message_th: z.string().trim().min(3).max(2000),
+  greeting_message_en: z.string().trim().min(3).max(2000),
+  auto_reply_message_th: z.string().trim().min(3).max(2000),
+  auto_reply_message_en: z.string().trim().min(3).max(2000),
 }).strict();
 
 function validationMessage(error: z.ZodError) {
@@ -62,7 +72,8 @@ export async function PATCH(request: Request) {
       const id = z.string().trim().min(1).max(100).safeParse(record.id);
       const suggestionData = record.data && typeof record.data === "object"
         ? (() => {
-            const { id: _suggestionId, ...data } = record.data as Record<string, unknown>;
+            const data = { ...(record.data as Record<string, unknown>) };
+            delete data.id;
             return data;
           })()
         : record.data;
@@ -73,7 +84,8 @@ export async function PATCH(request: Request) {
       return Response.json({ suggestion: await updateChatbotSuggestion(id.data, parsed.data) });
     }
     return Response.json({ error: "Unknown resource" }, { status: 400 });
-  } catch {
+  } catch (error) {
+    console.error("[chatbot-admin] Unable to save chatbot configuration", error);
     return Response.json({ error: "Unable to save chatbot configuration" }, { status: 500 });
   }
 }
@@ -96,10 +108,10 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const admin = await authorizeStaff();
-  if (admin instanceof Response) return admin;
-  const parsed = z.object({ resource: z.literal("suggestion"), id: z.string().trim().min(1).max(100) }).strict().safeParse(await request.json());
-  if (!parsed.success) return Response.json({ error: "Invalid suggestion" }, { status: 400 });
+    const admin = await authorizeStaff();
+    if (admin instanceof Response) return admin;
+    const parsed = z.object({ resource: z.literal("suggestion"), id: z.string().trim().min(1).max(100) }).strict().safeParse(await request.json());
+    if (!parsed.success) return Response.json({ error: "Invalid suggestion" }, { status: 400 });
   try {
     console.info("[chatbot-admin-audit]", { actorId: admin.userId, action: "delete_suggestion", resourceId: parsed.data.id });
     await deleteChatbotSuggestion(parsed.data.id);

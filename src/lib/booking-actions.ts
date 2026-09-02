@@ -53,7 +53,7 @@ export function getBookingActions(
     };
   }
 
-  if (booking.checkedInAt != null) {
+  if (booking.status === "checked_in") {
     return {
       showChangeDate: false,
       showCancel: false,
@@ -62,7 +62,7 @@ export function getBookingActions(
     };
   }
 
-  const cancelType: BookingCancelType = isRefundEligible(booking.checkInDate, now)
+  const cancelType: BookingCancelType = isRefundEligible(booking.bookingCreatedAt, now)
     ? "refundable"
     : "non-refundable";
 

@@ -1,11 +1,14 @@
 import {
   addSupportMessage,
   countWaitingSupportConversations,
+  claimSupportConversation,
+  getSupportConversation,
   getSupportCustomer,
   listActiveSupportAgents,
   listSupportBookings,
   listConversationMessages,
   listSupportConversations,
+  takeOverSupportConversation,
   updateSupportConversation,
 } from "@/server/queries/live-support.query";
 import { generateLiveSupportSummary } from "@/server/queries/live-support-summary.query";
@@ -38,7 +41,7 @@ export async function GET(request: Request) {
 
     const conversationId = searchParams.get("conversationId");
     const [conversations, agents] = await Promise.all([
-      listSupportConversations(),
+      listSupportConversations(auth.userId),
       listActiveSupportAgents(),
     ]);
     const selectedConversationId = conversationId ?? conversations[0]?.id ?? null;
@@ -72,28 +75,55 @@ export async function PATCH(request: Request) {
 
   const body = (await request.json().catch(() => null)) as {
     conversationId?: unknown;
-    assignedAgentId?: unknown;
+    action?: unknown;
+    expectedAssignedAgentId?: unknown;
     status?: unknown;
   } | null;
   if (typeof body?.conversationId !== "string") {
     return Response.json({ error: "Invalid conversation" }, { status: 400 });
   }
 
-  const update: { assigned_agent_id?: string | null; status?: "waiting" | "active" | "resolved"; resolved_at?: string | null } = {};
-  if (body.assignedAgentId === null || typeof body.assignedAgentId === "string") {
-    update.assigned_agent_id = body.assignedAgentId;
-  }
-  if (body.status === "waiting" || body.status === "active" || body.status === "resolved") {
-    update.status = body.status;
-    update.resolved_at = body.status === "resolved" ? new Date().toISOString() : null;
-  }
-  if (Object.keys(update).length === 0) {
+  const action = body.action === "claim" || body.action === "takeover" ? body.action : null;
+  const status = body.status === "active" || body.status === "resolved" ? body.status : undefined;
+  if (!action && !status) {
     return Response.json({ error: "No update supplied" }, { status: 400 });
   }
 
   try {
-    let conversation = await updateSupportConversation(body.conversationId, update);
-    if (body.status === "resolved") {
+    if (action === "claim") {
+      const conversation = await claimSupportConversation(body.conversationId, auth.userId);
+      if (!conversation) {
+        return Response.json({ error: "This conversation has already been claimed or is no longer open" }, { status: 409 });
+      }
+      return Response.json({ conversation });
+    }
+
+    if (action === "takeover") {
+      if (typeof body.expectedAssignedAgentId !== "string") {
+        return Response.json({ error: "Invalid current assignee" }, { status: 400 });
+      }
+      const conversation = await takeOverSupportConversation(
+        body.conversationId,
+        auth.userId,
+        body.expectedAssignedAgentId,
+      );
+      if (!conversation) {
+        return Response.json({ error: "This conversation assignment changed. Refresh and try again." }, { status: 409 });
+      }
+      return Response.json({ conversation });
+    }
+
+    const currentConversation = await getSupportConversation(body.conversationId);
+    if (!currentConversation) return Response.json({ error: "Conversation not found" }, { status: 404 });
+    if (currentConversation.assigned_agent_id !== auth.userId) {
+      return Response.json({ error: "Only the assigned agent can update this conversation" }, { status: 403 });
+    }
+
+    let conversation = await updateSupportConversation(body.conversationId, {
+      status,
+      resolved_at: status === "resolved" ? new Date().toISOString() : null,
+    });
+    if (status === "resolved") {
       conversation = await generateLiveSupportSummary(body.conversationId);
     }
     return Response.json({ conversation });
@@ -122,6 +152,15 @@ export async function POST(request: Request) {
   }
 
   try {
+    const conversation = await getSupportConversation(body.conversationId);
+    if (!conversation) return Response.json({ error: "Conversation not found" }, { status: 404 });
+    if (conversation.status === "resolved") {
+      return Response.json({ error: "Reopen this conversation before replying" }, { status: 409 });
+    }
+    if (conversation.assigned_agent_id !== auth.userId) {
+      return Response.json({ error: "Only the assigned agent can reply to this conversation" }, { status: 403 });
+    }
+
     const message = await addSupportMessage(body.conversationId, "agent", content, user?.email ?? "Admin");
     return Response.json({ message }, { status: 201 });
   } catch (error) {

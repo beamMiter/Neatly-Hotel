@@ -24,6 +24,7 @@ type ChangeDateViewProps = {
 	bookingCreatedAt: string;
 	checkIn: string;
 	checkOut: string;
+	successHref: string;
 };
 
 const toDateOnly = (isoDate: string): Date => {
@@ -45,7 +46,15 @@ const formatDate = (date: Date) => {
 };
 
 // ── Component ──────────────────────────────────────────────────
-const ChangeDateView = ({ bookingId, roomName, roomImageUrl, bookingCreatedAt, checkIn, checkOut }: ChangeDateViewProps) => {
+const ChangeDateView = ({
+	bookingId,
+	roomName,
+	roomImageUrl,
+	bookingCreatedAt,
+	checkIn,
+	checkOut,
+	successHref,
+}: ChangeDateViewProps) => {
 	const router = useRouter();
 	const originalCheckIn = toDateOnly(checkIn);
 	const originalCheckOut = toDateOnly(checkOut);
@@ -84,7 +93,7 @@ const ChangeDateView = ({ bookingId, roomName, roomImageUrl, bookingCreatedAt, c
 				return;
 			}
 
-			router.push('/booking-history');
+			router.push(successHref);
 		} catch {
 			setError('Unable to change your booking dates. Please try again.');
 		} finally {

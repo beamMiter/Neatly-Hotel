@@ -14,11 +14,11 @@ import { isStaff } from '@/server/queries/staff-members.query';
 const ChatWidgetWithSettings = async () => {
 	const supabase = await createClient();
 	const [{ data: chatbotSettings }, { data: suggestions }] = await Promise.all([
-		supabase.from('chatbot_settings').select('greeting_message').eq('id', true).maybeSingle(),
+		supabase.from('chatbot_settings').select('*').eq('id', true).maybeSingle(),
 		supabase.from('chatbot_suggestions').select('*').eq('is_active', true).order('sort_order'),
 	]);
 
-	return <ChatWidget greetingMessage={chatbotSettings?.greeting_message} suggestions={suggestions ?? []} />;
+	return <ChatWidget greetingMessage={chatbotSettings?.greeting_message} greetingMessages={{ th: chatbotSettings?.greeting_message_th, en: chatbotSettings?.greeting_message_en }} suggestions={suggestions ?? []} />;
 };
 
 const MainLayout = async ({ children }: { children: React.ReactNode }) => {

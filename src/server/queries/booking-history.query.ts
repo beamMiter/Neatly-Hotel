@@ -1,21 +1,28 @@
 import "server-only";
 import { differenceInCalendarDays } from "date-fns";
 import { supabaseAdmin } from "@/server/db/supabase-admin";
-import type { BookingHistoryItem, BookingHistoryStatus } from "@/types/booking";
+import type { BookingHistoryItem, BookingHistoryStatus, BookingLineItem } from "@/types/booking";
 
 const IMAGE_BUCKET = "room-images";
 
 const BOOKING_SELECT =
-  "id, booking_code, check_in, check_out, guests, status, total_amount, created_at, additional_request, booking_rooms(rooms(room_type_id, room_types(name, room_images(storage_path, is_cover, sort_order))))";
+  "id, booking_code, check_in, check_out, guests, status, total_amount, created_at, additional_request, promo_code, discount_amount, special_requests, booking_rooms(price_per_night, rooms(room_type_id, room_types(name, room_images(storage_path, is_cover, sort_order))))";
 
 type RoomImageRow = { storage_path: string; is_cover: boolean; sort_order: number | null };
 
 type BookingRoomRow = {
+  price_per_night: number | string;
   rooms: {
     room_type_id: string | null;
     room_types: { name: string; room_images: RoomImageRow[] | null } | null;
   } | null;
 };
+
+// Same shape as SelectedSpecialRequest (src/types/booking.ts), but
+// `quantity` is optional on the way in — bookings made before add-ons
+// became countable stored no `quantity`. Defaulted to 1 below, same as
+// bookings.query.ts's toBookingRecord does.
+type SelectedSpecialRequestRow = { code: string; label: string; price: number; quantity?: number };
 
 type BookingRow = {
   id: string;
@@ -27,6 +34,9 @@ type BookingRow = {
   total_amount: number | string;
   created_at: string;
   additional_request: string | null;
+  promo_code: string | null;
+  discount_amount: number | string;
+  special_requests: SelectedSpecialRequestRow[] | null;
   booking_rooms: BookingRoomRow[] | null;
 };
 
@@ -74,15 +84,32 @@ async function fetchLastDigitsByBookingId(bookingIds: string[]): Promise<Map<str
 
 // TODO(booking-history): this mapping is a placeholder pending reconciliation
 // with the real BookingRecord shape (src/types/booking.ts, sourced by
-// bookings.query.ts) — an itemized line-item breakdown and separate
-// checked-in/cancelled timestamps aren't sourced from real columns yet, so
-// those fields are left empty/null here rather than fabricated.
-// getBookingActions (src/lib/booking-actions.ts) branches on
-// checkedInAt/cancelledAt, not on status, so those branches won't behave
+// bookings.query.ts) — separate checked-in/cancelled timestamps aren't
+// sourced from real columns yet, so those fields are left null here rather
+// than fabricated. getBookingActions (src/lib/booking-actions.ts) branches
+// on checkedInAt/cancelledAt, not on status, so those branches won't behave
 // correctly for real checked-in/cancelled bookings until this is revisited.
 function toBookingHistoryItem(row: BookingRow, lastDigits: string): BookingHistoryItem {
-  const firstRoom = row.booking_rooms?.[0]?.rooms ?? null;
+  const bookingRooms = row.booking_rooms ?? [];
+  const firstRoom = bookingRooms[0]?.rooms ?? null;
   const roomType = firstRoom?.room_types ?? null;
+  const nights = differenceInCalendarDays(new Date(row.check_out), new Date(row.check_in));
+
+  const roomSubtotal =
+    bookingRooms.reduce((sum, bookingRoom) => sum + Number(bookingRoom.price_per_night), 0) * nights;
+
+  const lineItems: BookingLineItem[] = [
+    { label: roomType?.name ?? "Room", amount: roomSubtotal },
+    ...(row.special_requests ?? []).map((item) => ({
+      label: item.label,
+      amount: item.price * (item.quantity ?? 1),
+    })),
+  ];
+
+  const discountAmount = Number(row.discount_amount);
+  if (row.promo_code && discountAmount > 0) {
+    lineItems.push({ label: "Promotion Code", amount: -discountAmount });
+  }
 
   return {
     id: row.id,
@@ -92,14 +119,14 @@ function toBookingHistoryItem(row: BookingRow, lastDigits: string): BookingHisto
     roomTypeName: roomType?.name ?? "Room",
     imageUrl: coverImageUrl(roomType?.room_images),
     guests: row.guests,
-    nights: differenceInCalendarDays(new Date(row.check_out), new Date(row.check_in)),
+    nights,
     bookingCreatedAt: row.created_at,
     checkInDate: row.check_in,
     checkOutDate: row.check_out,
     checkedInAt: null,
     cancelledAt: null,
     payment: { method: "credit_card", lastDigits },
-    lineItems: [],
+    lineItems,
     totalAmount: Number(row.total_amount),
     additionalRequest: row.additional_request,
   };

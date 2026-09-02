@@ -1,8 +1,9 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse, type NextRequest, type NextFetchEvent } from "next/server";
 import { parseRegisterFormData } from "@/features/auth/validations";
 import { refreshSession } from "@/features/auth/refresh-session";
+import { trackPageView } from "@/features/analytics/track-page-view";
 
-export async function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest, event: NextFetchEvent) {
   if (request.nextUrl.pathname === "/api/register") {
     if (request.method !== "POST") return NextResponse.next();
 
@@ -22,7 +23,9 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  return refreshSession(request);
+  const response = await refreshSession(request);
+  trackPageView(request, event, response);
+  return response;
 }
 
 export const config = {

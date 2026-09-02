@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { constructWebhookEvent, retrieveChargeWithCard } from "@/server/payments/stripe";
 import { supabaseAdmin } from "@/server/db/supabase-admin";
-import { updateBookingPaymentStatus } from "@/server/queries/bookings.query";
+import {
+  applyTopUpPaymentOutcome,
+  updateBookingPaymentStatus,
+} from "@/server/queries/bookings.query";
 
 // A retry deliberately opens a NEW PaymentIntent for the same booking, so a
 // delayed or redelivered event from a superseded intent can arrive after the
@@ -81,7 +84,11 @@ export async function POST(request: Request) {
           .eq("stripe_payment_intent_id", intent.id);
 
         if (bookingId && (await isCurrentIntentForBooking(bookingId, intent.id))) {
-          await updateBookingPaymentStatus(bookingId, "paid");
+          if (intent.metadata.paymentKind === "top_up") {
+            await applyTopUpPaymentOutcome(bookingId, "paid");
+          } else {
+            await updateBookingPaymentStatus(bookingId, "paid");
+          }
         }
         break;
       }
@@ -100,7 +107,11 @@ export async function POST(request: Request) {
           .eq("stripe_payment_intent_id", intent.id);
 
         if (bookingId && (await isCurrentIntentForBooking(bookingId, intent.id))) {
-          await updateBookingPaymentStatus(bookingId, "failed");
+          if (intent.metadata.paymentKind === "top_up") {
+            await applyTopUpPaymentOutcome(bookingId, "failed");
+          } else {
+            await updateBookingPaymentStatus(bookingId, "failed");
+          }
         }
         break;
       }
@@ -118,7 +129,11 @@ export async function POST(request: Request) {
         // intent means the guest never completed payment, same outcome as
         // "failed" from the booking's point of view (room gets released).
         if (bookingId && (await isCurrentIntentForBooking(bookingId, intent.id))) {
-          await updateBookingPaymentStatus(bookingId, "failed");
+          if (intent.metadata.paymentKind === "top_up") {
+            await applyTopUpPaymentOutcome(bookingId, "failed");
+          } else {
+            await updateBookingPaymentStatus(bookingId, "failed");
+          }
         }
         break;
       }

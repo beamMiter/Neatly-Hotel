@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import type { ChatbotSettings, ChatbotSuggestion } from "@/types/chatbot";
+import type { ChatbotSettings, ChatbotSuggestion, ChatbotSuggestionTranslation } from "@/types/chatbot";
 import {
   createChatbotSuggestion,
   deleteChatbotSuggestion,
@@ -11,15 +11,25 @@ import {
 
 type PresetTopic = {
   id: string;
-  topic: string;
   format: "Room type" | "Message" | "Option with details";
-  reply: string;
-  buttonName?: string;
   rooms?: string[];
-  options?: Array<{ name: string; details: string }>;
+  translations: Record<"th" | "en", LocalizedTopic>;
 };
 
-const defaultTopics: PresetTopic[] = [
+type LocalizedTopic = Omit<ChatbotSuggestionTranslation, "button_name"> & { buttonName?: string };
+
+const emptyLocalizedTopic = (): LocalizedTopic => ({ topic: "", reply: "", buttonName: "", options: [] });
+
+function localizedTopic(topic: Pick<ChatbotSuggestion, "topic" | "reply" | "button_name" | "options">): LocalizedTopic {
+  return {
+    topic: topic.topic,
+    reply: topic.reply,
+    buttonName: topic.button_name ?? "",
+    options: topic.options.map((option) => ({ ...option })),
+  };
+}
+
+const defaultTopics = [
   { id: "room-types", topic: "Room Types", format: "Room type", reply: "Neatly Hotel offers a variety of room types to suit your needs! 🏨✨ Here are the options", buttonName: "View Details" },
   { id: "booking", topic: "Booking", format: "Room type", reply: "Let's get your booking started First, please choose the type of room you'd like 🛏️✨", buttonName: "Book Now" },
   { id: "check-times", topic: "Check-in & Check-out Time", format: "Message", reply: "Great! 😊 Here are our check-in and check-out times:\nCheck-in time: From 2:00 PM onwards 🕑\nCheck-out time: By 12:00 PM 🕛" },
@@ -44,11 +54,37 @@ function FieldError({ children = "Please fill in this field" }: { children?: str
 }
 
 function fromSuggestion(topic: ChatbotSuggestion): PresetTopic {
-  return { id: topic.id, topic: topic.topic, format: topic.format, reply: topic.reply, buttonName: topic.button_name ?? undefined, rooms: topic.rooms, options: topic.options };
+  const fallback = localizedTopic(topic);
+  return {
+    id: topic.id,
+    format: topic.format,
+    rooms: topic.rooms,
+    translations: {
+      th: topic.translations?.th ? { ...topic.translations.th, buttonName: topic.translations.th.button_name ?? "", options: topic.translations.th.options.map((option) => ({ ...option })) } : { ...fallback, options: fallback.options.map((option) => ({ ...option })) },
+      en: topic.translations?.en ? { ...topic.translations.en, buttonName: topic.translations.en.button_name ?? "", options: topic.translations.en.options.map((option) => ({ ...option })) } : { ...fallback, options: fallback.options.map((option) => ({ ...option })) },
+    },
+  };
 }
 
 function toSuggestion(topic: PresetTopic, sortOrder: number) {
-  return { id: topic.id, topic: topic.topic, format: topic.format, reply: topic.reply, button_name: topic.buttonName ?? null, rooms: topic.rooms ?? [], options: topic.options ?? [], is_active: true, sort_order: sortOrder };
+  const en = topic.translations.en;
+  return {
+    id: topic.id,
+    topic: en.topic,
+    format: topic.format,
+    reply: en.reply,
+    button_name: en.buttonName?.trim() || null,
+    rooms: topic.rooms ?? [],
+    options: en.options,
+    translations: Object.fromEntries((Object.entries(topic.translations) as Array<["th" | "en", LocalizedTopic]>).map(([locale, translation]) => [locale, {
+      topic: translation.topic,
+      reply: translation.reply,
+      button_name: translation.buttonName?.trim() || null,
+      options: translation.options,
+    }])),
+    is_active: true,
+    sort_order: sortOrder,
+  };
 }
 
 export default function FaqManager({ initialSettings, initialSuggestions, roomTypes }: { initialSettings: ChatbotSettings; initialSuggestions: ChatbotSuggestion[]; roomTypes: string[] }) {
@@ -57,9 +93,14 @@ export default function FaqManager({ initialSettings, initialSuggestions, roomTy
     ...initialSuggestions.flatMap((suggestion) => suggestion.rooms),
   ]));
   const [settings, setSettings] = useState(initialSettings);
+  const [messageLocale, setMessageLocale] = useState<"th" | "en">("th");
+  const [suggestionLocales, setSuggestionLocales] = useState<Record<string, "th" | "en">>({});
+  const [newSuggestionLocale, setNewSuggestionLocale] = useState<"th" | "en">("th");
+  const [newTranslations, setNewTranslations] = useState<Record<"th" | "en", LocalizedTopic>>({ th: emptyLocalizedTopic(), en: emptyLocalizedTopic() });
   const [isSaving, setIsSaving] = useState(false);
-  const [presetTopics, setPresetTopics] = useState(initialSuggestions.length ? initialSuggestions.map(fromSuggestion) : defaultTopics.map((topic) => topic.format === "Room type" ? { ...topic, rooms: [...selectableRoomTypes] } : topic));
+  const [presetTopics, setPresetTopics] = useState(initialSuggestions.length ? initialSuggestions.map(fromSuggestion) : defaultTopics.map((topic) => fromSuggestion({ ...topic, format: topic.format as PresetTopic["format"], rooms: topic.format === "Room type" ? [...selectableRoomTypes] : [], options: topic.options ?? [], button_name: topic.buttonName ?? null, is_active: true, sort_order: 0 })));
   const [saveError, setSaveError] = useState("");
+  const [saveSuccess, setSaveSuccess] = useState("");
   const [isAddingTopic, setIsAddingTopic] = useState(false);
   const [newTopic, setNewTopic] = useState("");
   const [newReplyFormat, setNewReplyFormat] = useState<PresetTopic["format"] | "">("");
@@ -77,7 +118,6 @@ export default function FaqManager({ initialSettings, initialSuggestions, roomTy
   const [editingTopic, setEditingTopic] = useState<PresetTopic | null>(null);
   const [deletingTopic, setDeletingTopic] = useState<PresetTopic | null>(null);
   const [showNewTopicErrors, setShowNewTopicErrors] = useState(false);
-
   function addPresetTopic() {
     if (editingTopic) return;
     setNewTopic("");
@@ -88,6 +128,8 @@ export default function FaqManager({ initialSettings, initialSuggestions, roomTy
     setNewRoomTitle("");
     setSelectedRooms([]);
     setNewButtonName("");
+    setNewSuggestionLocale("th");
+    setNewTranslations({ th: emptyLocalizedTopic(), en: emptyLocalizedTopic() });
     setRoomSearch("");
     setIsRoomDropdownOpen(false);
     setShowNewTopicErrors(false);
@@ -97,10 +139,20 @@ export default function FaqManager({ initialSettings, initialSuggestions, roomTy
   async function savePresetTopic(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setShowNewTopicErrors(true);
-    const cleanedOptions = newOptions.map((option) => ({ name: option.name.trim(), details: option.details.trim() }));
-    const hasInvalidOption = cleanedOptions.some((option) => !option.name || !option.details);
-    if (!newTopic.trim() || !newReplyFormat || (newReplyFormat === "Message" && !newReplyMessage.trim()) || (newReplyFormat === "Option with details" && (!newReplyTitle.trim() || hasInvalidOption)) || (newReplyFormat === "Room type" && (!newRoomTitle.trim() || selectedRooms.length === 0 || !newButtonName.trim()))) return;
-    const topic = { id: `topic-${crypto.randomUUID()}`, topic: newTopic.trim(), format: newReplyFormat, reply: newReplyFormat === "Option with details" ? newReplyTitle.trim() : newReplyFormat === "Room type" ? newRoomTitle.trim() : newReplyMessage.trim(), options: newReplyFormat === "Option with details" ? cleanedOptions : undefined, rooms: newReplyFormat === "Room type" ? selectedRooms : undefined, buttonName: newReplyFormat === "Room type" ? newButtonName.trim() : undefined } satisfies PresetTopic;
+    const currentTranslation: LocalizedTopic = {
+      topic: newTopic.trim(),
+      reply: (newReplyFormat === "Option with details" ? newReplyTitle : newReplyFormat === "Room type" ? newRoomTitle : newReplyMessage).trim(),
+      buttonName: newButtonName.trim(),
+      options: newOptions.map((option) => ({ name: option.name.trim(), details: option.details.trim() })),
+    };
+    const translations = { ...newTranslations, [newSuggestionLocale]: currentTranslation };
+    const hasInvalidTranslation = Object.values(translations).some((translation) =>
+      !translation.topic || !translation.reply ||
+      (newReplyFormat === "Room type" && !translation.buttonName) ||
+      (newReplyFormat === "Option with details" && (!translation.options.length || translation.options.some((option) => !option.name || !option.details))),
+    );
+    if (!newReplyFormat || hasInvalidTranslation || (newReplyFormat === "Room type" && selectedRooms.length === 0)) return;
+    const topic = { id: `topic-${crypto.randomUUID()}`, format: newReplyFormat, rooms: newReplyFormat === "Room type" ? selectedRooms : [], translations } satisfies PresetTopic;
     try { await createChatbotSuggestion(toSuggestion(topic, presetTopics.length) as Omit<ChatbotSuggestion, "created_at" | "updated_at">); } catch (error) { setSaveError(error instanceof Error ? error.message : "Unable to save suggestion"); return; }
     setSaveError("");
     setPresetTopics((current) => [...current, topic]);
@@ -128,6 +180,8 @@ export default function FaqManager({ initialSettings, initialSuggestions, roomTy
     setNewRoomTitle("");
     setSelectedRooms([]);
     setNewButtonName("");
+    setNewSuggestionLocale("th");
+    setNewTranslations({ th: emptyLocalizedTopic(), en: emptyLocalizedTopic() });
     setRoomSearch("");
     setIsRoomDropdownOpen(false);
     setShowNewTopicErrors(false);
@@ -142,7 +196,10 @@ export default function FaqManager({ initialSettings, initialSuggestions, roomTy
     setEditingTopic({
       ...topic,
       rooms: topic.rooms ? [...topic.rooms] : undefined,
-      options: topic.options?.map((option) => ({ ...option })),
+      translations: {
+        th: { ...topic.translations.th, options: topic.translations.th.options.map((option) => ({ ...option })) },
+        en: { ...topic.translations.en, options: topic.translations.en.options.map((option) => ({ ...option })) },
+      },
     });
     setEditingRoomSearch("");
     setIsEditingRoomDropdownOpen(false);
@@ -150,14 +207,17 @@ export default function FaqManager({ initialSettings, initialSuggestions, roomTy
 
   async function saveEditingTopic(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!editingTopic?.topic.trim() || !editingTopic.reply.trim()) return;
-    if (editingTopic.format === "Room type" && (!editingTopic.rooms?.length || !editingTopic.buttonName?.trim())) return;
-    if (editingTopic.format === "Option with details" && !editingTopic.options?.every((option) => option.name.trim() && option.details.trim())) return;
+    if (!editingTopic || Object.values(editingTopic.translations).some((translation) => !translation.topic.trim() || !translation.reply.trim() || (editingTopic.format === "Room type" && !translation.buttonName?.trim()) || (editingTopic.format === "Option with details" && (!translation.options.length || !translation.options.every((option) => option.name.trim() && option.details.trim()))))) return;
+    if (editingTopic.format === "Room type" && !editingTopic.rooms?.length) return;
     const updated = {
       ...editingTopic,
-      topic: editingTopic.topic.trim(),
-      reply: editingTopic.reply.trim(),
-      buttonName: editingTopic.buttonName?.trim(),
+      translations: Object.fromEntries((Object.entries(editingTopic.translations) as Array<["th" | "en", LocalizedTopic]>).map(([locale, translation]) => [locale, {
+        ...translation,
+        topic: translation.topic.trim(),
+        reply: translation.reply.trim(),
+        buttonName: translation.buttonName?.trim(),
+        options: translation.options.map((option) => ({ name: option.name.trim(), details: option.details.trim() })),
+      }])) as Record<"th" | "en", LocalizedTopic>,
     };
     const sortOrder = presetTopics.findIndex((topic) => topic.id === updated.id);
     try { await updateChatbotSuggestion(updated.id, toSuggestion(updated, sortOrder)); } catch (error) { setSaveError(error instanceof Error ? error.message : "Unable to save suggestion"); return; }
@@ -172,8 +232,11 @@ export default function FaqManager({ initialSettings, initialSuggestions, roomTy
       ...current,
       format,
       rooms: format === "Room type" ? (current.rooms?.length ? current.rooms : [...selectableRoomTypes]) : undefined,
-      buttonName: format === "Room type" ? (current.buttonName ?? "") : undefined,
-      options: format === "Option with details" ? (current.options?.length ? current.options : [{ name: "", details: "" }]) : undefined,
+      translations: Object.fromEntries((Object.entries(current.translations) as Array<["th" | "en", LocalizedTopic]>).map(([locale, translation]) => [locale, {
+        ...translation,
+        buttonName: format === "Room type" ? (translation.buttonName ?? "") : "",
+        options: format === "Option with details" ? (translation.options.length ? translation.options : [{ name: "", details: "" }]) : [],
+      }])) as Record<"th" | "en", LocalizedTopic>,
     } : current);
   }
 
@@ -214,8 +277,49 @@ export default function FaqManager({ initialSettings, initialSuggestions, roomTy
   async function saveSettings(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsSaving(true);
-    try { await saveChatbotSettings({ greeting_message: settings.greeting_message.trim(), auto_reply_message: settings.auto_reply_message.trim() }); setSaveError(""); } catch (error) { setSaveError(error instanceof Error ? error.message : "Unable to save settings"); }
+    setSaveSuccess("");
+    try {
+      const result = await saveChatbotSettings({
+        greeting_message: settings.greeting_message.trim(),
+        // Keep the legacy, non-localized column in sync for older consumers.
+        auto_reply_message: settings.auto_reply_message_th.trim(),
+        greeting_message_th: settings.greeting_message_th.trim(),
+        greeting_message_en: settings.greeting_message_en.trim(),
+        auto_reply_message_th: settings.auto_reply_message_th.trim(),
+        auto_reply_message_en: settings.auto_reply_message_en.trim(),
+      });
+      setSettings(result.settings);
+      setSaveError("");
+      setSaveSuccess("บันทึกข้อความเรียบร้อยแล้ว");
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Unable to save settings");
+    }
     setIsSaving(false);
+  }
+
+  function updateEditingTranslation(locale: "th" | "en", update: Partial<LocalizedTopic>) {
+    setEditingTopic((current) => current ? {
+      ...current,
+      translations: { ...current.translations, [locale]: { ...current.translations[locale], ...update } },
+    } : current);
+  }
+
+  function changeNewSuggestionLocale(locale: "th" | "en") {
+    const currentTranslation: LocalizedTopic = {
+      topic: newTopic,
+      reply: newReplyFormat === "Option with details" ? newReplyTitle : newReplyFormat === "Room type" ? newRoomTitle : newReplyMessage,
+      buttonName: newButtonName,
+      options: newOptions,
+    };
+    const next = newTranslations[locale];
+    setNewTranslations((current) => ({ ...current, [newSuggestionLocale]: currentTranslation }));
+    setNewSuggestionLocale(locale);
+    setNewTopic(next.topic);
+    setNewReplyMessage(newReplyFormat === "Message" ? next.reply : "");
+    setNewReplyTitle(newReplyFormat === "Message" ? "" : next.reply);
+    setNewOptions(next.options.length ? next.options : [{ name: "", details: "" }]);
+    setNewRoomTitle(newReplyFormat === "Room type" ? next.reply : "");
+    setNewButtonName(next.buttonName ?? "");
   }
 
   return (
@@ -227,10 +331,27 @@ export default function FaqManager({ initialSettings, initialSuggestions, roomTy
       <div className="min-h-0 flex-1 overflow-y-auto px-8 py-6">
         <section className="flex w-full max-w-[1080px] flex-col items-start gap-10 rounded-lg border border-[#E4E6ED] bg-white p-8 max-md:p-5">
             <form className="grid w-full gap-10" onSubmit={saveSettings}>
-              <h2 className="m-0 text-xl leading-[30px] font-semibold tracking-[-.02em] text-[#9AA1B9]">Default Chatbot Messages</h2>
-              <label className="grid w-full gap-1 text-base leading-6 text-[#2A2E3F]">Greeting message *<textarea className="h-24 w-full resize-none rounded-sm border border-[#D6D9E4] bg-white px-3 pt-3 pr-4 text-base leading-6 text-black outline-none focus:border-[#729280] focus:ring-2 focus:ring-[#729280]/10" required value={settings.greeting_message} onChange={(event) => setSettings({ ...settings, greeting_message: event.target.value })} /></label>
-              <label className="grid w-full gap-1 text-base leading-6 text-[#2A2E3F]">Auto-reply message *<textarea className="h-24 w-full resize-none rounded-sm border border-[#D6D9E4] bg-white px-3 pt-3 pr-4 text-base leading-6 text-black outline-none focus:border-[#729280] focus:ring-2 focus:ring-[#729280]/10" required value={settings.auto_reply_message} onChange={(event) => setSettings({ ...settings, auto_reply_message: event.target.value })} /></label>
-              <button className="h-12 w-fit cursor-pointer rounded-sm bg-[#C14817] px-8 text-base font-semibold text-white disabled:cursor-wait disabled:opacity-50" type="submit" disabled={isSaving}>Save Messages</button>
+              <div className="flex w-full flex-wrap items-center justify-between gap-4">
+                <h2 className="m-0 text-xl leading-[30px] font-semibold tracking-[-.02em] text-[#9AA1B9]">Default Chatbot Messages</h2>
+                <div className="flex rounded-md border border-[#D6D9E4] bg-white p-0.5 text-sm font-semibold text-[#646D89]" aria-label="Message language">
+                  <button type="button" onClick={() => setMessageLocale("th")} className={`rounded px-3 py-1.5 ${messageLocale === "th" ? "bg-[#E8F0EB] text-[#365A46] shadow-sm" : "hover:text-[#365A46]"}`}>ไทย</button>
+                  <button type="button" onClick={() => setMessageLocale("en")} className={`rounded px-3 py-1.5 ${messageLocale === "en" ? "bg-[#E8F0EB] text-[#365A46] shadow-sm" : "hover:text-[#365A46]"}`}>English</button>
+                </div>
+              </div>
+              {messageLocale === "th" ? (
+                <label className="grid w-full gap-1 text-base leading-6 text-[#2A2E3F]">Greeting message (ไทย) *<textarea className="h-24 w-full resize-none rounded-sm border border-[#D6D9E4] bg-white px-3 pt-3 pr-4 text-base leading-6 text-black outline-none focus:border-[#729280]" required value={settings.greeting_message_th} onChange={(event) => { setSettings({ ...settings, greeting_message_th: event.target.value }); setSaveSuccess(""); }} /></label>
+              ) : (
+                <label className="grid w-full gap-1 text-base leading-6 text-[#2A2E3F]">Greeting message (English) *<textarea className="h-24 w-full resize-none rounded-sm border border-[#D6D9E4] bg-white px-3 pt-3 pr-4 text-base leading-6 text-black outline-none focus:border-[#729280]" required value={settings.greeting_message_en} onChange={(event) => { setSettings({ ...settings, greeting_message_en: event.target.value }); setSaveSuccess(""); }} /></label>
+              )}
+              {messageLocale === "th" ? (
+                <label className="grid w-full gap-1 text-base leading-6 text-[#2A2E3F]">ข้อความเมื่อไม่พบคำตอบ *<textarea className="h-24 w-full resize-none rounded-sm border border-[#D6D9E4] bg-white px-3 pt-3 pr-4 text-base leading-6 text-black outline-none focus:border-[#729280]" required value={settings.auto_reply_message_th} onChange={(event) => { setSettings({ ...settings, auto_reply_message_th: event.target.value }); setSaveSuccess(""); }} /><span className="text-xs leading-5 text-[#646D89]">ระบบจะแสดงข้อความนี้เมื่อไม่สามารถตอบคำถามได้ พร้อมปุ่มถามใหม่และคุยกับเจ้าหน้าที่</span></label>
+              ) : (
+                <label className="grid w-full gap-1 text-base leading-6 text-[#2A2E3F]">Fallback message *<textarea className="h-24 w-full resize-none rounded-sm border border-[#D6D9E4] bg-white px-3 pt-3 pr-4 text-base leading-6 text-black outline-none focus:border-[#729280]" required value={settings.auto_reply_message_en} onChange={(event) => { setSettings({ ...settings, auto_reply_message_en: event.target.value }); setSaveSuccess(""); }} /><span className="text-xs leading-5 text-[#646D89]">This message appears when the chatbot cannot answer a question.</span></label>
+              )}
+              <div className="flex flex-wrap items-center gap-4">
+                <button className="h-12 w-fit cursor-pointer rounded-sm bg-[#C14817] px-8 text-base font-semibold text-white disabled:cursor-wait disabled:opacity-50" type="submit" disabled={isSaving}>{isSaving ? "Saving..." : "Save Messages"}</button>
+                {saveSuccess && <p className="m-0 text-sm font-medium text-[#527865]" role="status">{saveSuccess}</p>}
+              </div>
             </form>
 
             <div className="h-px w-full bg-[#E4E6ED]" />
@@ -241,22 +362,28 @@ export default function FaqManager({ initialSettings, initialSuggestions, roomTy
               {presetTopics.map((topic) => {
                 const isEditing = editingTopic?.id === topic.id;
                 const displayedTopic = isEditing ? editingTopic : topic;
+                const suggestionLocale = suggestionLocales[topic.id] ?? "th";
+                const displayedTranslation = displayedTopic.translations[suggestionLocale];
                 const isAnotherTopicEditing = Boolean(editingTopic && !isEditing);
                 return (
-                <form className={`flex w-full items-start gap-6 rounded-lg bg-[#F6F7FC] p-6 transition-opacity ${draggedTopicId === topic.id || isAnotherTopicEditing ? "opacity-50" : "opacity-100"}`} key={topic.id} onSubmit={saveEditingTopic} draggable={!editingTopic} onDragStart={() => { if (!editingTopic) setDraggedTopicId(topic.id); }} onDragOver={(event) => { if (!editingTopic) event.preventDefault(); }} onDrop={() => moveTopic(topic.id)} onDragEnd={() => setDraggedTopicId(null)}>
+                <form className={`relative flex w-full items-start gap-6 rounded-lg bg-[#F6F7FC] p-6 pt-16 transition-opacity ${draggedTopicId === topic.id || isAnotherTopicEditing ? "opacity-50" : "opacity-100"}`} key={topic.id} onSubmit={saveEditingTopic} draggable={!editingTopic} onDragStart={() => { if (!editingTopic) setDraggedTopicId(topic.id); }} onDragOver={(event) => { if (!editingTopic) event.preventDefault(); }} onDrop={() => moveTopic(topic.id)} onDragEnd={() => setDraggedTopicId(null)}>
+                  <div className="absolute top-4 right-4 flex rounded-md border border-[#D6D9E4] bg-white p-0.5 text-sm font-semibold text-[#646D89]" aria-label={`Suggestion language for ${displayedTranslation.topic}`}>
+                    <button type="button" onClick={() => setSuggestionLocales((current) => ({ ...current, [topic.id]: "th" }))} className={`rounded px-3 py-1.5 ${suggestionLocale === "th" ? "bg-[#E8F0EB] text-[#365A46] shadow-sm" : "hover:text-[#365A46]"}`}>ไทย</button>
+                    <button type="button" onClick={() => setSuggestionLocales((current) => ({ ...current, [topic.id]: "en" }))} className={`rounded px-3 py-1.5 ${suggestionLocale === "en" ? "bg-[#E8F0EB] text-[#365A46] shadow-sm" : "hover:text-[#365A46]"}`}>English</button>
+                  </div>
                   <fieldset className="grid min-w-0 flex-1 gap-6 border-0 p-0" disabled={!isEditing}>
                     <div className="grid grid-cols-2 gap-10 max-md:grid-cols-1 max-md:gap-6">
-                      <label className="grid gap-1 text-base leading-6 text-[#2A2E3F]">Topic *<input className="h-12 rounded-lg border border-[#D6D9E4] bg-white px-3 text-base text-black outline-none disabled:text-[#646D89]" required value={displayedTopic.topic} onChange={(event) => setEditingTopic((current) => current ? { ...current, topic: event.target.value } : current)} /></label>
+                      <label className="grid gap-1 text-base leading-6 text-[#2A2E3F]">Topic *<input className="h-12 rounded-lg border border-[#D6D9E4] bg-white px-3 text-base text-black outline-none disabled:text-[#646D89]" required value={displayedTranslation.topic} onChange={(event) => updateEditingTranslation(suggestionLocale, { topic: event.target.value })} /></label>
                       <label className="grid gap-1 text-base leading-6 text-[#2A2E3F]">Reply format<select className="h-12 rounded-sm border border-[#D6D9E4] bg-white px-3 text-base text-black outline-none disabled:text-[#646D89]" value={displayedTopic.format} onChange={(event) => changeEditingFormat(event.target.value as PresetTopic["format"])}><option>Room type</option><option>Message</option><option>Option with details</option></select></label>
                     </div>
 
-                    <label className="grid gap-1 text-base leading-6 text-[#2A2E3F]">{displayedTopic.format === "Message" ? "Reply message" : "Reply title"}<textarea className={`${displayedTopic.format === "Message" ? "h-24" : "h-12"} w-full resize-none rounded-lg border border-[#D6D9E4] bg-white px-3 py-3 text-base leading-6 text-black outline-none disabled:text-[#646D89]`} required value={displayedTopic.reply} onChange={(event) => setEditingTopic((current) => current ? { ...current, reply: event.target.value } : current)} /></label>
+                    <label className="grid gap-1 text-base leading-6 text-[#2A2E3F]">{displayedTopic.format === "Message" ? "Reply message" : "Reply title"}<textarea className={`${displayedTopic.format === "Message" ? "h-24" : "h-12"} w-full resize-none rounded-lg border border-[#D6D9E4] bg-white px-3 py-3 text-base leading-6 text-black outline-none disabled:text-[#646D89]`} required value={displayedTranslation.reply} onChange={(event) => updateEditingTranslation(suggestionLocale, { reply: event.target.value })} /></label>
 
                     {displayedTopic.format === "Room type" && <div className="relative grid gap-1"><span className="text-base leading-6 text-[#2A2E3F]">Room type</span><div className="flex min-h-14 flex-wrap items-center gap-2 rounded-sm border border-[#D6D9E4] bg-white px-3 py-2">{displayedTopic.rooms?.map((room) => <button className="flex h-8 items-center gap-2 rounded-full border-0 bg-[#F1F2F6] px-4 text-base text-[#424C6B] enabled:cursor-pointer" key={room} type="button" onClick={() => toggleEditingRoom(room)}>{room}<span aria-hidden="true">×</span></button>)}<button className="h-8 cursor-pointer rounded-full border border-dashed border-[#729280] bg-white px-4 text-sm text-[#526b5d] hover:bg-[#f4f8f5]" type="button" onClick={() => setIsEditingRoomDropdownOpen((current) => !current)}>+ Add room type</button></div>{isEditingRoomDropdownOpen && <div className="absolute top-full z-30 mt-1 flex max-h-[293px] w-full flex-col overflow-hidden border border-[#2684FF] bg-white shadow-[4px_4px_16px_rgba(0,0,0,0.08)]"><input className="h-[45px] shrink-0 border-0 border-b border-[#D6D9E4] px-4 text-sm text-[#2A2E3F] outline-none placeholder:text-[#9AA1B9]" autoFocus placeholder="Search room type..." value={editingRoomSearch} onChange={(event) => setEditingRoomSearch(event.target.value)} /><div className="grid gap-2 overflow-y-auto p-2"><button className="flex h-10 w-full cursor-pointer items-center justify-between border-0 bg-white px-4 text-left text-base text-[#646D89] hover:bg-[#F6F7FC]" type="button" onClick={() => setEditingTopic((current) => current ? { ...current, rooms: current.rooms?.length === selectableRoomTypes.length ? [] : [...selectableRoomTypes] } : current)}><span>All</span>{displayedTopic.rooms?.length === selectableRoomTypes.length && <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 12 4 4L19 6" stroke="#9AA1B9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}</button>{selectableRoomTypes.filter((room) => room.toLowerCase().includes(editingRoomSearch.trim().toLowerCase())).map((room) => <button className="flex h-10 w-full cursor-pointer items-center justify-between border-0 bg-white px-4 text-left text-base text-[#646D89] hover:bg-[#F6F7FC]" key={room} type="button" onClick={() => toggleEditingRoom(room)}><span>{room}</span>{displayedTopic.rooms?.includes(room) && <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 12 4 4L19 6" stroke="#9AA1B9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}</button>)}</div></div>}</div>}
 
-                    {displayedTopic.format === "Option with details" && displayedTopic.options?.map((option, index) => <div className="grid grid-cols-2 gap-10 max-md:grid-cols-1 max-md:gap-4" key={`${topic.id}-${index}`}><label className="grid gap-1 text-base leading-6 text-[#2A2E3F]">Option<input className="h-12 rounded-sm border border-[#D6D9E4] bg-white px-3 text-base text-black outline-none disabled:text-[#646D89]" required value={option.name} onChange={(event) => setEditingTopic((current) => current ? { ...current, options: current.options?.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item) } : current)} /></label><label className="grid gap-1 text-base leading-6 text-[#2A2E3F]">Details<textarea className="h-[76px] resize-none rounded-lg border border-[#D6D9E4] bg-white px-3 py-3 text-base leading-6 text-black outline-none disabled:text-[#646D89]" required value={option.details} onChange={(event) => setEditingTopic((current) => current ? { ...current, options: current.options?.map((item, itemIndex) => itemIndex === index ? { ...item, details: event.target.value } : item) } : current)} /></label></div>)}
+                    {displayedTopic.format === "Option with details" && displayedTranslation.options.map((option, index) => <div className="grid grid-cols-2 gap-10 max-md:grid-cols-1 max-md:gap-4" key={`${topic.id}-${index}`}><label className="grid gap-1 text-base leading-6 text-[#2A2E3F]">Option<input className="h-12 rounded-sm border border-[#D6D9E4] bg-white px-3 text-base text-black outline-none disabled:text-[#646D89]" required value={option.name} onChange={(event) => updateEditingTranslation(suggestionLocale, { options: displayedTranslation.options.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item) })} /></label><label className="grid gap-1 text-base leading-6 text-[#2A2E3F]">Details<textarea className="h-[76px] resize-none rounded-lg border border-[#D6D9E4] bg-white px-3 py-3 text-base leading-6 text-black outline-none disabled:text-[#646D89]" required value={option.details} onChange={(event) => updateEditingTranslation(suggestionLocale, { options: displayedTranslation.options.map((item, itemIndex) => itemIndex === index ? { ...item, details: event.target.value } : item) })} /></label></div>)}
 
-                    {displayedTopic.format === "Room type" && <label className="grid gap-1 text-base leading-6 text-[#2A2E3F]">Button name<input className="h-12 rounded-sm border border-[#D6D9E4] bg-white px-3 text-base text-black outline-none disabled:text-[#646D89]" required value={displayedTopic.buttonName ?? ""} onChange={(event) => setEditingTopic((current) => current ? { ...current, buttonName: event.target.value } : current)} /></label>}
+                    {displayedTopic.format === "Room type" && <label className="grid gap-1 text-base leading-6 text-[#2A2E3F]">Button name<input className="h-12 rounded-sm border border-[#D6D9E4] bg-white px-3 text-base text-black outline-none disabled:text-[#646D89]" required value={displayedTranslation.buttonName ?? ""} onChange={(event) => updateEditingTranslation(suggestionLocale, { buttonName: event.target.value })} /></label>}
 
                     {isEditing && <div className="flex h-12 items-center gap-6"><button className="flex h-12 w-[100px] cursor-pointer items-center justify-center rounded-sm border-0 bg-[#C14817] px-8 text-base leading-4 font-semibold text-white" type="submit">Save</button><button className="h-6 cursor-pointer border-0 bg-transparent px-2 text-base leading-4 font-semibold text-[#646D89]" type="button" onClick={() => { setEditingTopic(null); setIsEditingRoomDropdownOpen(false); }}>Cancel</button></div>}
                   </fieldset>
@@ -269,6 +396,10 @@ export default function FaqManager({ initialSettings, initialSuggestions, roomTy
 
             {isAddingTopic ? (
               <form className="flex min-h-[196px] w-full flex-col items-start gap-6 rounded-lg bg-[#F6F7FC] p-6" noValidate onSubmit={savePresetTopic}>
+                <div className="flex rounded-md border border-[#D6D9E4] bg-white p-0.5 text-sm font-semibold text-[#646D89]" aria-label="New suggestion language">
+                  <button type="button" onClick={() => changeNewSuggestionLocale("th")} className={`rounded px-3 py-1.5 ${newSuggestionLocale === "th" ? "bg-[#E8F0EB] text-[#365A46] shadow-sm" : "hover:text-[#365A46]"}`}>ไทย</button>
+                  <button type="button" onClick={() => changeNewSuggestionLocale("en")} className={`rounded px-3 py-1.5 ${newSuggestionLocale === "en" ? "bg-[#E8F0EB] text-[#365A46] shadow-sm" : "hover:text-[#365A46]"}`}>English</button>
+                </div>
                 <div className="grid w-full grid-cols-2 items-start gap-10 max-md:grid-cols-1 max-md:gap-6">
                   <label className="grid gap-1 text-base leading-6 text-[#2A2E3F]">Topic *<input className={`h-12 w-full rounded-lg border bg-white px-3 text-base text-black outline-none focus:ring-2 focus:ring-[#729280]/10 ${showNewTopicErrors && !newTopic.trim() ? "faq-invalid-field" : "border-[#D6D9E4] focus:border-[#729280]"}`} aria-invalid={showNewTopicErrors && !newTopic.trim()} autoFocus value={newTopic} onChange={(event) => setNewTopic(event.target.value)} />{showNewTopicErrors && !newTopic.trim() && <FieldError />}</label>
                   <label className="grid gap-1 text-base leading-6 text-[#2A2E3F]">Reply format<select className={`h-12 w-full rounded-sm border bg-white px-3 text-base text-[#646D89] outline-none focus:ring-2 focus:ring-[#729280]/10 ${showNewTopicErrors && !newReplyFormat ? "faq-invalid-field" : "border-[#D6D9E4] focus:border-[#729280]"}`} aria-invalid={showNewTopicErrors && !newReplyFormat} value={newReplyFormat} onChange={(event) => { setNewReplyFormat(event.target.value as PresetTopic["format"] | ""); setNewReplyMessage(""); setNewReplyTitle(""); setNewOptions([{ name: "", details: "" }]); setNewRoomTitle(""); setSelectedRooms([]); setNewButtonName(""); setRoomSearch(""); setIsRoomDropdownOpen(false); }}><option value="" disabled>Select reply format</option><option value="Room type">Room type</option><option value="Message">Message</option><option value="Option with details">Option with details</option></select>{showNewTopicErrors && !newReplyFormat && <FieldError>Please select reply format</FieldError>}</label>

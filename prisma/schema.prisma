@@ -98,6 +98,13 @@ model Booking {
   paymentStatus     String    @default("pending") @map("payment_status")
   expiresAt         DateTime? @map("expires_at") @db.Timestamptz(6)
 
+  // The moment staff actually performed check-in/check-out — distinct from
+  // checkIn/checkOut above, which are just the reserved dates. Null until
+  // it happens; existing bookings from before this column existed stay
+  // null forever (there's no timestamp to backfill from).
+  checkedInAt  DateTime? @map("checked_in_at") @db.Timestamptz(6)
+  checkedOutAt DateTime? @map("checked_out_at") @db.Timestamptz(6)
+
   rooms BookingRoom[]
 
   @@map("bookings")
@@ -126,6 +133,21 @@ model HotelInformation {
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@map("hotel_information")
+}
+
+// Minimal visitor/traffic log for the admin Analytics Dashboard, written by
+// src/proxy.ts on every real page navigation. Not RLS-relevant (see
+// AGENTS.md's critical-tables list) — read via Prisma like the rest of
+// analytics.query.ts.
+model PageView {
+  id        String   @id @default(uuid()) @db.Uuid
+  path      String
+  visitorId String   @map("visitor_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([createdAt])
+  @@index([visitorId])
+  @@map("page_views")
 }
 
 model PromotionCode {

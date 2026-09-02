@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { logout } from "@/features/auth/actions";
+import { MenuIcon } from "@/components/icons/MenuIcon";
+import { CloseIcon } from "@/components/icons/CloseIcon";
 
 const NAV_ITEMS = [
   {
@@ -44,7 +46,11 @@ const NAV_ITEMS = [
   },
 ] as const;
 
-export function AdminSidebar() {
+// Shared by the permanent desktop sidebar and the mobile drawer — the only
+// difference between them is layout chrome (width, overlay, close button),
+// not the nav content itself. `onNavigate` closes the drawer on mobile;
+// it's undefined (a no-op) for the desktop instance.
+function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const [pending, startTransition] = useTransition();
   const [liveSupportCount, setLiveSupportCount] = useState(0);
@@ -72,10 +78,9 @@ export function AdminSidebar() {
   }, []);
 
   return (
-    <aside className="flex h-full min-h-0 w-full flex-col bg-[#2D3E33] text-white">
-      {/* Logo */}
+    <>
       <div className="flex shrink-0 flex-col items-center px-4 pt-10 pb-8">
-        <Link href="/" aria-label="Go to landing page">
+        <Link href="/" aria-label="Go to landing page" onClick={onNavigate}>
           <Image
             src="/images/neatly-logo-white.svg"
             alt="NEATLY"
@@ -92,7 +97,6 @@ export function AdminSidebar() {
         </p>
       </div>
 
-      {/* Menu — stays at top */}
       <nav className="flex shrink-0 flex-col">
         {NAV_ITEMS.map((item) => {
           const active = pathname.startsWith(item.href);
@@ -102,6 +106,7 @@ export function AdminSidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={onNavigate}
               className={`flex h-[52px] items-center gap-3.5 px-8 text-[14px] transition-colors ${
                 active
                   ? "bg-[#5A6B5C] text-white"
@@ -123,10 +128,8 @@ export function AdminSidebar() {
         })}
       </nav>
 
-      {/* Stretches to push Log Out to the bottom */}
       <div className="min-h-0 flex-1" aria-hidden />
 
-      {/* Log Out — pinned to bottom */}
       <div className="shrink-0 border-t border-white/10">
         <button
           type="button"
@@ -138,7 +141,73 @@ export function AdminSidebar() {
           {pending ? "Logging out..." : "Log Out"}
         </button>
       </div>
-    </aside>
+    </>
+  );
+}
+
+export function AdminSidebar() {
+  const [isOpen, setIsOpen] = useState(false);
+  const pathname = usePathname();
+
+  // Close the drawer after any navigation, including the logo link. Adjusted
+  // during render (not an effect) per React's "you might not need an
+  // effect" guidance for resetting state when a derived value changes —
+  // avoids the extra commit+effect+re-render cycle an effect would cause.
+  const [lastPathname, setLastPathname] = useState(pathname);
+  if (pathname !== lastPathname) {
+    setLastPathname(pathname);
+    setIsOpen(false);
+  }
+
+  return (
+    <>
+      {/* Mobile top bar — the permanent sidebar below only shows at lg+ */}
+      <div className="flex h-14 shrink-0 items-center justify-between bg-[#2D3E33] px-4 text-white lg:hidden">
+        <Link href="/" aria-label="Go to landing page">
+          <Image
+            src="/images/neatly-logo-white.svg"
+            alt="NEATLY"
+            width={120}
+            height={32}
+            quality={100}
+            unoptimized
+            className="h-8 w-auto"
+            priority
+          />
+        </Link>
+        <button
+          type="button"
+          onClick={() => setIsOpen(true)}
+          aria-label="Open menu"
+          className="flex h-9 w-9 items-center justify-center rounded-md text-white hover:bg-white/10"
+        >
+          <MenuIcon className="h-6 w-6" />
+        </button>
+      </div>
+
+      {/* Desktop permanent sidebar */}
+      <aside className="hidden h-screen w-[260px] shrink-0 flex-col bg-[#2D3E33] text-white lg:flex">
+        <SidebarNav />
+      </aside>
+
+      {/* Mobile drawer */}
+      {isOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setIsOpen(false)} aria-hidden />
+          <aside className="relative flex h-full w-[260px] max-w-[80vw] flex-col bg-[#2D3E33] text-white">
+            <button
+              type="button"
+              onClick={() => setIsOpen(false)}
+              aria-label="Close menu"
+              className="absolute top-3 right-3 flex h-8 w-8 items-center justify-center rounded-md text-white hover:bg-white/10"
+            >
+              <CloseIcon className="h-5 w-5" />
+            </button>
+            <SidebarNav onNavigate={() => setIsOpen(false)} />
+          </aside>
+        </div>
+      )}
+    </>
   );
 }
 

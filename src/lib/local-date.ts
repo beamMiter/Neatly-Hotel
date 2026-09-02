@@ -14,3 +14,13 @@ export function toLocalIsoDate(date: Date): string {
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
+
+// Inverse of admin-booking-edit's `toDateOnly(iso + "T00:00:00.000Z")` and
+// Prisma `@db.Date` reads — always use UTC calendar parts, never
+// `.toISOString().slice(0, 10)` which shifts dates in +07.
+export function formatUtcDateOnly(value: Date): string {
+  const year = value.getUTCFullYear();
+  const month = String(value.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(value.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}

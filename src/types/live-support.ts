@@ -1,14 +1,11 @@
 export type SupportConversationStatus = "waiting" | "active" | "resolved";
 export type SupportMessageSender = "visitor" | "agent" | "system";
-export type PhoneVerificationStatus = "not_requested" | "pending" | "verified";
 
 export type SupportConversation = {
   id: string;
   visitor_token: string;
   customer_name: string | null;
   customer_phone: string | null;
-  phone_verification_status: PhoneVerificationStatus;
-  phone_verified_at: string | null;
   customer_id: string | null;
   booking_id: string | null;
   status: SupportConversationStatus;
@@ -20,6 +17,9 @@ export type SupportConversation = {
   resolved_at: string | null;
   summary: string | null;
   summary_generated_at: string | null;
+  latest_visitor_message_at?: string | null;
+  last_read_at?: string | null;
+  latest_message_content?: string | null;
 };
 
 export type SupportMessage = {
@@ -43,11 +43,6 @@ export type SupportCustomer = {
   country: string | null;
 };
 
-export type SupportMemberMatch = SupportCustomer & {
-  customerId: string;
-  matchedBy: "conversation" | "phone" | "email";
-};
-
 export type SupportBooking = {
   id: string;
   bookingCode: string;
@@ -56,4 +51,7 @@ export type SupportBooking = {
   checkOut: string;
   status: string;
   totalAmount: number;
+  addonsTotal: number;
+  specialRequests: SelectedSpecialRequest[];
 };
+import type { SelectedSpecialRequest } from "@/types/booking";

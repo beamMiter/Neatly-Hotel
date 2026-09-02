@@ -149,7 +149,7 @@ export function BookingSummaryPanel({
         <li className="flex items-start gap-2">
           <span className="mt-[7px] h-[5px] w-[5px] flex-none rounded-full bg-[#5D7B6A]" />
           <p className="[font-family:var(--font-inter)] text-xs leading-[150%] font-medium tracking-[-0.02em] text-[#5D7B6A]">
-            Cancel booking will get full refund if the cancelation occurs at least 72 hours (3 days) before the check-in date.
+            Cancel booking will get full refund if the cancelation occurs within 72 hours (3 days) of the booking date.
           </p>
         </li>
         <li className="flex items-start gap-2">
