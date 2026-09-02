@@ -49,7 +49,7 @@ export function isChangeDateEligible(createdAt: string, now: Date = new Date()):
 // Matches common OTA conventions (Agoda, Booking.com, AirAsia SNAP) — stays
 // longer than this go through direct/long-stay contracts instead of a
 // single self-service booking.
-const MAX_STAY_NIGHTS = 30;
+export const MAX_STAY_NIGHTS = 30;
 
 export function validateStayDates(
   checkIn: string,

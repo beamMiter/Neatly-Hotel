@@ -6,6 +6,7 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
+import { MAX_STAY_NIGHTS } from '@/features/booking/date-rules';
 
 // ── Types ──────────────────────────────────────────────────────
 type CalendarDay = {
@@ -152,7 +153,11 @@ const DatePicker = ({
 				const isSelected = isSameDay(date, checkIn) || isSameDay(date, checkOut);
 				const isRange = isBetween(date, checkIn, checkOut);
 				const isPast = date < todayStart;
-				const isDisabled = !inCurrentMonth || isPast;
+				// Once check-in is picked, checkout can't push the stay past
+				// MAX_STAY_NIGHTS — matches validateStayDates() server-side.
+				const exceedsMaxStay =
+					!!checkIn && date > checkIn && !isSameDay(date, checkIn) && date > addLocalDays(checkIn, MAX_STAY_NIGHTS);
+				const isDisabled = !inCurrentMonth || isPast || exceedsMaxStay;
 
 				return (
 					<button
