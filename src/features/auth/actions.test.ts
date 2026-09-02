@@ -61,15 +61,28 @@ async function attemptLogin(fields: Record<string, string>) {
   }
 }
 
-const USER = { email: process.env.TEST_USER_EMAIL, password: process.env.TEST_USER_PASSWORD };
+const USER = {
+  email: process.env.TEST_USER_EMAIL,
+  password: process.env.TEST_USER_PASSWORD,
+  username: process.env.TEST_USER_USERNAME,
+};
 const STAFF = { email: process.env.TEST_STAFF_EMAIL, password: process.env.TEST_STAFF_PASSWORD };
 
+const REQUIRED_ENV_VARS = [
+  "TEST_USER_EMAIL",
+  "TEST_USER_PASSWORD",
+  "TEST_USER_USERNAME",
+  "TEST_STAFF_EMAIL",
+  "TEST_STAFF_PASSWORD",
+] as const;
+
 beforeAll(() => {
-  for (const [name, value] of Object.entries({ ...USER, ...STAFF })) {
-    if (!value) {
-      throw new Error(
-        `Missing ${name} — set TEST_USER_EMAIL/TEST_USER_PASSWORD and TEST_STAFF_EMAIL/TEST_STAFF_PASSWORD in .env.local`,
-      );
+  // Checked by env var name directly — USER and STAFF share key names
+  // (email, password), so merging the two objects for this check would
+  // silently let one side's value mask a missing var on the other.
+  for (const name of REQUIRED_ENV_VARS) {
+    if (!process.env[name]) {
+      throw new Error(`Missing ${name} — set it in .env.local`);
     }
   }
 });
@@ -90,6 +103,11 @@ describe("login", () => {
   it("Happy Path: correct email + password for a staff account redirects to /room-management", async () => {
     const { redirectedTo } = await attemptLogin({ email: STAFF.email!, password: STAFF.password! });
     expect(redirectedTo).toBe("/room-management");
+  });
+
+  it("Happy Path: correct username + password resolves to the account's email and logs in", async () => {
+    const { redirectedTo } = await attemptLogin({ email: USER.username!, password: USER.password! });
+    expect(redirectedTo).toBe("/");
   });
 
   it("Happy Path: an internal redirectTo overrides the role-based default", async () => {
