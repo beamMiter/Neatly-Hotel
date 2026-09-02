@@ -1,6 +1,6 @@
 "use client";
 
-import { RoomImagePlaceholder } from "@/features/booking/components/RoomImagePlaceholder";
+import Image from "next/image";
 import { formatThb } from "@/features/booking/format";
 import { formatBookingDate, formatStayDate, type BookingCancelType } from "@/lib/booking-actions";
 
@@ -36,6 +36,10 @@ const COPY: Record<BookingCancelType, { title: string; confirmLabel: string }> =
 // /cancel-booking, which each render this in their "confirm" phase (see
 // RefundReceiptView / CancelBookingReceiptView) before swapping to their
 // existing post-action receipt content.
+//
+// Layout mirrors /change-date's page (ChangeDateView) — same container
+// width, title size, image size, and footer button placement — so the
+// three booking-action pages read as one consistent flow.
 export function BookingCancelConfirmCard({
   variant,
   roomTypeName,
@@ -54,72 +58,75 @@ export function BookingCancelConfirmCard({
   const isRefundable = variant === "refundable";
 
   return (
-    <div className="w-full max-w-2xl rounded-sm bg-white p-6 shadow-[2px_2px_12px_rgba(64,50,133,0.12)] lg:p-10">
+    <div className="mx-auto max-w-280 px-6 pt-20 lg:px-10">
       <h1
-        className={`[font-family:var(--font-noto-serif)] text-4xl font-medium tracking-[-0.02em] lg:text-[44px] ${
-          isRefundable ? "italic text-[#2F3E35]" : "text-[#2A2E3F]"
+        className={`[font-family:var(--font-noto-serif)] font-medium font-stretch-[87.5%] text-[44px] leading-[125%] tracking-[-0.02em] lg:text-[68px] ${
+          isRefundable ? "italic text-[#2F3E35]" : "text-[#465C50]"
         }`}
       >
         {copy.title}
       </h1>
 
-      <div className="mt-10 flex flex-col gap-6 sm:flex-row sm:gap-8">
-        <RoomImagePlaceholder
-          label={roomTypeName}
-          src={imageUrl}
-          className="aspect-4/3 w-full flex-none rounded-sm sm:w-40"
-        />
+      <div className="mt-20 flex flex-col gap-8 py-10 lg:flex-row">
+        <div className="relative h-52.5 w-full flex-none overflow-hidden rounded lg:h-52.5 lg:w-89.25">
+          <Image src={imageUrl} alt={roomTypeName} fill sizes="360px" className="object-cover" />
+        </div>
 
-        <div className="flex min-w-0 flex-1 flex-col gap-2">
-          <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-            <span className="[font-family:var(--font-inter)] text-lg font-semibold text-[#2A2E3F]">
+        <div className="flex w-full flex-1 flex-col gap-8">
+          <div className="flex flex-col items-start justify-between gap-2 lg:flex-row lg:items-center">
+            <h2 className="[font-family:var(--font-inter)] text-2xl leading-[150%] font-semibold tracking-[-0.02em] text-black">
               {roomTypeName}
-            </span>
-            <span className="shrink-0 text-sm text-[#9AA1B9] sm:text-right">
+            </h2>
+            <span className="[font-family:var(--font-inter)] text-base leading-[150%] tracking-[-0.02em] text-[#9AA1B9]">
               Booking date: {formatBookingDate(bookingCreatedAt)}
             </span>
           </div>
 
-          <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
-            <span className="text-sm text-[#646D89]">
+          <div className="flex flex-col gap-2">
+            <p className="[font-family:var(--font-inter)] text-base tracking-[-0.02em] text-[#646D89]">
               {formatStayDate(checkIn)} - {formatStayDate(checkOut)}
-            </span>
-            {isRefundable ? <span className="text-sm text-[#9AA1B9] sm:text-right">Total Refund</span> : null}
-          </div>
-
-          <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
-            <span className="text-sm text-[#646D89]">
+            </p>
+            <p className="[font-family:var(--font-inter)] text-base tracking-[-0.02em] text-[#646D89]">
               {guests} {guests === 1 ? "Guest" : "Guests"}
-            </span>
-            {isRefundable ? (
-              <span className="text-base font-semibold text-[#2A2E3F] sm:text-right">{formatThb(totalAmount)}</span>
-            ) : null}
+            </p>
           </div>
 
-          {!isRefundable ? (
-            <p className="mt-1 text-sm text-[#B61515]">
+          {isRefundable ? (
+            <div className="flex items-center justify-between gap-6 rounded bg-white p-4">
+              <span className="[font-family:var(--font-inter)] text-base tracking-[-0.02em] text-[#9AA1B9]">
+                Total Refund
+              </span>
+              <span className="[font-family:var(--font-inter)] text-xl font-semibold tracking-[-0.02em] text-[#2A2E3F]">
+                {formatThb(totalAmount)}
+              </span>
+            </div>
+          ) : (
+            <p className="[font-family:var(--font-inter)] text-sm tracking-[-0.02em] text-[#B61515]">
               *Cancellation of the booking now will not be able to request a refund.
             </p>
+          )}
+
+          {error ? (
+            <p className="[font-family:var(--font-inter)] text-sm text-[#B61515]">{error}</p>
           ) : null}
         </div>
       </div>
 
-      {error ? <p className="mt-4 [font-family:var(--font-inter)] text-sm text-[#B61515]">{error}</p> : null}
-
-      <div className="mt-10 flex flex-col gap-3 border-t border-[#E4E6ED] pt-6 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mt-10 flex items-center justify-between border-t border-[#E4E6ED] py-10">
         <button
           type="button"
           onClick={onCancel}
           disabled={isSubmitting}
-          className="cursor-pointer px-2 py-1 text-left [font-family:var(--font-open-sans)] text-base font-semibold text-[#C14817] transition-colors hover:text-[#A93F13] disabled:cursor-not-allowed disabled:opacity-40"
+          className="cursor-pointer px-2 py-1 [font-family:var(--font-open-sans)] text-base font-semibold text-[#E76B39] transition-colors duration-150 hover:text-[#C14817] disabled:cursor-not-allowed disabled:opacity-40"
         >
           Cancel
         </button>
+
         <button
           type="button"
           onClick={onConfirm}
           disabled={isSubmitting}
-          className="cursor-pointer rounded-sm bg-[#C14817] px-6 py-3 [font-family:var(--font-open-sans)] text-base font-semibold text-white transition-colors hover:bg-[#A93F13] disabled:cursor-not-allowed disabled:opacity-40"
+          className="flex h-12 w-fit cursor-pointer items-center justify-center whitespace-nowrap rounded bg-[#C14817] px-8 py-4 [font-family:var(--font-open-sans)] text-base font-semibold text-white transition-transform duration-150 hover:bg-[#A93F13] active:scale-90 disabled:cursor-default disabled:opacity-60"
         >
           {isSubmitting ? "Cancelling..." : copy.confirmLabel}
         </button>

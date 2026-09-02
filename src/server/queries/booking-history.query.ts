@@ -6,7 +6,7 @@ import type { BookingHistoryItem, BookingHistoryStatus, BookingLineItem } from "
 const IMAGE_BUCKET = "room-images";
 
 const BOOKING_SELECT =
-  "id, booking_code, check_in, check_out, guests, status, total_amount, created_at, additional_request, promo_code, discount_amount, special_requests, booking_rooms(price_per_night, rooms(room_type_id, room_types(name, room_images(storage_path, is_cover, sort_order))))";
+  "id, booking_code, check_in, check_out, guests, status, total_amount, created_at, cancelled_at, additional_request, promo_code, discount_amount, special_requests, booking_rooms(price_per_night, rooms(room_type_id, room_types(name, room_images(storage_path, is_cover, sort_order))))";
 
 type RoomImageRow = { storage_path: string; is_cover: boolean; sort_order: number | null };
 
@@ -33,6 +33,7 @@ type BookingRow = {
   status: string;
   total_amount: number | string;
   created_at: string;
+  cancelled_at: string | null;
   additional_request: string | null;
   promo_code: string | null;
   discount_amount: number | string;
@@ -87,11 +88,12 @@ async function fetchLastDigitsByBookingId(bookingIds: string[]): Promise<Map<str
 
 // TODO(booking-history): this mapping is a placeholder pending reconciliation
 // with the real BookingRecord shape (src/types/booking.ts, sourced by
-// bookings.query.ts) — separate checked-in/cancelled timestamps aren't
-// sourced from real columns yet, so those fields are left null here rather
-// than fabricated. getBookingActions (src/lib/booking-actions.ts) branches
-// on checkedInAt/cancelledAt, not on status, so those branches won't behave
-// correctly for real checked-in/cancelled bookings until this is revisited.
+// bookings.query.ts) — checkedInAt isn't sourced from a real column yet
+// (bookings.checked_in_at exists but nothing populates it for a customer's
+// own reservation stay), so it's left null here rather than fabricated.
+// getBookingActions (src/lib/booking-actions.ts) branches on checkedInAt,
+// not on status, so that branch won't behave correctly for a real
+// checked-in booking until this is revisited.
 function toBookingHistoryItem(row: BookingRow, lastDigits: string): BookingHistoryItem {
   const bookingRooms = row.booking_rooms ?? [];
   const firstRoom = bookingRooms[0]?.rooms ?? null;
@@ -127,7 +129,7 @@ function toBookingHistoryItem(row: BookingRow, lastDigits: string): BookingHisto
     checkInDate: row.check_in,
     checkOutDate: row.check_out,
     checkedInAt: null,
-    cancelledAt: null,
+    cancelledAt: row.cancelled_at,
     payment: { method: "credit_card", lastDigits },
     lineItems,
     totalAmount: Number(row.total_amount),
@@ -140,7 +142,7 @@ export async function getBookingsForCustomer(customerId: string): Promise<Bookin
     .from("bookings")
     .select(BOOKING_SELECT)
     .eq("customer_id", customerId)
-    .order("check_in", { ascending: false });
+    .order("created_at", { ascending: false });
 
   if (error || !data) {
     console.error("[bookings] failed to fetch booking history:", error);

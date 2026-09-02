@@ -72,8 +72,7 @@ const ChangeDateView = ({
 	};
 
 	const handleCancel = () => {
-		setNewCheckIn(originalCheckIn);
-		setNewCheckOut(originalCheckOut);
+		router.push('/booking-history');
 	};
 
 	const handleConfirmChange = async () => {

@@ -105,6 +105,11 @@ model Booking {
   checkedInAt  DateTime? @map("checked_in_at") @db.Timestamptz(6)
   checkedOutAt DateTime? @map("checked_out_at") @db.Timestamptz(6)
 
+  // Set when status transitions to cancelled or refunded (see cancelBooking
+  // in bookings.query.ts). Added by
+  // supabase/migrations/202609020001_add_bookings_cancelled_at.sql.
+  cancelledAt DateTime? @map("cancelled_at") @db.Timestamptz(6)
+
   rooms BookingRoom[]
 
   @@map("bookings")

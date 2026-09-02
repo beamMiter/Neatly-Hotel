@@ -88,22 +88,20 @@ const RefundReceiptView = ({
 			<div className="flex min-h-screen flex-col">
 				<Navbar />
 				<main className="flex-1 bg-[#F7F7FB] pb-20">
-					<div className="flex animate-[fade-slide_400ms_ease-out] justify-center px-6 pt-20">
-						<BookingCancelConfirmCard
-							variant="refundable"
-							roomTypeName={roomName}
-							imageUrl={imageUrl}
-							bookingCreatedAt={bookingCreatedAt}
-							checkIn={checkIn}
-							checkOut={checkOut}
-							guests={guests}
-							totalAmount={totalAmount}
-							isSubmitting={isSubmitting}
-							error={error}
-							onCancel={() => router.push('/booking-history')}
-							onConfirm={handleConfirm}
-						/>
-					</div>
+					<BookingCancelConfirmCard
+						variant="refundable"
+						roomTypeName={roomName}
+						imageUrl={imageUrl}
+						bookingCreatedAt={bookingCreatedAt}
+						checkIn={checkIn}
+						checkOut={checkOut}
+						guests={guests}
+						totalAmount={totalAmount}
+						isSubmitting={isSubmitting}
+						error={error}
+						onCancel={() => router.push('/booking-history')}
+						onConfirm={handleConfirm}
+					/>
 				</main>
 			</div>
 		);
