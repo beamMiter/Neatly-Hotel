@@ -2,6 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { Room } from "@/types/rooms";
 
 vi.mock("next/link", () => ({
   default: ({ children, ...props }: React.ComponentProps<"a">) => (
@@ -25,7 +26,7 @@ vi.mock("@/server/db/supabase-browser", () => {
 
 import { RoomManagementView } from "@/features/room-management/components/room-management-view";
 
-const rooms = [
+const rooms: Room[] = [
   {
     id: "room-101",
     roomNo: "101",
@@ -37,7 +38,7 @@ const rooms = [
 
 async function confirmDelete() {
   fireEvent.click(screen.getByRole("button", { name: "Delete room 101" }));
-  fireEvent.click(screen.getByRole("button", { name: "Delete", exact: true }));
+  fireEvent.click(screen.getByRole("button", { name: /^Delete$/ }));
 }
 
 describe("RoomManagementView delete feedback", () => {
