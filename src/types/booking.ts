@@ -56,7 +56,7 @@ export type CreateBookingInput = {
   specialRequests: SpecialRequestSelection[]; // codes + counts, priced server-side
   additionalRequest: string | null;
   promoCode: string | null;
-  paymentMethod: "credit_card" | "cash";
+  paymentMethod: "credit_card" | "cash" | "promptpay";
 };
 
 export type BookingPricing = {
@@ -81,7 +81,7 @@ export type BookingRecord = {
   bookingCode: string;
   status: BookingStatus;
   paymentStatus: BookingPaymentStatus;
-  paymentMethod: "credit_card" | "cash";
+  paymentMethod: "credit_card" | "cash" | "promptpay";
   checkIn: string;
   checkOut: string;
   guests: number;

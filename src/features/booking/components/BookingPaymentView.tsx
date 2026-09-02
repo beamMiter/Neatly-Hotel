@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { CardNumberElement, Elements, useElements, useStripe } from "@stripe/react-stripe-js";
 import { StripeCardFields } from "@/features/booking/components/StripeCardFields";
+import { PromptPayIcon } from "@/components/icons/PromptPayIcon";
 import { formatDateLabel, formatThb } from "@/features/booking/format";
 import { stripePromise } from "@/features/booking/stripe-client";
 import type { BookingRecord } from "@/types/booking";
 
-type PaymentMethod = "cash" | "credit_card";
+type PaymentMethod = "cash" | "credit_card" | "promptpay";
 
 type BookingPaymentViewProps = {
   bookingId: string;
@@ -116,11 +117,19 @@ export function BookingPaymentView({ bookingId, booking, amountDue = 0 }: Bookin
       ) : clientSecret ? (
         <section className="rounded-lg border border-[#E4E6ED] bg-white p-6">
           <Elements stripe={stripePromise}>
-            <CardPaymentForm
-              bookingId={bookingId}
-              clientSecret={clientSecret}
-              successPath={`/booking/success?bookingId=${bookingId}`}
-            />
+            {method === "promptpay" ? (
+              <PromptPayPaymentForm
+                clientSecret={clientSecret}
+                guestEmail={booking.guestInfo.email}
+                successPath={`/booking/success?bookingId=${bookingId}`}
+              />
+            ) : (
+              <CardPaymentForm
+                bookingId={bookingId}
+                clientSecret={clientSecret}
+                successPath={`/booking/success?bookingId=${bookingId}`}
+              />
+            )}
           </Elements>
         </section>
       ) : isTopUp ? (
@@ -146,7 +155,7 @@ export function BookingPaymentView({ bookingId, booking, amountDue = 0 }: Bookin
       ) : (
         <section className="rounded-lg border border-[#E4E6ED] bg-white p-6">
           <h2 className="text-xl font-semibold text-[#2A2E3F]">How would you like to pay?</h2>
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
             <button
               type="button"
               onClick={() => setMethod("cash")}
@@ -163,6 +172,14 @@ export function BookingPaymentView({ bookingId, booking, amountDue = 0 }: Bookin
               <span className="block font-semibold text-[#2A2E3F]">Credit card</span>
               <span className="mt-1 block text-sm text-[#646D89]">Pay securely online to confirm your stay.</span>
             </button>
+            <button
+              type="button"
+              onClick={() => setMethod("promptpay")}
+              className={`rounded-lg border p-4 text-left transition-[border-color,background-color,transform] duration-150 active:scale-95 ${method === "promptpay" ? "border-[#C14817] bg-[#FFF5F0]" : "border-[#D6D9E4] hover:border-[#C14817]"}`}
+            >
+              <span className="block font-semibold text-[#2A2E3F]">PromptPay</span>
+              <span className="mt-1 block text-sm text-[#646D89]">Scan a QR code with your banking app.</span>
+            </button>
           </div>
 
           {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
@@ -174,7 +191,13 @@ export function BookingPaymentView({ bookingId, booking, amountDue = 0 }: Bookin
               onClick={() => void (method === "cash" ? choosePayAtHotel() : startCardPayment())}
               className="rounded bg-[#C14817] px-6 py-3 text-sm font-semibold text-white transition-[background-color,transform] duration-150 hover:bg-[#A93F13] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100"
             >
-              {isStartingPayment ? "Preparing..." : method === "cash" ? "Confirm pay at hotel" : "Continue to card payment"}
+              {isStartingPayment
+                ? "Preparing..."
+                : method === "cash"
+                  ? "Confirm pay at hotel"
+                  : method === "promptpay"
+                    ? "Continue to PromptPay"
+                    : "Continue to card payment"}
             </button>
           </div>
         </section>
@@ -233,6 +256,64 @@ function CardPaymentForm({
           className="rounded bg-[#C14817] px-6 py-3 text-sm font-semibold text-white transition-[background-color,transform] duration-150 hover:bg-[#A93F13] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100"
         >
           {isSubmitting ? "Confirming..." : "Confirm payment"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PromptPayPaymentForm({
+  clientSecret,
+  guestEmail,
+  successPath,
+}: {
+  clientSecret: string;
+  guestEmail: string;
+  successPath: string;
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function confirmPromptPayPayment() {
+    if (!stripe || !elements) return;
+
+    setIsSubmitting(true);
+    setError(null);
+    const result = await stripe.confirmPromptPayPayment(clientSecret, {
+      payment_method: { billing_details: { email: guestEmail } },
+    });
+    setIsSubmitting(false);
+
+    // See the wizard's PromptPayPanel for why status is checked and not just
+    // `result.error` — an expired/abandoned QR resolves with no error at all.
+    if (result.error || result.paymentIntent?.status !== "succeeded") {
+      setError(result.error?.message ?? "Payment wasn't completed. Please try again.");
+      return;
+    }
+    router.push(successPath);
+  }
+
+  return (
+    <div>
+      <h2 className="text-xl font-semibold text-[#2A2E3F]">PromptPay</h2>
+      <div className="mt-5 flex items-center gap-4 rounded bg-[#F1F2F6] px-6 py-4">
+        <PromptPayIcon className="h-[50px] w-[50px] flex-none text-[#E76B39]" />
+        <p className="text-sm text-[#2A2E3F]">
+          Scan the QR code with your banking app to complete this payment.
+        </p>
+      </div>
+      {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
+      <div className="mt-6 flex justify-end">
+        <button
+          type="button"
+          onClick={() => void confirmPromptPayPayment()}
+          disabled={isSubmitting || !stripe || !elements}
+          className="rounded bg-[#C14817] px-6 py-3 text-sm font-semibold text-white transition-[background-color,transform] duration-150 hover:bg-[#A93F13] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100"
+        >
+          {isSubmitting ? "Preparing QR code..." : "Show PromptPay QR code"}
         </button>
       </div>
     </div>

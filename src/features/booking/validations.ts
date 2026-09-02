@@ -39,7 +39,7 @@ export const specialRequestSchema = z.object({
 export type SpecialRequestInput = z.infer<typeof specialRequestSchema>;
 
 export const paymentMethodSchema = z.object({
-  paymentMethod: z.enum(["credit_card", "cash"]),
+  paymentMethod: z.enum(["credit_card", "cash", "promptpay"]),
   promoCode: z.string().trim().max(30).optional(),
 });
 export type PaymentMethodInput = z.infer<typeof paymentMethodSchema>;

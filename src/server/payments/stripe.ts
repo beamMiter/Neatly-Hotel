@@ -50,7 +50,14 @@ export async function createBookingPaymentIntent(input: {
       bookingId: input.bookingId,
       ...(input.paymentKind ? { paymentKind: input.paymentKind } : {}),
     },
-    automatic_payment_methods: { enabled: true },
+    // Explicit list instead of automatic_payment_methods: every type here is
+    // collected by its own dedicated client-side element (split Card
+    // Elements for "card", stripe.confirmPromptPayPayment for "promptpay") —
+    // there's no unified Payment Element that would benefit from Stripe
+    // auto-selecting what to show. Being explicit also means PromptPay is
+    // guaranteed available on the intent regardless of what's toggled on in
+    // the Stripe Dashboard's automatic-methods settings for this account.
+    payment_method_types: ["card", "promptpay"],
   });
 }
 

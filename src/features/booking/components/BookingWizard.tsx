@@ -104,7 +104,7 @@ export function BookingWizard({
   // (see resolveAddOnQuantity).
   const [specialRequestSelections, setSpecialRequestSelections] = useState<Record<string, number>>({});
   const [additionalRequest, setAdditionalRequest] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<"credit_card" | "cash">(
+  const [paymentMethod, setPaymentMethod] = useState<"credit_card" | "cash" | "promptpay">(
     "credit_card",
   );
   const [promoCode, setPromoCode] = useState("");
@@ -364,6 +364,7 @@ export function BookingWizard({
             <PaymentMethodStep
               paymentMethod={paymentMethod}
               onPaymentMethodChange={setPaymentMethod}
+              guestEmail={basicInfo.email}
               promoCode={promoCode}
               onPromoCodeChange={setPromoCode}
               promoMessage={promoMessage}

@@ -129,7 +129,9 @@ async function computePricing(input: CreateBookingInput): Promise<PricingContext
   // promo lands on exactly 0, which Stripe rejects the same way it rejects
   // 5 THB. Both need to fail here with a clear message rather than surfacing
   // as an opaque Stripe error after the booking row is already committed.
-  if (input.paymentMethod === "credit_card" && totalAmount < MIN_CHARGE_THB) {
+  // Any non-cash method goes through Stripe and hits the same per-currency
+  // minimum — not just "credit_card" (promptpay is charged the same way).
+  if (input.paymentMethod !== "cash" && totalAmount < MIN_CHARGE_THB) {
     throw new AmountTooLowError(`Total after discount must be at least THB ${MIN_CHARGE_THB}`);
   }
 
@@ -751,7 +753,10 @@ export async function cancelBooking(
 
   let paymentIntentId: string | null = null;
 
-  if (isRefundEligible(booking.createdAt) && booking.paymentMethod === "credit_card" && booking.paymentStatus === "paid") {
+  // Same reasoning as the min-charge gate above: any method that actually
+  // went through Stripe (card or promptpay) has a real payment_intent to
+  // refund — only "cash" never does.
+  if (isRefundEligible(booking.createdAt) && booking.paymentMethod !== "cash" && booking.paymentStatus === "paid") {
     const { data: payment, error } = await supabaseAdmin
       .from("payments")
       .select("stripe_payment_intent_id")
