@@ -29,7 +29,7 @@ export async function GET(request: Request) {
   const checkIn = first(searchParams.get("checkIn") ?? undefined);
   const checkOut = first(searchParams.get("checkOut") ?? undefined);
   const guests = parseCount(first(searchParams.get("guests") ?? undefined), 1, 8);
-  const rooms = parseCount(first(searchParams.get("rooms") ?? undefined), 1, 3);
+  const rooms = Math.min(parseCount(first(searchParams.get("rooms") ?? undefined), 1, 4), guests);
 
   if (!UUID_PATTERN.test(roomTypeId)) {
     return NextResponse.json({ error: "A valid room type id is required" }, { status: 400 });

@@ -491,7 +491,9 @@ export async function getAdminRoomUpgradeOptions(bookingId: string): Promise<Adm
 
   for (const roomType of roomTypes) {
     if (roomType.id === currentRoomTypeId) continue;
-    if ((roomType.capacity ?? 0) < booking.guests) continue;
+    // Guests can be split across the booking's existing rooms (see
+    // booking-search.query.ts) — not just fit in one room alone.
+    if ((roomType.capacity ?? 0) * roomsCount < booking.guests) continue;
 
     const pricePerNight = Number(roomType.promotionPrice ?? roomType.basePrice ?? 0);
     const newRoomSubtotal = pricePerNight * roomsCount * nights;
@@ -576,8 +578,10 @@ export async function upgradeBookingRoom(
   });
   if (!roomType) throw new RoomTypeNotFoundError();
 
-  if ((roomType.capacity ?? 0) < booking.guests) {
-    throw new InvalidBookingTransitionError(`This room fits a maximum of ${roomType.capacity ?? 0} guests`);
+  // Guests can be split across the booking's existing rooms (see
+  // booking-search.query.ts) — not just fit in one room alone.
+  if ((roomType.capacity ?? 0) * roomsCount < booking.guests) {
+    throw new InvalidBookingTransitionError(`This room fits a maximum of ${roomType.capacity ?? 0} guests per room`);
   }
 
   const currentRoomSubtotal = booking.rooms.reduce((sum, room) => sum + Number(room.pricePerNight), 0) * nights;

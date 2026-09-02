@@ -57,8 +57,9 @@ const BookingSearch = ({ initialQuery, compact = false, stacked = false, extraCo
 	const [checkOut, setCheckOut] = useState<Date | null>(
 		() => parseDate(initialQuery?.checkOut) ?? getDefaultStay().checkOut,
 	);
-	const [rooms, setRooms] = useState(Math.min(initialQuery?.rooms ?? 1, 3));
-	const [guests, setGuests] = useState(Math.min(initialQuery?.guests ?? 2, 8));
+	const initialGuests = Math.min(initialQuery?.guests ?? 2, 8);
+	const [rooms, setRooms] = useState(Math.min(initialQuery?.rooms ?? 1, 4, initialGuests));
+	const [guests, setGuests] = useState(initialGuests);
 
 	useEffect(() => {
 		if (hasUrlDates) return;
