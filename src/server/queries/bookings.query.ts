@@ -835,7 +835,7 @@ export async function changeBookingDates(
   }
 
   if (!isChangeDateEligible(booking.createdAt)) {
-    throw new InvalidBookingTransitionError("Date changes are only allowed within 24 hours of booking");
+    throw new InvalidBookingTransitionError("Date changes are only allowed within 3 days of booking");
   }
 
   const dateError = validateStayDates(checkIn, checkOut);

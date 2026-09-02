@@ -46,7 +46,10 @@ type BookingRow = {
 // so pending_payment/confirmed/completed all collapse to "upcoming" for now.
 function asHistoryStatus(status: string): BookingHistoryStatus {
   if (status === "checked_in") return "checked_in";
-  if (status === "cancelled") return "cancelled";
+  // "refunded" is a cancellation outcome (see cancelBooking in
+  // bookings.query.ts), not a separate lifecycle state — without this it
+  // fell through to "upcoming" and a refunded booking looked unaffected.
+  if (status === "cancelled" || status === "refunded") return "cancelled";
   return "upcoming";
 }
 

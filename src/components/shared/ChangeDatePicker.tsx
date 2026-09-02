@@ -67,6 +67,9 @@ const isBetween = (date: Date, start: Date, end: Date) => date > start && date <
 
 const addDays = (date: Date, days: number) => new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
 
+const startOfLocalDay = (date = new Date()) =>
+	new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
 // ── Component ──────────────────────────────────────────────────
 const ChangeDatePicker = ({ nights, checkIn, checkOut, onChange }: ChangeDatePickerProps) => {
 	const [viewYear, setViewYear] = useState(checkIn.getFullYear());
@@ -77,6 +80,7 @@ const ChangeDatePicker = ({ nights, checkIn, checkOut, onChange }: ChangeDatePic
 	const nextMonthDate = new Date(viewYear, viewMonth + 1, 1);
 	const leftDays = getCalendarDays(viewYear, viewMonth);
 	const rightDays = getCalendarDays(nextMonthDate.getFullYear(), nextMonthDate.getMonth());
+	const todayStart = startOfLocalDay();
 
 	// เลื่อนจอลงมาให้เห็นปฏิทินเต็มๆ ตอนเปิด dropdown (ไม่งั้นบางทีโดนตัดขอบล่างจอ)
 	useEffect(() => {
@@ -114,21 +118,23 @@ const ChangeDatePicker = ({ nights, checkIn, checkOut, onChange }: ChangeDatePic
 			{days.map(({ date, inCurrentMonth }, index) => {
 				const isSelected = isSameDay(date, checkIn) || isSameDay(date, checkOut);
 				const isRange = isBetween(date, checkIn, checkOut);
+				const isPast = date < todayStart;
+				const isDisabled = !inCurrentMonth || isPast;
 
 				return (
 					<button
 						type="button"
 						key={index}
-						disabled={!inCurrentMonth}
+						disabled={isDisabled}
 						onClick={() => handleSelectDay(date)}
 						className={`flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-sm [font-family:var(--font-inter)] transition-colors duration-150 disabled:cursor-default ${
-							!inCurrentMonth ? 'text-[#D6D9E4]' : 'text-[#2A2E3F]'
+							isDisabled ? 'text-[#D6D9E4]' : 'text-[#2A2E3F]'
 						} ${
 							isSelected
 								? 'animate-[date-pop_250ms_ease-out] bg-[#C14817] text-white'
 								: isRange
 									? 'bg-[#FBEAE0]'
-									: inCurrentMonth
+									: !isDisabled
 										? 'hover:bg-gray-100'
 										: ''
 						}`}
