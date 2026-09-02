@@ -32,7 +32,11 @@ export async function ChatbotSetupPage() {
       initialSettings={settings ?? {
         id: true,
         greeting_message: "Welcome to Neatly Hotel!",
-        auto_reply_message: "ขออภัยค่ะ ฉันยังไม่เข้าใจคำถาม",
+        auto_reply_message: "ขออภัยค่ะ ฉันยังไม่มีข้อมูลยืนยันสำหรับคำถามนี้",
+        greeting_message_th: "สวัสดีค่ะ ยินดีต้อนรับสู่ Neatly Hotel!",
+        greeting_message_en: "Welcome to Neatly Hotel!",
+        auto_reply_message_th: "ขออภัยค่ะ ฉันยังไม่มีข้อมูลยืนยันสำหรับคำถามนี้",
+        auto_reply_message_en: "Sorry, I do not have confirmed information for this question yet.",
         updated_at: "",
       }}
       initialSuggestions={suggestions ?? []}

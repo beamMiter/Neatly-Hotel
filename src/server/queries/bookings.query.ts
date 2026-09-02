@@ -3,7 +3,12 @@ import crypto from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { supabaseAdmin } from "@/server/db/supabase-admin";
-import { isChangeDateEligible, isRefundEligible, nightsBetween } from "@/features/booking/date-rules";
+import {
+  isChangeDateEligible,
+  isRefundEligible,
+  nightsBetween,
+  validateStayDates,
+} from "@/features/booking/date-rules";
 import { validatePromotionCode } from "@/server/queries/promo.query";
 import {
   getSpecialRequestCatalog,
@@ -14,12 +19,18 @@ import {
   BookingAccessDeniedError,
   resolveBookingAccessOutcome,
 } from "@/lib/booking-access";
-import { refundPayment } from "@/server/payments/stripe";
+import {
+  cancelPaymentIntent,
+  createBookingPaymentIntent,
+  refundPayment,
+  retrievePaymentIntent,
+} from "@/server/payments/stripe";
 import type {
   BookingPricing,
   BookingRecord,
   CreateBookingInput,
   SelectedSpecialRequest,
+  SpecialRequestSelection,
 } from "@/types/booking";
 import {
   BookingNotFoundError,
@@ -30,7 +41,7 @@ const HOLD_MINUTES = 30;
 // Stripe enforces a per-currency minimum charge (roughly 10 THB); anything
 // below that after a discount is applied should fail cleanly at our layer
 // instead of surfacing as an opaque Stripe error.
-const MIN_CHARGE_THB = 10;
+export const MIN_CHARGE_THB = 10;
 const UNAVAILABLE_ROOM_STATUSES = ["Out of Order", "Out of Service", "Out of Inventory"];
 const NON_BLOCKING_BOOKING_STATUSES = ["cancelled", "canceled", "completed", "refunded"];
 const BOOKING_CODE_CHARSET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/I/1
@@ -303,6 +314,53 @@ export async function createPendingBooking(
   throw new Error("Failed to generate a unique booking code after multiple attempts");
 }
 
+export async function updatePendingBookingSpecialRequests(
+  bookingId: string,
+  selections: SpecialRequestSelection[],
+): Promise<{ selectedSpecialRequests: SelectedSpecialRequest[]; addonsTotal: number; totalAmount: number }> {
+  const catalog = await getSpecialRequestCatalog();
+
+  return prisma.$transaction(async (tx) => {
+    const rows = await tx.$queryRaw<Array<{
+      check_in: Date;
+      check_out: Date;
+      status: string;
+      payment_status: string;
+      total_amount: Prisma.Decimal;
+      addons_total: Prisma.Decimal;
+      discount_amount: Prisma.Decimal;
+    }>>`
+      select check_in, check_out, status, payment_status, total_amount, addons_total, discount_amount
+      from bookings
+      where id = ${bookingId}::uuid
+      for update
+    `;
+    const booking = rows[0];
+    if (!booking) throw new BookingNotFoundError();
+    if (booking.status !== "pending_payment" || booking.payment_status !== "pending") {
+      throw new InvalidBookingTransitionError("Special requests can only be changed before payment");
+    }
+
+    const toIsoDate = (value: Date | string) => value instanceof Date ? value.toISOString().slice(0, 10) : value;
+    const nights = nightsBetween(toIsoDate(booking.check_in), toIsoDate(booking.check_out));
+    const selectedSpecialRequests = resolveSelectedSpecialRequests(catalog, selections, nights);
+    const addonsTotal = selectedSpecialRequests.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const roomSubtotal = Number(booking.total_amount) - Number(booking.addons_total) + Number(booking.discount_amount);
+    const totalAmount = roomSubtotal + addonsTotal - Number(booking.discount_amount);
+
+    await tx.$executeRaw`
+      update bookings
+      set special_requests = ${JSON.stringify(selectedSpecialRequests)}::jsonb,
+          addons_total = ${addonsTotal},
+          total_amount = ${totalAmount},
+          updated_at = now()
+      where id = ${bookingId}::uuid
+    `;
+
+    return { selectedSpecialRequests, addonsTotal, totalAmount };
+  });
+}
+
 export async function getBookingById(id: string, customerId: string | null): Promise<BookingRecord | null> {
   const rows = await prisma.$queryRaw<
     (Parameters<typeof toBookingRecord>[0] & { customer_id: string | null; card_brand: string | null; card_last4: string | null })[]
@@ -386,6 +444,183 @@ export async function lookupBookingByCodeAndEmail(
   const record = toBookingRecord(row);
   const typedRow = row as unknown as { card_brand: string | null; card_last4: string | null };
   return { ...record, cardBrand: typedRow.card_brand, cardLast4: typedRow.card_last4 };
+}
+
+export type BookingPaymentBalance = {
+  totalAmount: number;
+  paidAmount: number;
+  amountDue: number;
+  cardBrand: string | null;
+  cardLast4: string | null;
+};
+
+export async function getBookingPaymentBalance(bookingId: string): Promise<BookingPaymentBalance> {
+  const bookingRows = await prisma.$queryRaw<{ total_amount: number }[]>`
+    select total_amount from bookings where id = ${bookingId}::uuid
+  `;
+  if (bookingRows.length === 0) {
+    throw new BookingNotFoundError();
+  }
+
+  const totalAmount = Number(bookingRows[0].total_amount);
+  const { data, error } = await supabaseAdmin
+    .from("payments")
+    .select("amount, card_brand, card_last4, status, updated_at")
+    .eq("booking_id", bookingId)
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    console.error("[bookings] failed to fetch payment balance:", error);
+    return {
+      totalAmount,
+      paidAmount: 0,
+      amountDue: totalAmount,
+      cardBrand: null,
+      cardLast4: null,
+    };
+  }
+
+  const rows = data ?? [];
+  const paidAmount = rows
+    .filter((row) => row.status === "succeeded")
+    .reduce((sum, row) => sum + Number(row.amount), 0);
+  const latestSuccess = rows.find((row) => row.status === "succeeded");
+
+  return {
+    totalAmount,
+    paidAmount,
+    amountDue: Math.max(0, totalAmount - paidAmount),
+    cardBrand: latestSuccess?.card_brand ?? null,
+    cardLast4: latestSuccess?.card_last4 ?? null,
+  };
+}
+
+export function isTopUpPaymentEligible(
+  booking: BookingRecord,
+  balance: Pick<BookingPaymentBalance, "amountDue">,
+): boolean {
+  return (
+    balance.amountDue > 0 &&
+    booking.paymentStatus === "pending" &&
+    booking.status !== "pending_payment"
+  );
+}
+
+export class TopUpNotEligibleError extends Error {
+  constructor(message = "This booking has no outstanding card payment to collect") {
+    super(message);
+  }
+}
+
+export class PaymentIntentBlockedError extends Error {
+  constructor(message: string) {
+    super(message);
+  }
+}
+
+export type PriorIntentResolution =
+  | { priorIntentToCancel: string | null }
+  | { blocked: string }
+  | { readError: true };
+
+export async function resolvePriorIntentToCancel(bookingId: string): Promise<PriorIntentResolution> {
+  const { data: priorPayments, error: priorError } = await supabaseAdmin
+    .from("payments")
+    .select("stripe_payment_intent_id, status")
+    .eq("booking_id", bookingId)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (priorError) {
+    console.error("[bookings] could not read prior payments:", priorError);
+    return { readError: true };
+  }
+
+  const prior = priorPayments?.[0];
+  if (!prior || prior.status === "canceled" || prior.status === "succeeded") {
+    return { priorIntentToCancel: null };
+  }
+
+  try {
+    const priorStatus = (await retrievePaymentIntent(prior.stripe_payment_intent_id)).status;
+    if (["succeeded", "processing", "requires_capture"].includes(priorStatus)) {
+      return {
+        blocked: "A payment for this booking is already going through. Please wait a moment.",
+      };
+    }
+    return { priorIntentToCancel: prior.stripe_payment_intent_id };
+  } catch (error) {
+    console.error("[bookings] could not read the prior intent:", error);
+    return { readError: true };
+  }
+}
+
+export async function createTopUpPaymentAttempt(
+  bookingId: string,
+  amountThb: number,
+): Promise<{ clientSecret: string }> {
+  if (amountThb < MIN_CHARGE_THB) {
+    throw new AmountTooLowError(`Amount due must be at least THB ${MIN_CHARGE_THB}`);
+  }
+
+  const priorResolution = await resolvePriorIntentToCancel(bookingId);
+  if ("readError" in priorResolution) {
+    throw new Error("Failed to create a new payment attempt");
+  }
+  if ("blocked" in priorResolution) {
+    throw new PaymentIntentBlockedError(priorResolution.blocked);
+  }
+
+  const paymentIntent = await createBookingPaymentIntent({
+    bookingId,
+    amountThb,
+    paymentKind: "top_up",
+  });
+
+  const { error: insertError } = await supabaseAdmin.from("payments").insert({
+    booking_id: bookingId,
+    stripe_payment_intent_id: paymentIntent.id,
+    amount: amountThb,
+    currency: "thb",
+    status: "requires_payment_method",
+  });
+
+  if (insertError) {
+    console.error("[bookings] failed to insert top-up payments row:", insertError);
+    await cancelPaymentIntent(paymentIntent.id).catch((error) => {
+      console.error("[bookings] failed to cancel orphaned top-up intent:", error);
+    });
+    throw new Error("Failed to create a new payment attempt");
+  }
+
+  if (priorResolution.priorIntentToCancel) {
+    await cancelPaymentIntent(priorResolution.priorIntentToCancel).catch((error) => {
+      console.error("[bookings] could not cancel the superseded top-up intent:", error);
+    });
+  }
+
+  if (!paymentIntent.client_secret) {
+    throw new Error("Failed to create a new payment attempt");
+  }
+
+  return { clientSecret: paymentIntent.client_secret };
+}
+
+// Top-up on confirmed/checked-in bookings: adjust payment_status only — never
+// cancel the stay when a card charge fails or is abandoned.
+export async function applyTopUpPaymentOutcome(bookingId: string, outcome: "paid" | "failed"): Promise<void> {
+  if (outcome === "failed") {
+    await prisma.$executeRaw`
+      update bookings set payment_status = 'pending' where id = ${bookingId}::uuid
+    `;
+    return;
+  }
+
+  const balance = await getBookingPaymentBalance(bookingId);
+  const paymentStatus = balance.amountDue <= 0 ? "paid" : "pending";
+  await prisma.$executeRaw`
+    update bookings set payment_status = ${paymentStatus} where id = ${bookingId}::uuid
+  `;
 }
 
 // Called only from the Stripe webhook handler — the source of truth for
@@ -513,7 +748,7 @@ export async function cancelBooking(
 
   let paymentIntentId: string | null = null;
 
-  if (isRefundEligible(booking.checkIn) && booking.paymentMethod === "credit_card" && booking.paymentStatus === "paid") {
+  if (isRefundEligible(booking.createdAt) && booking.paymentMethod === "credit_card" && booking.paymentStatus === "paid") {
     const { data: payment, error } = await supabaseAdmin
       .from("payments")
       .select("stripe_payment_intent_id")
@@ -564,9 +799,17 @@ function toDateOnly(isoDate: string): Date {
 
 // Changes a confirmed booking's stay dates — only within the change-date
 // window (isChangeDateEligible), only for the same number of nights (no
-// re-pricing needed, matches the "locked-nights" picker UI), and only if
-// this booking's own rooms are actually free for the new range (excludes
-// its own row from the overlap check, same pattern as extendBookingHold).
+// re-pricing needed, matches the "locked-nights" picker UI), only onto
+// dates that actually pass the same validation booking creation uses (not
+// in the past), and only if this booking's own rooms are actually free for
+// the new range (excludes its own row from the overlap check).
+//
+// Double-booking guard: the room-lock + conflict-check + update run inside
+// one transaction, locking this booking's rooms with `for update of r`
+// before checking for conflicts — same pattern extendBookingHold already
+// uses. Without this, two concurrent change-date requests for two
+// bookings that share a room could both read "no conflict" before either
+// commits, and both succeed onto the same overlapping dates.
 export async function changeBookingDates(
   bookingId: string,
   customerId: string | null,
@@ -584,6 +827,11 @@ export async function changeBookingDates(
     throw new InvalidBookingTransitionError("Date changes are only allowed within 24 hours of booking");
   }
 
+  const dateError = validateStayDates(checkIn, checkOut);
+  if (dateError) {
+    throw new InvalidBookingTransitionError(dateError);
+  }
+
   const originalNights = nightsBetween(booking.checkIn, booking.checkOut);
   const requestedNights = nightsBetween(checkIn, checkOut);
   if (requestedNights !== originalNights) {
@@ -592,24 +840,36 @@ export async function changeBookingDates(
     );
   }
 
-  const conflicts = await prisma.$queryRaw<{ count: bigint }[]>`
-    select count(*) as count
-    from booking_rooms br
-    join bookings b on b.id = br.booking_id
-    where br.room_id in (select room_id from booking_rooms where booking_id = ${bookingId}::uuid)
-      and b.id <> ${bookingId}::uuid
-      and b.status not in (${Prisma.join(NON_BLOCKING_BOOKING_STATUSES)})
-      and (b.expires_at is null or b.expires_at > now())
-      and b.check_in < ${checkOut}::date
-      and b.check_out > ${checkIn}::date
-  `;
-  if (Number(conflicts[0]?.count ?? 0) > 0) {
-    throw new BookingConflictError();
-  }
+  await prisma.$transaction(async (tx) => {
+    const rooms = await tx.$queryRaw<{ room_id: string }[]>`
+      select br.room_id
+      from booking_rooms br
+      join rooms r on r.id = br.room_id
+      where br.booking_id = ${bookingId}::uuid
+      for update of r
+    `;
 
-  await prisma.booking.update({
-    where: { id: bookingId },
-    data: { checkIn: toDateOnly(checkIn), checkOut: toDateOnly(checkOut) },
+    if (rooms.length > 0) {
+      const conflicts = await tx.$queryRaw<{ count: bigint }[]>`
+        select count(*) as count
+        from booking_rooms br
+        join bookings b on b.id = br.booking_id
+        where br.room_id = any(array[${Prisma.join(rooms.map((room) => room.room_id))}]::uuid[])
+          and b.id <> ${bookingId}::uuid
+          and b.status not in (${Prisma.join(NON_BLOCKING_BOOKING_STATUSES)})
+          and (b.expires_at is null or b.expires_at > now())
+          and b.check_in < ${checkOut}::date
+          and b.check_out > ${checkIn}::date
+      `;
+      if (Number(conflicts[0]?.count ?? 0) > 0) {
+        throw new BookingConflictError();
+      }
+    }
+
+    await tx.booking.update({
+      where: { id: bookingId },
+      data: { checkIn: toDateOnly(checkIn), checkOut: toDateOnly(checkOut) },
+    });
   });
 
   const updated = await getBookingById(bookingId, customerId);

@@ -11,14 +11,24 @@ import type { BookingRecord } from "@/types/booking";
 
 type PaymentMethod = "cash" | "credit_card";
 
-export function BookingPaymentView({ bookingId, booking }: { bookingId: string; booking: BookingRecord }) {
+type BookingPaymentViewProps = {
+  bookingId: string;
+  booking: BookingRecord;
+  amountDue?: number;
+};
+
+export function BookingPaymentView({ bookingId, booking, amountDue = 0 }: BookingPaymentViewProps) {
   const router = useRouter();
   const [method, setMethod] = useState<PaymentMethod | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [isStartingPayment, setIsStartingPayment] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isPendingPayment = booking.status === "pending_payment" && booking.paymentStatus === "pending";
+  const isTopUp =
+    amountDue > 0 && booking.paymentStatus === "pending" && booking.status !== "pending_payment";
+  const isInitialPayment = booking.status === "pending_payment" && booking.paymentStatus === "pending";
+  const canPay = isInitialPayment || isTopUp;
+  const chargeAmount = isTopUp ? amountDue : booking.totalAmount;
 
   async function choosePayAtHotel() {
     setIsStartingPayment(true);
@@ -59,11 +69,17 @@ export function BookingPaymentView({ bookingId, booking }: { bookingId: string; 
   return (
     <div className="mx-auto flex w-full max-w-[760px] flex-col gap-8 px-4 py-12">
       <div className="flex flex-col gap-2">
-        <p className="text-sm font-semibold uppercase tracking-[0.12em] text-[#C14817]">Booking confirmation</p>
+        <p className="text-sm font-semibold uppercase tracking-[0.12em] text-[#C14817]">
+          {isTopUp ? "Outstanding balance" : "Booking confirmation"}
+        </p>
         <h1 className="[font-family:var(--font-noto-serif)] text-4xl font-medium tracking-[-0.02em] text-[#2A2E3F]">
-          Review and choose payment
+          {isTopUp ? "Pay the remaining balance" : "Review and choose payment"}
         </h1>
-        <p className="text-base text-[#646D89]">Your room is held while you complete this booking.</p>
+        <p className="text-base text-[#646D89]">
+          {isTopUp
+            ? "Complete this card payment to settle the updated booking total."
+            : "Your room is held while you complete this booking."}
+        </p>
       </div>
 
       <section className="rounded-lg border border-[#E4E6ED] bg-white p-6">
@@ -72,7 +88,14 @@ export function BookingPaymentView({ bookingId, booking }: { bookingId: string; 
             <p className="text-sm text-[#646D89]">Booking code</p>
             <p className="mt-1 text-lg font-semibold text-[#2A2E3F]">{booking.bookingCode}</p>
           </div>
-          <p className="text-lg font-semibold text-[#C14817]">{formatThb(booking.totalAmount)}</p>
+          <div className="text-right">
+            {isTopUp && (
+              <p className="text-xs text-[#646D89]">
+                Total {formatThb(booking.totalAmount)}
+              </p>
+            )}
+            <p className="text-lg font-semibold text-[#C14817]">{formatThb(chargeAmount)}</p>
+          </div>
         </div>
         <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
           <PaymentDetail label="Room" value={booking.roomTypeName} />
@@ -82,7 +105,7 @@ export function BookingPaymentView({ bookingId, booking }: { bookingId: string; 
         </dl>
       </section>
 
-      {!isPendingPayment ? (
+      {!canPay ? (
         <section className="rounded-lg border border-[#E4E6ED] bg-white p-6 text-center">
           <h2 className="text-xl font-semibold text-[#2A2E3F]">This booking is already being processed</h2>
           <p className="mt-2 text-sm text-[#646D89]">Check the booking status or contact the hotel if you need help.</p>
@@ -93,8 +116,32 @@ export function BookingPaymentView({ bookingId, booking }: { bookingId: string; 
       ) : clientSecret ? (
         <section className="rounded-lg border border-[#E4E6ED] bg-white p-6">
           <Elements stripe={stripePromise}>
-            <CardPaymentForm bookingId={bookingId} clientSecret={clientSecret} />
+            <CardPaymentForm
+              bookingId={bookingId}
+              clientSecret={clientSecret}
+              successPath={`/booking/success?bookingId=${bookingId}`}
+            />
           </Elements>
+        </section>
+      ) : isTopUp ? (
+        <section className="rounded-lg border border-[#E4E6ED] bg-white p-6">
+          <h2 className="text-xl font-semibold text-[#2A2E3F]">Pay with credit card</h2>
+          <p className="mt-2 text-sm text-[#646D89]">
+            The outstanding balance from your booking update is due now.
+          </p>
+
+          {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
+
+          <div className="mt-6 flex justify-end">
+            <button
+              type="button"
+              disabled={isStartingPayment}
+              onClick={() => void startCardPayment()}
+              className="rounded bg-[#C14817] px-6 py-3 text-sm font-semibold text-white hover:bg-[#A93F13] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isStartingPayment ? "Preparing..." : "Continue to card payment"}
+            </button>
+          </div>
         </section>
       ) : (
         <section className="rounded-lg border border-[#E4E6ED] bg-white p-6">
@@ -136,7 +183,15 @@ export function BookingPaymentView({ bookingId, booking }: { bookingId: string; 
   );
 }
 
-function CardPaymentForm({ bookingId, clientSecret }: { bookingId: string; clientSecret: string }) {
+function CardPaymentForm({
+  bookingId,
+  clientSecret,
+  successPath,
+}: {
+  bookingId: string;
+  clientSecret: string;
+  successPath: string;
+}) {
   const stripe = useStripe();
   const elements = useElements();
   const router = useRouter();
@@ -162,7 +217,7 @@ function CardPaymentForm({ bookingId, clientSecret }: { bookingId: string; clien
       setError(result.error.message ?? "Payment failed. Please check your card details.");
       return;
     }
-    router.push(`/booking/success?bookingId=${bookingId}`);
+    router.push(successPath);
   }
 
   return (

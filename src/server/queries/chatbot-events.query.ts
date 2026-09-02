@@ -10,6 +10,7 @@ export async function recordChatbotEvent(event: ChatbotEventInput) {
     response_mode: event.responseMode,
     fallback_reason: event.fallbackReason,
     handoff_reason: event.handoffReason,
+    message_redacted: event.messageRedacted,
   });
   if (error) throw error;
 }

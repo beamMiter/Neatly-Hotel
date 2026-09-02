@@ -109,14 +109,14 @@ export function CreateRoomForm({ roomTypes }: CreateRoomFormProps) {
         <div className="flex items-center gap-3">
           <Link
             href="/room-management"
-            className="flex h-10 items-center rounded-[4px] border border-[#D0D5DD] px-4 text-[14px] font-medium text-[#344054]"
+            className="flex h-10 items-center rounded-[4px] border border-[#D0D5DD] px-4 text-[14px] font-medium text-[#344054] transition-[background-color,transform] duration-150 hover:bg-gray-50 active:scale-95"
           >
             Cancel
           </Link>
           <button
             type="submit"
             disabled={saving}
-            className="flex h-10 items-center rounded-[4px] bg-[#C34A2C] px-5 text-[14px] font-medium text-white disabled:opacity-60"
+            className="flex h-10 items-center rounded-[4px] bg-[#C34A2C] px-5 text-[14px] font-medium text-white transition-[background-color,transform] duration-150 hover:bg-[#A93F13] active:scale-95 disabled:opacity-60 disabled:active:scale-100"
           >
             {saving ? "Creating..." : "Create Room"}
           </button>

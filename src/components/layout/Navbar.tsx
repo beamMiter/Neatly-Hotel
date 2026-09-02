@@ -90,10 +90,15 @@ const AccountMenu = ({ account, isAdmin }: { account: AccountSummary; isAdmin: b
 
 				{isOpen && (
 					<>
-						<div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+						{/* z-50 (not the old z-20): this dropdown sits below the navbar's
+						    own <header>, which has no z-index of its own — so it lost to any
+						    page content with a higher stacking value than the old z-20, e.g.
+						    the search page's sticky filter bar (z-30). z-50 matches every
+						    other dropdown/toast in the app (see room-status-select.tsx etc.). */}
+						<div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
 						<div
 							role="menu"
-							className="absolute top-full right-0 z-20 mt-2 w-48 rounded border border-[#E4E6ED] bg-white py-2 shadow-[4px_4px_16px_rgba(0,0,0,0.08)]"
+							className="absolute top-full right-0 z-50 mt-2 w-48 rounded border border-[#E4E6ED] bg-white py-2 shadow-[4px_4px_16px_rgba(0,0,0,0.08)]"
 						>
 							{!isAdmin && (
 								<Link
@@ -226,7 +231,7 @@ const Navbar = ({ hideLogin = false, logoUrl, hotelName = 'Neatly Hotel', accoun
 			</nav>
 
 			{isMenuOpen && (
-				<div className="absolute top-full left-0 z-30 flex w-full flex-col items-start bg-white p-4 shadow-[4px_4px_16px_rgba(0,0,0,0.08)] md:hidden">
+				<div className="absolute top-full left-0 z-50 flex w-full flex-col items-start bg-white p-4 shadow-[4px_4px_16px_rgba(0,0,0,0.08)] md:hidden">
 					{NAV_LINKS.map((link) => (
 						<Link
 							key={link.href}

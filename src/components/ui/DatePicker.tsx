@@ -70,6 +70,7 @@ type DatePickerProps = {
 	checkOut?: Date | null;
 	onChange?: (checkIn: Date | null, checkOut: Date | null) => void;
 	compact?: boolean;
+	stacked?: boolean;
 };
 
 // ── Component ──────────────────────────────────────────────────
@@ -78,6 +79,7 @@ const DatePicker = ({
 	checkOut: checkOutProp,
 	onChange,
 	compact = false,
+	stacked = false,
 }: DatePickerProps) => {
 	const today = new Date();
 	const [viewYear, setViewYear] = useState(today.getFullYear());
@@ -178,7 +180,7 @@ const DatePicker = ({
 	);
 
 	const fieldClass = compact
-		? 'flex min-w-0 flex-1 cursor-pointer flex-col items-start gap-1 lg:w-60 lg:flex-none'
+		? 'flex w-full min-w-0 flex-1 cursor-pointer flex-col items-start gap-1 lg:w-60 lg:flex-none'
 		: 'flex w-full cursor-pointer flex-col items-start gap-1 lg:w-60';
 	const inputClass = compact
 		? 'flex h-12 w-full min-w-0 items-center gap-2 rounded border border-[#D6D9E4] bg-white py-3 pr-3 pl-2 lg:w-60'
@@ -191,7 +193,7 @@ const DatePicker = ({
 		<div
 			className={`relative flex w-full min-w-0 items-stretch ${
 				compact
-					? 'flex-row gap-2 lg:w-auto lg:items-center lg:gap-4'
+					? (stacked ? 'flex-col gap-3' : 'flex-col gap-3 sm:flex-row sm:gap-2 lg:w-auto lg:items-center lg:gap-4')
 					: 'flex-col gap-6 lg:w-auto lg:flex-row lg:items-center lg:justify-center'
 			}`}
 		>
@@ -212,7 +214,7 @@ const DatePicker = ({
 			<span
 				className={
 					compact
-						? 'mt-6 flex h-12 flex-none items-center text-base text-[#9AA1B9]'
+						? (stacked ? 'hidden' : 'hidden sm:mt-6 sm:flex sm:h-12 sm:flex-none sm:items-center sm:text-base sm:text-[#9AA1B9]')
 						: 'hidden lg:mt-7 lg:flex lg:h-12 lg:w-2 lg:items-center lg:text-base lg:text-black'
 				}
 			>
