@@ -4,12 +4,14 @@
 
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import Image from 'next/image';
 import Link, { useLinkStatus } from 'next/link';
+import { format } from 'date-fns';
 import { logout } from '@/features/auth/actions';
 import { UserIcon } from '@/components/icons/UserIcon';
 import type { AccountSummary } from '@/types/account';
+import type { NotificationItem } from '@/types/notifications';
 
 // ── Types ──────────────────────────────────────────────────────
 type NavLink = {
@@ -52,30 +54,65 @@ const AccountAvatar = ({ account }: { account: AccountSummary }) =>
 		</span>
 	);
 
-// Desktop-only: notification bell (gray/100 circle, no backend yet — see
-// note where this is rendered) + account chip with dropdown (My Bookings /
-// Log out). Sits where the "Log in" link used to, reusing the same
-// logout() server action the admin sidebar already uses.
+// Desktop-only: notification bell (booking confirmed/cancelled/refunded/
+// date-changed — see createNotification() in bookings.query.ts) + account
+// chip with dropdown (My Bookings / Log out). Sits where the "Log in" link
+// used to, reusing the same logout() server action the admin sidebar
+// already uses.
 const AccountMenu = ({ account, isAdmin }: { account: AccountSummary; isAdmin: boolean }) => {
 	const [isOpen, setIsOpen] = useState(false);
 	const [isNotifOpen, setIsNotifOpen] = useState(false);
+	const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 	const [isPending, startTransition] = useTransition();
 	const fullName = `${account.firstName} ${account.lastName}`.trim();
+	const unreadCount = notifications.filter((item) => !item.read).length;
+
+	useEffect(() => {
+		let cancelled = false;
+
+		fetch('/api/notifications')
+			.then((res) => res.json())
+			.then((data) => {
+				if (!cancelled) setNotifications(data.notifications ?? []);
+			})
+			.catch(() => {});
+
+		return () => {
+			cancelled = true;
+		};
+	}, []);
+
+	const handleToggleNotif = () => {
+		setIsNotifOpen((prev) => {
+			const next = !prev;
+			if (next && unreadCount > 0) {
+				const unreadIds = notifications.filter((item) => !item.read).map((item) => item.id);
+				fetch('/api/notifications', {
+					method: 'PATCH',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ ids: unreadIds }),
+				}).catch(() => {});
+				setNotifications((current) => current.map((item) => ({ ...item, read: true })));
+			}
+			return next;
+		});
+	};
 
 	return (
 		<div className="ml-auto hidden items-center gap-4 md:flex">
-			{/* No notification feature exists yet — the panel only shows an
-			    empty state until a real feed is wired up. */}
 			<div className="relative">
 				<button
 					type="button"
-					onClick={() => setIsNotifOpen((prev) => !prev)}
+					onClick={handleToggleNotif}
 					aria-label="Notifications"
 					aria-haspopup="menu"
 					aria-expanded={isNotifOpen}
-					className="flex h-10 w-10 flex-none cursor-pointer items-center justify-center rounded-full bg-[#F6F7FC] transition-transform duration-150 active:scale-90"
+					className="relative flex h-10 w-10 flex-none cursor-pointer items-center justify-center rounded-full bg-[#F6F7FC] transition-transform duration-150 active:scale-90"
 				>
 					<Image src="/icons/icon/notification.svg" alt="" width={19} height={20} />
+					{unreadCount > 0 && (
+						<span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-[#C14817]" />
+					)}
 				</button>
 
 				{isNotifOpen && (
@@ -83,9 +120,30 @@ const AccountMenu = ({ account, isAdmin }: { account: AccountSummary; isAdmin: b
 						<div className="fixed inset-0 z-40" onClick={() => setIsNotifOpen(false)} />
 						<div
 							role="menu"
-							className="absolute top-full right-0 z-50 mt-2 w-64 origin-top-right animate-[dropdown-in_150ms_ease-out] rounded border border-[#E4E6ED] bg-white py-6 text-center shadow-[4px_4px_16px_rgba(0,0,0,0.08)]"
+							className="absolute top-full right-0 z-50 mt-2 flex w-80 origin-top-right flex-col animate-[dropdown-in_150ms_ease-out] overflow-hidden rounded border border-[#E4E6ED] bg-white shadow-[4px_4px_16px_rgba(0,0,0,0.08)]"
 						>
-							<p className="[font-family:var(--font-inter)] text-sm text-[#9AA1B9]">No notifications yet</p>
+							{notifications.length === 0 ? (
+								<p className="px-4 py-6 text-center [font-family:var(--font-inter)] text-sm text-[#9AA1B9]">
+									No notifications yet
+								</p>
+							) : (
+								<ul className="flex max-h-80 flex-col overflow-y-auto">
+									{notifications.map((item) => (
+										<li key={item.id} className="border-b border-[#E4E6ED] last:border-b-0">
+											<Link
+												href={item.link ?? '/booking-history'}
+												onClick={() => setIsNotifOpen(false)}
+												className={`flex flex-col gap-1 px-4 py-3 hover:bg-gray-50 ${item.read ? '' : 'bg-[#FFF7F3]'}`}
+											>
+												<span className="[font-family:var(--font-inter)] text-sm text-[#2A2E3F]">{item.message}</span>
+												<span className="[font-family:var(--font-inter)] text-xs text-[#9AA1B9]">
+													{format(new Date(item.createdAt), 'd MMM yyyy, HH:mm')}
+												</span>
+											</Link>
+										</li>
+									))}
+								</ul>
+							)}
 						</div>
 					</>
 				)}
