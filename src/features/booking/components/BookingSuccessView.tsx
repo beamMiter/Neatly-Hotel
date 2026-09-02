@@ -205,7 +205,7 @@ export function BookingSuccessView({
       <div className="flex flex-col items-center gap-6 px-6 pt-10 lg:flex-row lg:justify-center lg:gap-10 lg:px-0">
         <Link
           href="/"
-          className="flex h-12 w-full items-center justify-center rounded bg-[#C14817] px-8 py-4 [font-family:var(--font-open-sans)] text-base leading-none font-semibold text-white hover:bg-[#A93F13] lg:order-2 lg:w-[172px]"
+          className="flex h-12 w-full items-center justify-center rounded bg-[#C14817] px-8 py-4 [font-family:var(--font-open-sans)] text-base leading-none font-semibold text-white transition-[background-color,transform] duration-150 hover:bg-[#A93F13] active:scale-95 lg:order-2 lg:w-[172px]"
         >
           Back to Home
         </Link>

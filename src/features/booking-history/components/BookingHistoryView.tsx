@@ -85,8 +85,8 @@ export function BookingHistoryView({ bookings: initialBookings }: BookingHistory
         ) : (
           <>
             <div className="mt-10 flex flex-col gap-10 lg:mt-16 lg:gap-16">
-              {pageItems.map((booking) => (
-                <BookingCard key={booking.id} booking={booking} onCancel={openCancelModal} />
+              {pageItems.map((booking, index) => (
+                <BookingCard key={booking.id} booking={booking} onCancel={openCancelModal} index={index} />
               ))}
             </div>
 
@@ -96,7 +96,7 @@ export function BookingHistoryView({ bookings: initialBookings }: BookingHistory
                 onClick={() => setPage((current) => Math.max(1, current - 1))}
                 disabled={currentPage <= 1}
                 aria-label="Previous page"
-                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md disabled:pointer-events-none disabled:opacity-40"
+                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md transition-[background-color,transform] duration-150 hover:bg-[#F1F2F6] active:scale-90 disabled:pointer-events-none disabled:opacity-40"
               >
                 <Image src="/icons/icon/arrow-left.svg" alt="" width={16} height={16} />
               </button>
@@ -107,7 +107,7 @@ export function BookingHistoryView({ bookings: initialBookings }: BookingHistory
                   type="button"
                   onClick={() => setPage(pageNumber)}
                   aria-current={pageNumber === currentPage ? "page" : undefined}
-                  className={`flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-sm ${
+                  className={`flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-sm transition-[background-color,transform] duration-150 active:scale-90 ${
                     pageNumber === currentPage
                       ? "bg-[#E4E6ED] font-medium text-[#2A2E3F]"
                       : "text-[#646D89] hover:bg-[#F1F2F6]"
@@ -122,7 +122,7 @@ export function BookingHistoryView({ bookings: initialBookings }: BookingHistory
                 onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
                 disabled={currentPage >= totalPages}
                 aria-label="Next page"
-                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md disabled:pointer-events-none disabled:opacity-40"
+                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md transition-[background-color,transform] duration-150 hover:bg-[#F1F2F6] active:scale-90 disabled:pointer-events-none disabled:opacity-40"
               >
                 <Image src="/icons/icon/arrow-right.svg" alt="" width={16} height={16} />
               </button>

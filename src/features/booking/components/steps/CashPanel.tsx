@@ -70,7 +70,7 @@ export function CashPanel({
         <button
           type="button"
           onClick={onBack}
-          className="cursor-pointer px-2 py-1 [font-family:var(--font-open-sans)] text-base leading-none font-semibold text-[#E76B39]"
+          className="cursor-pointer px-2 py-1 [font-family:var(--font-open-sans)] text-base leading-none font-semibold text-[#E76B39] transition-[color,transform] duration-150 hover:text-[#C14817] active:scale-95"
         >
           Back
         </button>
@@ -78,7 +78,7 @@ export function CashPanel({
           type="button"
           onClick={handleConfirm}
           disabled={isSubmitting}
-          className="flex h-12 w-[194px] items-center justify-center rounded bg-[#C14817] px-8 py-4 [font-family:var(--font-open-sans)] text-base leading-none font-semibold text-white hover:bg-[#A93F13] disabled:opacity-60"
+          className="flex h-12 w-[194px] items-center justify-center rounded bg-[#C14817] px-8 py-4 [font-family:var(--font-open-sans)] text-base leading-none font-semibold text-white transition-[background-color,transform] duration-150 hover:bg-[#A93F13] active:scale-90 disabled:opacity-60 disabled:active:scale-100"
         >
           {isSubmitting ? "Confirming..." : "Confirm Booking"}
         </button>

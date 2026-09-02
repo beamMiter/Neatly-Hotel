@@ -58,21 +58,38 @@ const AccountAvatar = ({ account }: { account: AccountSummary }) =>
 // logout() server action the admin sidebar already uses.
 const AccountMenu = ({ account, isAdmin }: { account: AccountSummary; isAdmin: boolean }) => {
 	const [isOpen, setIsOpen] = useState(false);
+	const [isNotifOpen, setIsNotifOpen] = useState(false);
 	const [isPending, startTransition] = useTransition();
 	const fullName = `${account.firstName} ${account.lastName}`.trim();
 
 	return (
 		<div className="ml-auto hidden items-center gap-4 md:flex">
-			{/* No notification feature exists yet — rendered per the Figma spec
-			    but inert (disabled) rather than a dead-looking live button. */}
-			<button
-				type="button"
-				disabled
-				aria-label="Notifications"
-				className="flex h-10 w-10 flex-none cursor-default items-center justify-center rounded-full bg-[#F6F7FC]"
-			>
-				<Image src="/icons/icon/notification.svg" alt="" width={19} height={20} />
-			</button>
+			{/* No notification feature exists yet — the panel only shows an
+			    empty state until a real feed is wired up. */}
+			<div className="relative">
+				<button
+					type="button"
+					onClick={() => setIsNotifOpen((prev) => !prev)}
+					aria-label="Notifications"
+					aria-haspopup="menu"
+					aria-expanded={isNotifOpen}
+					className="flex h-10 w-10 flex-none cursor-pointer items-center justify-center rounded-full bg-[#F6F7FC] transition-transform duration-150 active:scale-90"
+				>
+					<Image src="/icons/icon/notification.svg" alt="" width={19} height={20} />
+				</button>
+
+				{isNotifOpen && (
+					<>
+						<div className="fixed inset-0 z-40" onClick={() => setIsNotifOpen(false)} />
+						<div
+							role="menu"
+							className="absolute top-full right-0 z-50 mt-2 w-64 origin-top-right animate-[dropdown-in_150ms_ease-out] rounded border border-[#E4E6ED] bg-white py-6 text-center shadow-[4px_4px_16px_rgba(0,0,0,0.08)]"
+						>
+							<p className="[font-family:var(--font-inter)] text-sm text-[#9AA1B9]">No notifications yet</p>
+						</div>
+					</>
+				)}
+			</div>
 
 			<div className="relative">
 				<button
@@ -98,7 +115,7 @@ const AccountMenu = ({ account, isAdmin }: { account: AccountSummary; isAdmin: b
 						<div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
 						<div
 							role="menu"
-							className="absolute top-full right-0 z-50 mt-2 w-48 rounded border border-[#E4E6ED] bg-white py-2 shadow-[4px_4px_16px_rgba(0,0,0,0.08)]"
+							className="absolute top-full right-0 z-50 mt-2 w-48 origin-top-right animate-[dropdown-in_150ms_ease-out] rounded border border-[#E4E6ED] bg-white py-2 shadow-[4px_4px_16px_rgba(0,0,0,0.08)]"
 						>
 							{!isAdmin && (
 								<Link

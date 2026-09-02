@@ -135,7 +135,7 @@ export function EmailOtpVerification({
           type="button"
           onClick={handleSendCode}
           disabled={!emailValid || sending || cooldownSeconds > 0}
-          className="cursor-pointer rounded border border-[#C14817] px-4 py-2 [font-family:var(--font-open-sans)] text-sm font-semibold text-[#C14817] hover:bg-[#FFF5F0] disabled:cursor-not-allowed disabled:opacity-50"
+          className="cursor-pointer rounded border border-[#C14817] px-4 py-2 [font-family:var(--font-open-sans)] text-sm font-semibold text-[#C14817] transition-[background-color,transform] duration-150 hover:bg-[#FFF5F0] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
         >
           {sending ? "Sending…" : cooldownSeconds > 0 ? `Resend in ${cooldownSeconds}s` : codeSent ? "Resend code" : "Send code"}
         </button>
@@ -162,7 +162,7 @@ export function EmailOtpVerification({
             type="button"
             onClick={handleVerify}
             disabled={verifying || otpCode.length !== 6}
-            className="flex h-12 items-center justify-center rounded bg-[#C14817] px-6 [font-family:var(--font-open-sans)] text-sm font-semibold text-white hover:bg-[#A93F13] disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex h-12 items-center justify-center rounded bg-[#C14817] px-6 [font-family:var(--font-open-sans)] text-sm font-semibold text-white transition-[background-color,transform] duration-150 hover:bg-[#A93F13] active:scale-90 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
           >
             {verifying ? "Verifying…" : "Verify"}
           </button>

@@ -49,6 +49,7 @@
 
 * { box-sizing: border-box; }
 html, body { margin: 0; min-height: 100%; }
+html { scroll-behavior: smooth; }
 body { color: var(--ink); background: #edf0eb; font-family: var(--font-sans), Arial, Helvetica, sans-serif; }
 /* Tailwind's own Preflight (@layer base) already resets button/input/select/
    textarea font to `inherit` — this duplicate was written unlayered, which in

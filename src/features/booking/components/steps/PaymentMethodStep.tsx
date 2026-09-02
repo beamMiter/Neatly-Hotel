@@ -35,7 +35,7 @@ function PaymentOptionCard({
     <button
       type="button"
       onClick={onClick}
-      className={`flex h-15 flex-1 cursor-pointer items-center justify-center gap-2 rounded bg-white shadow-[4px_4px_16px_rgba(0,0,0,0.08)] lg:h-20 ${
+      className={`flex h-15 flex-1 cursor-pointer items-center justify-center gap-2 rounded bg-white shadow-[4px_4px_16px_rgba(0,0,0,0.08)] transition-[border-color,transform] duration-150 active:scale-95 lg:h-20 ${
         selected ? "border border-[#E76B39]" : "border border-[#E4E6ED]"
       }`}
     >
