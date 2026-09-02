@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { supabaseAdmin } from "@/server/db/supabase-admin";
+import { createNotification } from "@/server/queries/notifications.query";
 import {
   isChangeDateEligible,
   isRefundEligible,
@@ -790,6 +791,16 @@ export async function cancelBooking(
 
   const updated = await getBookingById(bookingId, customerId);
   if (!updated) throw new BookingNotFoundError();
+
+  await createNotification(
+    customerId,
+    finalStatus === "refunded" ? "booking_refunded" : "booking_cancelled",
+    finalStatus === "refunded"
+      ? `Your booking ${updated.bookingCode} was cancelled and refunded.`
+      : `Your booking ${updated.bookingCode} was cancelled.`,
+    "/booking-history",
+  );
+
   return { booking: updated, refunded: finalStatus === "refunded" };
 }
 
@@ -874,5 +885,13 @@ export async function changeBookingDates(
 
   const updated = await getBookingById(bookingId, customerId);
   if (!updated) throw new BookingNotFoundError();
+
+  await createNotification(
+    customerId,
+    "booking_date_changed",
+    `Your booking ${updated.bookingCode} dates were updated.`,
+    "/booking-history",
+  );
+
   return updated;
 }
