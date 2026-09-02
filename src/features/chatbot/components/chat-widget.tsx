@@ -6,7 +6,6 @@ import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
 import BookingSearch from "@/components/shared/BookingSearch";
 import { buildBookingHref } from "@/features/booking-flow/utils";
 import { ChatMessageList } from "@/features/chatbot/components/ChatMessageList";
-import { isBookingConfirmationMessage } from "@/features/chatbot/components/support-booking-card";
 import type { ChatMessage, Intent, SupportSessionResponse, WidgetLocale } from "@/features/chatbot/components/chat-widget.types";
 import { useLiveSupportVisitor } from "@/features/chatbot/components/useLiveSupportVisitor";
 import type { ChatbotRoomResult, ChatbotSearchState, ChatbotSuggestion } from "@/types/chatbot";
@@ -341,7 +340,6 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
   const liveSupportStatus = supportStatusLabel(supportConversation, locale);
   const liveSupportStatusDescription = supportStatusDescription(supportConversation, locale);
   const isSupportResolved = supportConversation?.status === "resolved";
-  const hasBookingConfirmationMessage = messages.some((message) => isBookingConfirmationMessage(message, supportBooking));
   const t = widgetCopy[locale];
   const localizedSuggestions = suggestions.map((suggestion) => localizeSuggestion(suggestion, locale));
 
@@ -408,7 +406,6 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
               visitorToken={visitorToken}
               locale={locale}
               isSupportResolved={isSupportResolved}
-              hasBookingConfirmationMessage={hasBookingConfirmationMessage}
               isBooking={isBooking}
               bookNowLabel={t.bookNow}
               viewDetailsLabel={t.viewDetails}

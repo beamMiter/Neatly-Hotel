@@ -15,7 +15,6 @@ type Props = {
   visitorToken: string | null;
   locale: WidgetLocale;
   isSupportResolved: boolean;
-  hasBookingConfirmationMessage: boolean;
   isBooking: boolean;
   bookNowLabel: string;
   viewDetailsLabel: string;
@@ -54,7 +53,6 @@ export function ChatMessageList(props: Props) {
           )}
         </div>
       ))}
-      {props.supportBooking && !props.isSupportResolved && !props.hasBookingConfirmationMessage && <SupportBookingCard booking={props.supportBooking} specialRequestOptions={props.specialRequestOptions} visitorToken={props.visitorToken} locale={props.locale} onConfirmed={props.onPayment} />}
     </>
   );
 }
