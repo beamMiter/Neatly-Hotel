@@ -55,8 +55,9 @@ export async function getRoomTypeAvailability(input: {
   ).length;
 
   const reasons: string[] = [];
-  if (input.guests > capacity) {
-    reasons.push(`This room fits a maximum of ${capacity} guests`);
+  // Guests can be split across the requested rooms (see booking-search.query.ts).
+  if (input.guests > capacity * input.rooms) {
+    reasons.push(`This room fits a maximum of ${capacity} guests per room`);
   }
   if (availableCount < input.rooms) {
     reasons.push(
