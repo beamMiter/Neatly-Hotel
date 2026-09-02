@@ -97,7 +97,7 @@ const AccountMenu = ({ account, isAdmin }: { account: AccountSummary; isAdmin: b
 					onClick={() => setIsOpen((prev) => !prev)}
 					aria-haspopup="menu"
 					aria-expanded={isOpen}
-					className="flex h-10 flex-none items-center gap-2 rounded"
+					className="flex h-10 cursor-pointer flex-none items-center gap-2 rounded"
 				>
 					<AccountAvatar account={account} />
 					<span className="whitespace-nowrap [font-family:var(--font-open-sans)] text-sm text-[#646D89]">
