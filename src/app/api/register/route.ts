@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { parseRegisterFormData } from "@/features/auth/validations";
+import { parseRegisterFormData, getPasswordMismatchError } from "@/features/auth/validations";
 import { supabaseAdmin } from "@/server/db/supabase-admin";
 
 export async function POST(request: Request) {
@@ -14,6 +14,19 @@ export async function POST(request: Request) {
   }
 
   const { data, photo } = parsed;
+
+  // RegisterForm checks this client-side before ever submitting, but that's
+  // UX only — a direct POST to this route bypassing the form would
+  // otherwise silently register the account with just `password`, ignoring
+  // a mismatched confirmPassword entirely. Same check resetPassword already
+  // does server-side for the same reason.
+  const mismatchError = getPasswordMismatchError(data.password, data.confirmPassword);
+  if (mismatchError) {
+    return NextResponse.json(
+      { message: "Validation failed", fieldErrors: { confirmPassword: mismatchError } },
+      { status: 400 },
+    );
+  }
 
   const { data: existingUsername } = await supabaseAdmin
     .from("profiles")
