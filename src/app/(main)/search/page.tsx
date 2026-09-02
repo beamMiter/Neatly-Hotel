@@ -61,11 +61,14 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     maxPrice = swapped;
   }
 
+  const guests = parseCount(first(params.guests), 2, 8);
+  const roomsCount = Math.min(parseCount(first(params.rooms), 1, 4), guests);
+
   const initialQuery: SearchQuery = {
     checkIn: first(params.checkIn) || bangkokIsoDate(0),
     checkOut: first(params.checkOut) || bangkokIsoDate(1),
-    rooms: parseCount(first(params.rooms), 1, 3),
-    guests: parseCount(first(params.guests), 2, 8),
+    rooms: roomsCount,
+    guests,
     minPrice,
     maxPrice,
     sort: parseSort(first(params.sort)),
