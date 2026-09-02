@@ -83,7 +83,7 @@ export function OccupancyGuestCard({ initialData, initialFrom, initialTo }: { in
   const [to, setTo] = useState(initialTo);
   const [viewBy, setViewBy] = useState<ViewByKey>("overall");
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useErrorMessage();
+  const [error, setError, isErrorLeaving] = useErrorMessage();
 
   async function refetch(nextFrom: Date, nextTo: Date) {
     setIsLoading(true);
@@ -107,7 +107,7 @@ export function OccupancyGuestCard({ initialData, initialFrom, initialTo }: { in
 
   return (
     <div className="flex flex-col gap-5 rounded-lg border border-brand-border bg-white p-5">
-      {error && <ErrorToast message={error} />}
+      {error && <ErrorToast message={error} isLeaving={isErrorLeaving} />}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-brand-primary">Occupancy & Guest</h2>

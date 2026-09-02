@@ -19,12 +19,12 @@ export function RoomDeleteDialog({
   if (!room) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+    <div className="fixed inset-0 z-50 flex animate-[fade-in_150ms_ease-out] items-center justify-center bg-black/40 px-4">
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="delete-room-title"
-        className="w-full max-w-[420px] rounded-[4px] bg-white p-6 shadow-[0_12px_32px_rgba(16,24,40,0.18)]"
+        className="w-full max-w-[420px] animate-[fade-slide_200ms_ease-out] rounded-[4px] bg-white p-6 shadow-[0_12px_32px_rgba(16,24,40,0.18)]"
       >
         <h2
           id="delete-room-title"
@@ -43,7 +43,7 @@ export function RoomDeleteDialog({
             type="button"
             disabled={loading}
             onClick={onCancel}
-            className="flex h-10 cursor-pointer items-center rounded-[4px] border border-[#D0D5DD] px-4 text-[14px] font-medium text-[#344054] disabled:cursor-default disabled:opacity-60"
+            className="flex h-10 cursor-pointer items-center rounded-[4px] border border-[#D0D5DD] px-4 text-[14px] font-medium text-[#344054] transition-[background-color,transform] duration-150 hover:bg-gray-50 active:scale-95 disabled:cursor-default disabled:active:scale-100 disabled:opacity-60"
           >
             Cancel
           </button>
@@ -51,7 +51,7 @@ export function RoomDeleteDialog({
             type="button"
             disabled={loading}
             onClick={onConfirm}
-            className="flex h-10 cursor-pointer items-center rounded-[4px] bg-[#C34A2C] px-4 text-[14px] font-medium text-white disabled:cursor-default disabled:opacity-60"
+            className="flex h-10 cursor-pointer items-center rounded-[4px] bg-[#C34A2C] px-4 text-[14px] font-medium text-white transition-[background-color,transform] duration-150 hover:bg-[#A93F13] active:scale-95 disabled:cursor-default disabled:active:scale-100 disabled:opacity-60"
           >
             {loading ? "Deleting..." : "Delete"}
           </button>

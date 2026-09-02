@@ -25,7 +25,7 @@ export function WebsiteTrafficCard({
   const [page, setPage] = useState("all");
   const [data, setData] = useState(initialData);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useErrorMessage();
+  const [error, setError, isErrorLeaving] = useErrorMessage();
 
   async function refetch(nextRange: string, nextPage: string) {
     setIsLoading(true);
@@ -56,7 +56,7 @@ export function WebsiteTrafficCard({
 
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-brand-border bg-white p-5">
-      {error && <ErrorToast message={error} />}
+      {error && <ErrorToast message={error} isLeaving={isErrorLeaving} />}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-brand-primary">Website traffic</h2>
