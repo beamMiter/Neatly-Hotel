@@ -16,7 +16,7 @@ export type RoomSearchResult = {
 };
 
 export const SEARCH_PRICE_MIN = 1000;
-export const SEARCH_PRICE_MAX = 10000;
+export const SEARCH_PRICE_MAX = 20000;
 
 export type SearchSort = "recommended" | "price-asc" | "price-desc" | "popular";
 

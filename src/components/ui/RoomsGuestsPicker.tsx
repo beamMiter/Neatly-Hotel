@@ -8,7 +8,7 @@ import { useState } from 'react';
 
 // ── Data ───────────────────────────────────────────────────────
 const MIN_COUNT = 1;
-const MAX_ROOMS = 3;
+const MAX_ROOMS = 4;
 const MAX_GUESTS = 8;
 
 // ── Sub components ────────────────────────────────────────────
@@ -106,6 +106,16 @@ const RoomsGuestsPicker = ({
 
 	const summary = `${rooms} room${rooms > 1 ? 's' : ''}, ${guests} guest${guests > 1 ? 's' : ''}`;
 
+	// Rooms can never outnumber guests (each room needs at least one guest).
+	const roomIncreaseDisabled = rooms >= MAX_ROOMS || rooms >= guests;
+
+	const decreaseGuests = () => {
+		const nextGuests = Math.max(MIN_COUNT, guests - 1);
+		setGuests(nextGuests);
+		// Guests dropping below the current room count pulls rooms down to match.
+		if (rooms > nextGuests) setRooms(nextGuests);
+	};
+
 	return (
 		<div className="relative flex w-full min-w-0 flex-col items-start gap-1 lg:w-60 lg:flex-none">
 			<span className="[font-family:var(--font-inter)] text-base text-[#2A2E3F]">Rooms & Guests</span>
@@ -130,13 +140,18 @@ const RoomsGuestsPicker = ({
 							label="Room"
 							count={rooms}
 							onDecrease={() => setRooms(Math.max(MIN_COUNT, rooms - 1))}
-							onIncrease={() => setRooms(Math.min(MAX_ROOMS, rooms + 1))}
-							increaseDisabled={rooms >= MAX_ROOMS}
+							onIncrease={() => setRooms(Math.min(MAX_ROOMS, guests, rooms + 1))}
+							increaseDisabled={roomIncreaseDisabled}
 						/>
+						{roomIncreaseDisabled && (
+							<p className="px-4 pb-1 [font-family:var(--font-inter)] text-xs text-[#B61515]">
+								Number of rooms cannot exceed number of guests
+							</p>
+						)}
 						<CounterRow
 							label="Guest"
 							count={guests}
-							onDecrease={() => setGuests(Math.max(MIN_COUNT, guests - 1))}
+							onDecrease={decreaseGuests}
 							onIncrease={() => setGuests(Math.min(MAX_GUESTS, guests + 1))}
 							increaseDisabled={guests >= MAX_GUESTS}
 						/>

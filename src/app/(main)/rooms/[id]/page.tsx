@@ -64,7 +64,7 @@ export default async function RoomDetailPage({ params, searchParams }: RoomDetai
   const checkIn = first(search.checkIn) || bangkokIsoDate(0);
   const checkOut = first(search.checkOut) || bangkokIsoDate(1);
   const guests = parseCount(first(search.guests), 2, 8);
-  const rooms = parseCount(first(search.rooms), 1, 3);
+  const rooms = Math.min(parseCount(first(search.rooms), 1, 4), guests);
 
   const supabase = await createClient();
   const {
