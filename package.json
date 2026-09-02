@@ -14,6 +14,7 @@
     "security:check-support-cap": "node --env-file=.env.local scripts/check-live-support-message-cap.mjs",
     "security:check-live-support": "node --env-file=.env.local scripts/check-live-support-rls.mjs",
     "security:check-authorization": "node scripts/check-booking-access.mjs",
+    "check:booking-lifecycle": "node --experimental-strip-types scripts/check-booking-lifecycle.mjs",
     "security:check-admin-booking-edit": "node scripts/check-admin-booking-edit.mjs",
     "check:chatbot-routing": "node --experimental-strip-types scripts/check-chatbot-routing.mjs",
     "postinstall": "prisma generate",

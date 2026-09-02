@@ -53,7 +53,7 @@ export function getBookingActions(
     };
   }
 
-  if (booking.checkedInAt != null) {
+  if (booking.status === "checked_in") {
     return {
       showChangeDate: false,
       showCancel: false,
