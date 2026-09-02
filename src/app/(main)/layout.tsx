@@ -40,7 +40,7 @@ const MainLayout = async ({ children }: { children: React.ReactNode }) => {
 			    หลังของหน้านั้นยืดเต็มแทนที่จะเผย default bg ของ body ให้เห็นเป็นช่องว่าง
 			    ใช้ div ไม่ใช่ <main> เพราะจะกลายเป็น landmark ซ้ำกับ <main> ที่บางหน้ามีอยู่แล้ว */}
 			<div className="flex flex-1 flex-col">{children}</div>
-			<Footer logoUrl={hotel.logoUrl} hotelName={hotel.name} />
+			<Footer hotelName={hotel.name} />
 			<Suspense fallback={null}>
 				<ChatWidgetWithSettings />
 			</Suspense>

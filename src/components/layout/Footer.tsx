@@ -39,14 +39,16 @@ const SOCIAL_LINKS: SocialLink[] = [
 ];
 
 type FooterProps = {
-	logoUrl?: string | null;
 	hotelName?: string;
 };
 
-const DEFAULT_LOGO = '/images/icon/logo-white.svg';
+// Footer sits on a dark background (#2F3E35) — always the white logo mark,
+// never the admin-configured hotel.logoUrl (that one's picked for the
+// light navbar and isn't guaranteed to read on dark).
+const LOGO = '/images/icon/logo-white.svg';
 
 // ── Component ──────────────────────────────────────────────────
-const Footer = ({ logoUrl, hotelName = 'Neatly Hotel' }: FooterProps) => {
+const Footer = ({ hotelName = 'Neatly Hotel' }: FooterProps) => {
 	const [copiedId, setCopiedId] = useState<number | null>(null);
 
 	const handleCopy = (id: number, value: string) => {
@@ -60,13 +62,7 @@ const Footer = ({ logoUrl, hotelName = 'Neatly Hotel' }: FooterProps) => {
 			<div className="mx-auto flex max-w-300 flex-col gap-6 px-4 pt-10 pb-10 sm:px-10 lg:gap-12 lg:px-0 lg:pt-16.5 lg:pb-0">
 				<div className="flex flex-col items-start gap-6 lg:flex-row lg:justify-between lg:gap-12">
 					<div className="flex flex-col items-start gap-10">
-						<Image
-							src={logoUrl || DEFAULT_LOGO}
-							alt={hotelName}
-							width={180}
-							height={49}
-							unoptimized={Boolean(logoUrl?.startsWith('/uploads/'))}
-						/>
+						<Image src={LOGO} alt={hotelName} width={180} height={49} />
 
 						<div className="flex flex-col items-start gap-2">
 							<span className="[font-family:var(--font-inter)] text-xl leading-[150%] font-semibold tracking-[-0.02em] text-white">
