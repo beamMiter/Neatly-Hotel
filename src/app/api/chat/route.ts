@@ -480,6 +480,31 @@ export async function POST(request: Request) {
       fallbackReason,
     });
 
+    const canServeLocallyDuringQuota =
+      (localAnalysis.intent === "search_room" && localAnalysis.confidence >= 0.8 && resolved.isSearchVerified) ||
+      (localAnalysis.intent === "faq" && localAnalysis.confidence >= 0.8 && hasVerifiedFaqTopic);
+
+    if (fallbackReason === "gemini_quota" && !canServeLocallyDuringQuota) {
+      const handoffReason = localAnalysis.handoffReason ?? "unanswered";
+      return responseWithEvent({
+        intent: "unknown",
+        message: locale === "en"
+          ? "Sorry, the automated assistant is temporarily unavailable. Please try again later or select \"Talk to an agent\" below for immediate help."
+          : "ขออภัยค่ะ ขณะนี้ผู้ช่วยอัตโนมัติไม่พร้อมใช้งานชั่วคราว คุณสามารถลองใหม่ภายหลัง หรือเลือก “คุยกับเจ้าหน้าที่” เพื่อรับความช่วยเหลือได้ทันที",
+        search: currentSearch,
+        rooms: [],
+        mode,
+        handoff: { reason: handoffReason },
+      }, {
+        requestId: id,
+        intent: "unknown",
+        mode,
+        fallbackReason,
+        handoffReason,
+        messageRedacted,
+      });
+    }
+
     if (analysis.handoffReason && passesConfidence) {
       return responseWithEvent({
         intent: "unknown",
