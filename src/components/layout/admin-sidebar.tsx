@@ -137,7 +137,11 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
           disabled={pending}
           className="flex h-[52px] w-full cursor-pointer items-center gap-3.5 px-8 text-[14px] text-[#C5CFC8] transition-colors hover:bg-white/[0.04] hover:text-white disabled:cursor-default disabled:opacity-60"
         >
-          <LogoutIcon className="h-5 w-5 shrink-0" />
+          {pending ? (
+            <span className="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-[#C5CFC8] border-t-transparent" />
+          ) : (
+            <LogoutIcon className="h-5 w-5 shrink-0" />
+          )}
           {pending ? "Logging out..." : "Log Out"}
         </button>
       </div>
