@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { ChevronDownIcon } from "@/components/icons/ChevronDownIcon";
-import { RoomStatusBadge } from "@/features/room-management/components/room-status-badge";
 import {
   createPhysicalRoomSchema,
   type CreatePhysicalRoomFieldErrors,
@@ -198,9 +197,6 @@ export function CreateRoomForm({ roomTypes }: CreateRoomFormProps) {
                   </option>
                 ))}
               </SelectField>
-              <div className="mt-2">
-                <RoomStatusBadge status={status} />
-              </div>
             </Field>
 
             {selectedRoomType?.bedType ? (
