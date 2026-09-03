@@ -116,7 +116,14 @@ export function HotelInformationView({ hotel }: HotelInformationViewProps) {
           disabled={saving}
           className="flex h-10 cursor-pointer items-center rounded-[4px] bg-[#C34A2C] px-5 text-[14px] font-medium text-white disabled:cursor-default disabled:opacity-60"
         >
-          {saving ? "Updating..." : "Update"}
+          {saving ? (
+            <span className="flex items-center justify-center gap-2">
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              Updating...
+            </span>
+          ) : (
+            "Update"
+          )}
         </button>
       </header>
 
