@@ -118,7 +118,14 @@ export function CreateRoomForm({ roomTypes }: CreateRoomFormProps) {
             disabled={saving}
             className="flex h-10 items-center rounded-[4px] bg-[#C34A2C] px-5 text-[14px] font-medium text-white transition-[background-color,transform] duration-150 hover:bg-[#A93F13] active:scale-95 disabled:opacity-60 disabled:active:scale-100"
           >
-            {saving ? "Creating..." : "Create Room"}
+            {saving ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                Creating...
+              </span>
+            ) : (
+              "Create Room"
+            )}
           </button>
         </div>
       </header>

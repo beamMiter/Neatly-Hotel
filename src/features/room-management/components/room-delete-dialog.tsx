@@ -53,7 +53,14 @@ export function RoomDeleteDialog({
             onClick={onConfirm}
             className="flex h-10 cursor-pointer items-center rounded-[4px] bg-[#C34A2C] px-4 text-[14px] font-medium text-white transition-[background-color,transform] duration-150 hover:bg-[#A93F13] active:scale-95 disabled:cursor-default disabled:active:scale-100 disabled:opacity-60"
           >
-            {loading ? "Deleting..." : "Delete"}
+            {loading ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                Deleting...
+              </span>
+            ) : (
+              "Delete"
+            )}
           </button>
         </div>
       </div>
