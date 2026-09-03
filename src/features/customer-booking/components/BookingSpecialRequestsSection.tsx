@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CloseIcon } from "@/components/icons/CloseIcon";
+import { CardSkeletonOverlay } from "@/components/shared/CardSkeletonOverlay";
+import { useDelayedFlag } from "@/lib/useDelayedFlag";
 import { resolveAddOnQuantity } from "@/lib/addon-pricing";
 import {
   getAdminEditPaymentAmount,
@@ -25,15 +27,26 @@ function formatThb(amount: number) {
   return `THB ${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function EditSpecialRequestsModal({ booking, catalog, onClose }: EditSpecialRequestsModalProps) {
+function EditSpecialRequestsModal({
+  booking,
+  catalog,
+  onClose,
+}: EditSpecialRequestsModalProps) {
   const router = useRouter();
-  const [standardRequests, setStandardRequests] = useState<string[]>(booking.standardRequestCodes);
-  const [specialRequestSelections, setSpecialRequestSelections] = useState<Record<string, number>>(
-    booking.specialRequestSelections,
+  const [standardRequests, setStandardRequests] = useState<string[]>(
+    booking.standardRequestCodes,
   );
-  const [additionalRequest, setAdditionalRequest] = useState(booking.additionalRequest ?? "");
-  const [paymentMethod, setPaymentMethod] = useState<"credit_card" | "cash">(booking.paymentMethod);
+  const [specialRequestSelections, setSpecialRequestSelections] = useState<
+    Record<string, number>
+  >(booking.specialRequestSelections);
+  const [additionalRequest, setAdditionalRequest] = useState(
+    booking.additionalRequest ?? "",
+  );
+  const [paymentMethod, setPaymentMethod] = useState<"credit_card" | "cash">(
+    booking.paymentMethod,
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const showSkeleton = useDelayedFlag(isSubmitting);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -49,7 +62,11 @@ function EditSpecialRequestsModal({ booking, catalog, onClose }: EditSpecialRequ
 
   const estimatedAddonsTotal = useMemo(() => {
     return catalog
-      .filter((option) => option.category === "special" && option.code in specialRequestSelections)
+      .filter(
+        (option) =>
+          option.category === "special" &&
+          option.code in specialRequestSelections,
+      )
       .reduce((sum, option) => {
         const quantity = resolveAddOnQuantity(
           option.billingType,
@@ -60,16 +77,22 @@ function EditSpecialRequestsModal({ booking, catalog, onClose }: EditSpecialRequ
       }, 0);
   }, [catalog, specialRequestSelections, booking.nights]);
 
-  const estimatedTotal = booking.roomSubtotal + estimatedAddonsTotal - booking.discountAmount;
+  const estimatedTotal =
+    booking.roomSubtotal + estimatedAddonsTotal - booking.discountAmount;
   const estimatedDifference = Math.max(0, estimatedTotal - booking.totalAmount);
 
   const requestsUnchanged = useMemo(() => {
     const sameStandard =
       standardRequests.length === booking.standardRequestCodes.length &&
-      standardRequests.every((code) => booking.standardRequestCodes.includes(code));
+      standardRequests.every((code) =>
+        booking.standardRequestCodes.includes(code),
+      );
     const sameSpecial =
-      JSON.stringify(specialRequestSelections) === JSON.stringify(booking.specialRequestSelections);
-    const sameAdditional = (additionalRequest.trim() || null) === (booking.additionalRequest ?? null);
+      JSON.stringify(specialRequestSelections) ===
+      JSON.stringify(booking.specialRequestSelections);
+    const sameAdditional =
+      (additionalRequest.trim() || null) ===
+      (booking.additionalRequest ?? null);
     return sameStandard && sameSpecial && sameAdditional;
   }, [
     standardRequests,
@@ -93,19 +116,27 @@ function EditSpecialRequestsModal({ booking, catalog, onClose }: EditSpecialRequ
     try {
       const payload: Record<string, unknown> = {
         standardRequests,
-        specialRequests: Object.entries(specialRequestSelections).map(([code, count]) => ({ code, count })),
+        specialRequests: Object.entries(specialRequestSelections).map(
+          ([code, count]) => ({ code, count }),
+        ),
         additionalRequest: additionalRequest.trim() || null,
       };
 
-      if (showPaymentSection && !isUnpaidPendingPaymentBooking(booking.status)) {
+      if (
+        showPaymentSection &&
+        !isUnpaidPendingPaymentBooking(booking.status)
+      ) {
         payload.paymentMethod = paymentMethod;
       }
 
-      const response = await fetch(`/api/admin/bookings/${booking.id}/special-requests`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const response = await fetch(
+        `/api/admin/bookings/${booking.id}/special-requests`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
       const body = await response.json().catch(() => null);
 
       if (!response.ok) {
@@ -137,7 +168,10 @@ function EditSpecialRequestsModal({ booking, catalog, onClose }: EditSpecialRequ
         className="relative flex max-h-full w-full max-w-3xl flex-col overflow-hidden rounded-lg bg-white shadow-lg"
       >
         <div className="flex items-center justify-between border-b border-brand-border px-6 py-4">
-          <h2 id="edit-special-requests-title" className="text-lg font-semibold text-brand-body">
+          <h2
+            id="edit-special-requests-title"
+            className="text-lg font-semibold text-brand-body"
+          >
             Edit special requests
           </h2>
           <button
@@ -151,7 +185,7 @@ function EditSpecialRequestsModal({ booking, catalog, onClose }: EditSpecialRequ
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+        <div className="relative min-h-0 flex-1 overflow-y-auto px-6 py-6">
           <SpecialRequestStep
             catalog={catalog}
             standardRequests={standardRequests}
@@ -161,7 +195,9 @@ function EditSpecialRequestsModal({ booking, catalog, onClose }: EditSpecialRequ
             onToggleStandard={(code) => {
               setError(null);
               setStandardRequests((current) =>
-                current.includes(code) ? current.filter((item) => item !== code) : [...current, code],
+                current.includes(code)
+                  ? current.filter((item) => item !== code)
+                  : [...current, code],
               );
             }}
             onSpecialCountChange={(code, count) => {
@@ -190,7 +226,13 @@ function EditSpecialRequestsModal({ booking, catalog, onClose }: EditSpecialRequ
               <p className="text-sm text-brand-body">
                 {getAdminEditPaymentLabel(booking.status)}:{" "}
                 <span className="font-semibold">
-                  {formatThb(getAdminEditPaymentAmount(booking.status, estimatedTotal, estimatedDifference))}
+                  {formatThb(
+                    getAdminEditPaymentAmount(
+                      booking.status,
+                      estimatedTotal,
+                      estimatedDifference,
+                    ),
+                  )}
                 </span>
               </p>
               {!isUnpaidPendingPaymentBooking(booking.status) && (
@@ -226,6 +268,8 @@ function EditSpecialRequestsModal({ booking, catalog, onClose }: EditSpecialRequ
           )}
 
           {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
+
+          <CardSkeletonOverlay show={showSkeleton} rows={3} columns={1} />
         </div>
 
         <div className="flex justify-end gap-3 border-t border-brand-border px-6 py-4">
@@ -263,7 +307,10 @@ type BookingSpecialRequestsSectionProps = {
   catalog: SpecialRequestOption[];
 };
 
-export function BookingSpecialRequestsSection({ booking, catalog }: BookingSpecialRequestsSectionProps) {
+export function BookingSpecialRequestsSection({
+  booking,
+  catalog,
+}: BookingSpecialRequestsSectionProps) {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const canEdit = isAdminBookingEditable(booking.status);
 
@@ -296,9 +343,11 @@ export function BookingSpecialRequestsSection({ booking, catalog }: BookingSpeci
           </div>
         )}
 
-        {booking.specialRequests.length === 0 && booking.standardRequests.length === 0 && !booking.additionalRequest && (
-          <p className="text-sm text-brand-muted">No special requests</p>
-        )}
+        {booking.specialRequests.length === 0 &&
+          booking.standardRequests.length === 0 &&
+          !booking.additionalRequest && (
+            <p className="text-sm text-brand-muted">No special requests</p>
+          )}
       </div>
 
       {isEditOpen && (
