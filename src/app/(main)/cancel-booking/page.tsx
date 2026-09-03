@@ -1,20 +1,21 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/server/db/supabase-server";
 import { getBookingForCustomerPage } from "@/server/services/booking-access";
+import { CANCELLABLE_STATUSES } from "@/server/queries/bookings.query";
 import { getGuestRoomTypeById } from "@/server/queries/booking-search.query";
-import ChangeDateView from "@/app/change-date/ChangeDateView";
+import CancelBookingReceiptView from "@/app/(main)/cancel-booking/CancelBookingReceiptView";
 
-type ChangeDatePageProps = {
+type CancelBookingPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export default async function ChangeDatePage({ searchParams }: ChangeDatePageProps) {
+export default async function CancelBookingPage({ searchParams }: CancelBookingPageProps) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   // Guests (no session) have no access to /booking-history — send them back
-  // to the code+email lookup page instead, both here and after a successful save.
+  // to the code+email lookup page instead.
   const fallbackHref = user ? "/booking-history" : "/booking/lookup";
 
   const params = await searchParams;
@@ -25,22 +26,37 @@ export default async function ChangeDatePage({ searchParams }: ChangeDatePagePro
   try {
     booking = await getBookingForCustomerPage(bookingId, user?.id ?? null);
   } catch (error) {
-    console.error("[change-date] Failed to load booking:", error);
+    console.error("[cancel-booking] Failed to load booking:", error);
     redirect(fallbackHref);
   }
   if (!booking) redirect(fallbackHref);
 
+  // Already resolved (e.g. revisiting the link later — cancelled and
+  // refunded are both terminal outcomes of the same action): show the
+  // matching receipt directly. Still cancellable: show the confirm step.
+  // Anything else (checked in, completed) doesn't belong on this page.
+  const initialPhase =
+    booking.status === "cancelled" || booking.status === "refunded"
+      ? "success"
+      : CANCELLABLE_STATUSES.includes(booking.status)
+        ? "confirm"
+        : null;
+  if (!initialPhase) redirect(fallbackHref);
+
   const room = await getGuestRoomTypeById(booking.roomTypeId);
 
   return (
-    <ChangeDateView
+    <CancelBookingReceiptView
       bookingId={booking.id}
       roomName={booking.roomTypeName}
-      roomImageUrl={room?.imageUrls[0] ?? "/images/room-bg-preview/Superior.jpg"}
+      imageUrl={room?.imageUrls[0] ?? "/images/room-bg-preview/Superior.jpg"}
       bookingCreatedAt={booking.createdAt}
       checkIn={booking.checkIn}
       checkOut={booking.checkOut}
-      successHref={fallbackHref}
+      guests={booking.guests}
+      totalAmount={booking.totalAmount}
+      initialPhase={initialPhase}
+      initialRefunded={booking.status === "refunded"}
     />
   );
 }

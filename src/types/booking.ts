@@ -123,7 +123,7 @@ export type CreateBookingResult =
 export type BookingHistoryStatus = "upcoming" | "checked_in" | "cancelled";
 
 export type BookingPayment = {
-  method: "credit_card";
+  method: "credit_card" | "cash" | "promptpay";
   lastDigits: string;
 };
 

@@ -31,6 +31,7 @@ export default async function BookingSuccessPage({ searchParams }: BookingSucces
         initialBooking={booking}
         checkInTimeLabel={formatCheckTimeLabel(hotel.checkInTime)}
         checkOutTimeLabel={formatCheckTimeLabel(hotel.checkOutTime)}
+        isLoggedIn={Boolean(user)}
       />
     </main>
   );
