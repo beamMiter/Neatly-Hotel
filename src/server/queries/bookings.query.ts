@@ -629,18 +629,36 @@ export async function applyTopUpPaymentOutcome(bookingId: string, outcome: "paid
 
 // Called only from the Stripe webhook handler — the source of truth for
 // payment state (see plan §9: client-side confirmPayment is advisory only).
-export async function updateBookingPaymentStatus(bookingId: string, outcome: "paid" | "failed"): Promise<void> {
+//
+// `confirmedMethod` is the method Stripe actually settled the charge with
+// (read from the charge's `payment_method_details.type` in the webhook), not
+// whatever the guest had selected when this payment attempt started. A retry
+// via /booking/payment can switch between Credit Card and PromptPay between
+// attempts — without this, `bookings.payment_method` would keep showing
+// whichever method the *first* attempt on this booking used, even after a
+// later attempt actually settled with a different one.
+export async function updateBookingPaymentStatus(
+  bookingId: string,
+  outcome: "paid" | "failed",
+  confirmedMethod?: "credit_card" | "promptpay",
+): Promise<void> {
   const paymentStatus = outcome === "paid" ? "paid" : "failed";
   const status = outcome === "paid" ? "confirmed" : "cancelled";
   await prisma.$executeRaw`
-    update bookings set payment_status = ${paymentStatus}, status = ${status}, expires_at = null
+    update bookings
+    set payment_method = coalesce(${confirmedMethod ?? null}, payment_method),
+        payment_status = ${paymentStatus}, status = ${status}, expires_at = null
     where id = ${bookingId}::uuid
   `;
 }
 
+// Also used when a guest switches to Cash on a retry of /booking/payment for
+// a booking originally created with Credit Card or PromptPay — without
+// re-setting payment_method here, the booking would still show its original
+// (unpaid) method even though the guest ended up paying at the hotel.
 export async function markBookingCashConfirmed(bookingId: string): Promise<void> {
   await prisma.$executeRaw`
-    update bookings set payment_status = 'pay_at_hotel', status = 'confirmed', expires_at = null
+    update bookings set payment_method = 'cash', payment_status = 'pay_at_hotel', status = 'confirmed', expires_at = null
     where id = ${bookingId}::uuid
   `;
 }
