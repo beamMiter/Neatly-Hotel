@@ -201,7 +201,7 @@ export function SupportBookingCard({
         <div className="col-span-2 flex items-end justify-between border-t border-[#EEF0F4] pt-3"><dt className="text-sm font-medium text-[#646D89]">{t.total}</dt><dd className="m-0 text-base font-semibold text-[#C14817]">THB {previewTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}</dd></div>
       </dl>
       {isPending && confirmError && <p className="m-0 border-t border-[#F3D4C8] bg-[#FFF8F5] px-4 py-2 text-xs text-[#B42318]">{confirmError}</p>}
-      {isPending && <div className="border-t border-[#EEF0F4] p-3"><button type="button" onClick={() => void confirmBooking()} disabled={isConfirming} className="w-full rounded-lg bg-[#C14817] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#A93F13] focus:outline-2 focus:outline-offset-2 focus:outline-[#C14817]">{isConfirming ? t.saving : t.confirm}</button></div>}
+      {isPending && <div className="border-t border-[#EEF0F4] p-3"><button type="button" onClick={() => void confirmBooking()} disabled={isConfirming} className="flex w-full items-center justify-center rounded-lg bg-[#C14817] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#A93F13] focus:outline-2 focus:outline-offset-2 focus:outline-[#C14817]">{isConfirming ? <span className="flex items-center justify-center gap-2"><span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />{t.saving}</span> : t.confirm}</button></div>}
     </article>
   );
 }
