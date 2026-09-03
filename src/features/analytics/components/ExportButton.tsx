@@ -46,9 +46,16 @@ export function ExportButton({ href, fileName }: { href: string; fileName: strin
         type="button"
         onClick={handleExport}
         disabled={isDownloading}
-        className="rounded-md bg-brand-primary px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-brand-primary-hover disabled:opacity-60"
+        className="flex items-center justify-center rounded-md bg-brand-primary px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-brand-primary-hover disabled:opacity-60"
       >
-        {isDownloading ? "Exporting..." : "Export"}
+        {isDownloading ? (
+          <span className="flex items-center justify-center gap-1.5">
+            <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+            Exporting...
+          </span>
+        ) : (
+          "Export"
+        )}
       </button>
 
       {error && <ErrorToast message={error} isLeaving={isErrorLeaving} />}
