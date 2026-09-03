@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { BookingLookupView } from "@/features/booking/components/BookingLookupView";
 
 export const metadata: Metadata = {
@@ -9,7 +10,9 @@ export const metadata: Metadata = {
 export default function BookingLookupPage() {
   return (
     <main className="flex-1 bg-[#F7F7FB]">
-      <BookingLookupView />
+      <Suspense fallback={<div className="px-4 py-16 text-center text-sm text-[#646D89]">Loading…</div>}>
+        <BookingLookupView />
+      </Suspense>
     </main>
   );
 }
