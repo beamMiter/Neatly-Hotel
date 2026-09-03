@@ -155,7 +155,14 @@ export function EditProfileForm({
           disabled={isSubmitting}
           className="hidden h-12 shrink-0 cursor-pointer items-center justify-center rounded bg-[#C14817] px-8 py-4 [font-family:var(--font-open-sans)] text-base font-semibold text-white hover:bg-[#A93F13] disabled:cursor-not-allowed disabled:opacity-70 lg:flex"
         >
-          {isSubmitting ? "Saving..." : "Update Profile"}
+          {isSubmitting ? (
+            <span className="flex items-center justify-center gap-2">
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              Saving...
+            </span>
+          ) : (
+            "Update Profile"
+          )}
         </button>
       </div>
 
@@ -269,7 +276,14 @@ export function EditProfileForm({
         disabled={isSubmitting}
         className="flex h-12 w-full cursor-pointer items-center justify-center rounded bg-[#C14817] px-8 py-4 [font-family:var(--font-open-sans)] text-base font-semibold text-white hover:bg-[#A93F13] disabled:cursor-not-allowed disabled:opacity-70 lg:hidden"
       >
-        {isSubmitting ? "Saving..." : "Update Profile"}
+        {isSubmitting ? (
+          <span className="flex items-center justify-center gap-2">
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+            Saving...
+          </span>
+        ) : (
+          "Update Profile"
+        )}
       </button>
     </form>
   );
