@@ -87,6 +87,9 @@ export function BookingSuccessView({
       <div className="mx-auto max-w-[738px] pb-6 lg:px-4 lg:py-20">
         <div className="overflow-hidden lg:rounded bg-[#465C50] shadow-[4px_4px_16px_rgba(0,0,0,0.08)]">
           <div className={HEAD_CLASSNAME}>
+            {!isFailed && (
+              <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/40 border-t-white" />
+            )}
             <h1 className={HEADLINE_CLASSNAME}>
               {isFailed
                 ? "This payment wasn't completed"
