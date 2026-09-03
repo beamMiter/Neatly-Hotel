@@ -8,6 +8,8 @@ import { SelectField } from "@/components/ui/SelectField";
 import { DateOfBirthField } from "@/components/ui/DateOfBirthField";
 import { PhotoUpload } from "@/features/auth/components/PhotoUpload";
 import { COUNTRIES } from "@/lib/countries";
+import { useDelayedFlag } from "@/lib/useDelayedFlag";
+import { CardSkeletonOverlay } from "@/components/shared/CardSkeletonOverlay";
 import {
   profileUpdateSchema,
   type ProfileUpdateFieldErrors,
@@ -45,6 +47,7 @@ export function EditProfileForm({
   const [avatarRemoved, setAvatarRemoved] = useState(false);
   const [errors, setErrors] = useState<ProfileUpdateFieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const showSkeleton = useDelayedFlag(isSubmitting);
   const [status, setStatus] = useState<{
     type: "error" | "success";
     message: string;
@@ -179,93 +182,97 @@ export function EditProfileForm({
         </p>
       )}
 
-      <div className="flex w-full flex-col gap-6 lg:gap-10">
-        <h2 className="text-xl leading-[150%] font-semibold tracking-[-0.02em] text-[#9AA1B9]">
-          Basic Information
-        </h2>
+      <div className="relative flex w-full flex-col gap-10">
+        <div className="flex w-full flex-col gap-6 lg:gap-10">
+          <h2 className="text-xl leading-[150%] font-semibold tracking-[-0.02em] text-[#9AA1B9]">
+            Basic Information
+          </h2>
 
-        <div className="grid grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2">
-          <TextField
-            id="firstName"
-            name="firstName"
-            label="First name"
-            placeholder="Enter your first name"
-            value={fields.firstName}
-            onChange={handleFieldChange}
-            error={errors.firstName}
-          />
-          <TextField
-            id="lastName"
-            name="lastName"
-            label="Last name"
-            placeholder="Enter your last name"
-            value={fields.lastName}
-            onChange={handleFieldChange}
-            error={errors.lastName}
-          />
-
-          <div className="flex flex-col gap-1.5">
+          <div className="grid grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2">
             <TextField
-              id="email"
-              label="Email"
-              value={email}
-              disabled
-              readOnly
+              id="firstName"
+              name="firstName"
+              label="First name"
+              placeholder="Enter your first name"
+              value={fields.firstName}
+              onChange={handleFieldChange}
+              error={errors.firstName}
             />
-            <p className="text-xs text-brand-muted">
-              Contact support to change the email on your account.
-            </p>
+            <TextField
+              id="lastName"
+              name="lastName"
+              label="Last name"
+              placeholder="Enter your last name"
+              value={fields.lastName}
+              onChange={handleFieldChange}
+              error={errors.lastName}
+            />
+
+            <div className="flex flex-col gap-1.5">
+              <TextField
+                id="email"
+                label="Email"
+                value={email}
+                disabled
+                readOnly
+              />
+              <p className="text-xs text-brand-muted">
+                Contact support to change the email on your account.
+              </p>
+            </div>
+            <TextField
+              id="phone"
+              name="phone"
+              type="tel"
+              label="Phone number"
+              placeholder="Enter your phone number"
+              value={fields.phone}
+              onChange={handleFieldChange}
+              error={errors.phone}
+            />
+
+            <DateOfBirthField
+              id="dateOfBirth"
+              name="dateOfBirth"
+              label="Date of Birth"
+              value={dateOfBirth}
+              onChange={handleDateChange}
+              error={errors.dateOfBirth}
+            />
+
+            <SelectField
+              id="country"
+              name="country"
+              label="Country"
+              placeholder="Select your country"
+              value={fields.country}
+              onChange={handleFieldChange}
+              error={errors.country}
+            >
+              {COUNTRIES.map((country) => (
+                <option key={country} value={country}>
+                  {country}
+                </option>
+              ))}
+            </SelectField>
           </div>
-          <TextField
-            id="phone"
-            name="phone"
-            type="tel"
-            label="Phone number"
-            placeholder="Enter your phone number"
-            value={fields.phone}
-            onChange={handleFieldChange}
-            error={errors.phone}
-          />
-
-          <DateOfBirthField
-            id="dateOfBirth"
-            name="dateOfBirth"
-            label="Date of Birth"
-            value={dateOfBirth}
-            onChange={handleDateChange}
-            error={errors.dateOfBirth}
-          />
-
-          <SelectField
-            id="country"
-            name="country"
-            label="Country"
-            placeholder="Select your country"
-            value={fields.country}
-            onChange={handleFieldChange}
-            error={errors.country}
-          >
-            {COUNTRIES.map((country) => (
-              <option key={country} value={country}>
-                {country}
-              </option>
-            ))}
-          </SelectField>
         </div>
-      </div>
 
-      <div className="flex w-full flex-col gap-10 border-t border-[#E4E6ED] pt-10">
-        <h2 className="text-xl leading-[150%] font-semibold tracking-[-0.02em] text-[#9AA1B9]">
-          Profile Picture
-        </h2>
-        <PhotoUpload
-          id="profilePicture"
-          name="profilePicture"
-          file={photo}
-          onChange={handlePhotoChange}
-          existingUrl={avatarUrl}
-          onRemoveExisting={handleRemoveAvatar}
-        />
+        <div className="flex w-full flex-col gap-10 border-t border-[#E4E6ED] pt-10">
+          <h2 className="text-xl leading-[150%] font-semibold tracking-[-0.02em] text-[#9AA1B9]">
+            Profile Picture
+          </h2>
+          <PhotoUpload
+            id="profilePicture"
+            name="profilePicture"
+            file={photo}
+            onChange={handlePhotoChange}
+            existingUrl={avatarUrl}
+            onRemoveExisting={handleRemoveAvatar}
+          />
+        </div>
+
+        <CardSkeletonOverlay show={showSkeleton} rows={6} />
       </div>
 
       {/* Mobile only — the desktop button lives inline with the heading
