@@ -16,6 +16,7 @@ import {
 import { cancelPaymentIntent, createBookingPaymentIntent } from "@/server/payments/stripe";
 import { supabaseAdmin } from "@/server/db/supabase-admin";
 import { assertEmailVerificationToken } from "@/server/queries/email-otp.query";
+import { maybeSendGuestBookingConfirmationEmail } from "@/server/services/booking-confirmation-email";
 
 export async function POST(request: Request) {
   // Booking creation runs entirely through Prisma (see bookings.query.ts's
@@ -88,6 +89,9 @@ export async function POST(request: Request) {
 
     if (data.paymentMethod === "cash") {
       await markBookingCashConfirmed(booking.id);
+      // Cash create inserts status=confirmed already, so markBookingCashConfirmed
+      // does not send mail — send once here for guest bookings.
+      await maybeSendGuestBookingConfirmationEmail(booking.id);
       return NextResponse.json(
         { message: "Booking confirmed", bookingId: booking.id, paymentMethod: "cash" },
         { status: 201 },

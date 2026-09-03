@@ -24,8 +24,10 @@ import {
   cancelPaymentIntent,
   createBookingPaymentIntent,
   refundPayment,
+  retrieveChargeWithCard,
   retrievePaymentIntent,
 } from "@/server/payments/stripe";
+import { maybeSendGuestBookingConfirmationEmail } from "@/server/services/booking-confirmation-email";
 import type {
   BookingPricing,
   BookingRecord,
@@ -649,6 +651,11 @@ export async function updateBookingPaymentStatus(
   outcome: "paid" | "failed",
   confirmedMethod?: "credit_card" | "promptpay",
 ): Promise<void> {
+  const previous = await prisma.$queryRaw<{ status: string }[]>`
+    select status from bookings where id = ${bookingId}::uuid limit 1
+  `;
+  const wasAlreadyConfirmed = previous[0]?.status === "confirmed";
+
   const paymentStatus = outcome === "paid" ? "paid" : "failed";
   const status = outcome === "paid" ? "confirmed" : "cancelled";
   await prisma.$executeRaw`
@@ -657,6 +664,94 @@ export async function updateBookingPaymentStatus(
         payment_status = ${paymentStatus}, status = ${status}, expires_at = null
     where id = ${bookingId}::uuid
   `;
+
+  // Guest confirmation email only on the first transition into confirmed.
+  // Webhook redeliveries (already confirmed) must not send again.
+  if (outcome === "paid" && !wasAlreadyConfirmed) {
+    await maybeSendGuestBookingConfirmationEmail(bookingId);
+  }
+}
+
+/**
+ * Confirms a card/PromptPay booking by asking Stripe directly — used when the
+ * webhook is slow or missing (typical in local `next dev` without
+ * `stripe listen`). Idempotent if the booking is already paid.
+ *
+ * Still trusts Stripe as source of truth: we only mark paid when the latest
+ * PaymentIntent for this booking is `succeeded`.
+ */
+export async function syncBookingPaymentFromStripe(bookingId: string): Promise<{
+  synced: boolean;
+  paymentStatus: string;
+}> {
+  const bookingRows = await prisma.$queryRaw<{ status: string; payment_status: string }[]>`
+    select status, payment_status from bookings where id = ${bookingId}::uuid limit 1
+  `;
+  if (bookingRows.length === 0) {
+    throw new BookingNotFoundError();
+  }
+
+  const current = bookingRows[0];
+  if (current.payment_status === "paid" || current.status === "confirmed") {
+    return { synced: false, paymentStatus: current.payment_status };
+  }
+
+  const { data: payments, error } = await supabaseAdmin
+    .from("payments")
+    .select("stripe_payment_intent_id, status")
+    .eq("booking_id", bookingId)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (error) {
+    console.error("[bookings] syncPayment could not read payments:", error);
+    throw new Error("Could not read payment records for this booking");
+  }
+
+  const intentId = payments?.[0]?.stripe_payment_intent_id;
+  if (!intentId) {
+    return { synced: false, paymentStatus: current.payment_status };
+  }
+
+  const intent = await retrievePaymentIntent(intentId);
+  if (intent.metadata.paymentKind === "top_up") {
+    return { synced: false, paymentStatus: current.payment_status };
+  }
+
+  if (intent.status !== "succeeded") {
+    return { synced: false, paymentStatus: current.payment_status };
+  }
+
+  let confirmedMethod: "credit_card" | "promptpay" | undefined;
+  let cardBrand: string | null = null;
+  let cardLast4: string | null = null;
+  if (intent.latest_charge) {
+    const chargeId =
+      typeof intent.latest_charge === "string" ? intent.latest_charge : intent.latest_charge.id;
+    try {
+      const charge = await retrieveChargeWithCard(chargeId);
+      cardBrand = charge.payment_method_details?.card?.brand ?? null;
+      cardLast4 = charge.payment_method_details?.card?.last4 ?? null;
+      const methodType = charge.payment_method_details?.type;
+      confirmedMethod =
+        methodType === "card" ? "credit_card" : methodType === "promptpay" ? "promptpay" : undefined;
+    } catch (chargeError) {
+      console.error("[bookings] syncPayment could not load charge details:", chargeError);
+    }
+  }
+
+  await supabaseAdmin
+    .from("payments")
+    .update({
+      status: "succeeded",
+      card_brand: cardBrand,
+      card_last4: cardLast4,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("stripe_payment_intent_id", intentId);
+
+  await updateBookingPaymentStatus(bookingId, "paid", confirmedMethod);
+  return { synced: true, paymentStatus: "paid" };
 }
 
 // Also used when a guest switches to Cash on a retry of /booking/payment for
@@ -664,10 +759,22 @@ export async function updateBookingPaymentStatus(
 // re-setting payment_method here, the booking would still show its original
 // (unpaid) method even though the guest ended up paying at the hotel.
 export async function markBookingCashConfirmed(bookingId: string): Promise<void> {
+  const previous = await prisma.$queryRaw<{ status: string }[]>`
+    select status from bookings where id = ${bookingId}::uuid limit 1
+  `;
+  const wasAlreadyConfirmed = previous[0]?.status === "confirmed";
+
   await prisma.$executeRaw`
     update bookings set payment_method = 'cash', payment_status = 'pay_at_hotel', status = 'confirmed', expires_at = null
     where id = ${bookingId}::uuid
   `;
+
+  // Cash create already inserts status=confirmed, so this path often finds
+  // wasAlreadyConfirmed=true — the create API then calls maybeSend explicitly.
+  // Retry pay-at-hotel (pending → confirmed) sends from here.
+  if (!wasAlreadyConfirmed) {
+    await maybeSendGuestBookingConfirmationEmail(bookingId);
+  }
 }
 
 // Revives a booking for a retry attempt — used by

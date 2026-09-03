@@ -43,27 +43,47 @@ export function BookingSuccessView({
   useEffect(() => {
     if (booking.paymentMethod === "cash" || booking.paymentStatus !== "pending") return;
     startedAtRef.current ??= Date.now();
+    let cancelled = false;
 
-    const interval = setInterval(async () => {
+    async function refreshPaymentStatus() {
       if (startedAtRef.current !== null && Date.now() - startedAtRef.current > POLL_TIMEOUT_MS) {
         setTimedOut(true);
-        clearInterval(interval);
-        return;
+        return false;
       }
 
       try {
+        // Ask the server to reconcile with Stripe when the webhook is late
+        // or missing (local `next dev` without `stripe listen`).
+        await fetch(`/api/bookings/${bookingId}/confirm-payment`, { method: "POST" }).catch(
+          () => null,
+        );
+
         const response = await fetch(`/api/bookings/${bookingId}`);
-        if (!response.ok) return;
+        if (!response.ok || cancelled) return true;
         const data = await response.json();
         const updated = data.booking as BookingRecord;
         setBooking(updated);
-        if (updated.paymentStatus === "paid") setTimedOut(false);
+        if (updated.paymentStatus === "paid") {
+          setTimedOut(false);
+          return false;
+        }
       } catch {
         // keep polling — a transient network error shouldn't stop the loop
       }
+      return true;
+    }
+
+    void refreshPaymentStatus();
+    const interval = setInterval(() => {
+      void refreshPaymentStatus().then((keepGoing) => {
+        if (!keepGoing) clearInterval(interval);
+      });
     }, POLL_INTERVAL_MS);
 
-    return () => clearInterval(interval);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [bookingId, booking.paymentMethod, booking.paymentStatus]);
 
   // A failed webhook can land *before* this page's own first fetch — the

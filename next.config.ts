@@ -25,6 +25,7 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ? new URL(process.env.N
 const nextConfig: NextConfig = {
   reactCompiler: true,
   devIndicators: false,
+  serverExternalPackages: ["nodemailer"],
   images: {
     remotePatterns: supabaseUrl
       ? [
