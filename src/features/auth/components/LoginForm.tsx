@@ -60,7 +60,14 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
           disabled={pending}
           className={`${openSans.className} flex h-12 cursor-pointer items-center justify-center rounded bg-[#C14817] text-base font-semibold text-white transition-transform duration-150 hover:bg-[#A93F13] active:scale-90 disabled:cursor-default disabled:opacity-60`}
         >
-          {pending ? "Logging in..." : "Log In"}
+          {pending ? (
+            <span className="flex items-center justify-center gap-2">
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              Logging in...
+            </span>
+          ) : (
+            "Log In"
+          )}
         </button>
 
         <p className={`${inter.className} flex items-center gap-2 text-base tracking-[-0.02em] text-[#646D89]`}>

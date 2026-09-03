@@ -43,7 +43,14 @@ export function ForgotPasswordForm({ linkExpired = false }: { linkExpired?: bool
           disabled={pending}
           className={`${openSans.className} flex h-12 cursor-pointer items-center justify-center rounded bg-[#C14817] text-base font-semibold text-white disabled:cursor-default disabled:opacity-60`}
         >
-          {pending ? "Sending..." : "Send Reset Link"}
+          {pending ? (
+            <span className="flex items-center justify-center gap-2">
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              Sending...
+            </span>
+          ) : (
+            "Send Reset Link"
+          )}
         </button>
 
         <p className={`${inter.className} flex items-center gap-2 text-base tracking-[-0.02em] text-[#646D89]`}>

@@ -50,7 +50,14 @@ export function NewPasswordForm() {
         disabled={pending}
         className={`${openSans.className} flex h-12 cursor-pointer items-center justify-center rounded bg-[#C14817] text-base font-semibold text-white disabled:cursor-default disabled:opacity-60`}
       >
-        {pending ? "Saving..." : "Save New Password"}
+        {pending ? (
+          <span className="flex items-center justify-center gap-2">
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+            Saving...
+          </span>
+        ) : (
+          "Save New Password"
+        )}
       </button>
     </form>
   );
