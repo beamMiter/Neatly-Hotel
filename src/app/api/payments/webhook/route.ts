@@ -66,11 +66,19 @@ export async function POST(request: Request) {
         // The webhook payload's `latest_charge` is just an id (unexpanded)
         // — re-fetch with the card details expanded rather than casting it.
         let card: Stripe.Charge.PaymentMethodDetails.Card | undefined;
+        // The charge's own `payment_method_details.type` is what Stripe
+        // actually settled with ("card" or "promptpay") — this can differ
+        // from whichever panel the guest started this attempt on, so it's
+        // the only trustworthy source for bookings.payment_method.
+        let confirmedMethod: "credit_card" | "promptpay" | undefined;
         if (intent.latest_charge) {
           const chargeId =
             typeof intent.latest_charge === "string" ? intent.latest_charge : intent.latest_charge.id;
           const charge = await retrieveChargeWithCard(chargeId);
           card = charge.payment_method_details?.card ?? undefined;
+          const methodType = charge.payment_method_details?.type;
+          confirmedMethod =
+            methodType === "card" ? "credit_card" : methodType === "promptpay" ? "promptpay" : undefined;
         }
 
         await supabaseAdmin
@@ -87,7 +95,7 @@ export async function POST(request: Request) {
           if (intent.metadata.paymentKind === "top_up") {
             await applyTopUpPaymentOutcome(bookingId, "paid");
           } else {
-            await updateBookingPaymentStatus(bookingId, "paid");
+            await updateBookingPaymentStatus(bookingId, "paid", confirmedMethod);
           }
         }
         break;
