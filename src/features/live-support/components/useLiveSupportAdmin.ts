@@ -6,6 +6,7 @@ import type { SupportAgent, SupportBooking, SupportConversation, SupportConversa
 type ConversationUpdate =
   | { action: "claim" }
   | { action: "takeover"; expectedAssignedAgentId: string }
+  | { action: "regenerate_summary" }
   | { status: Extract<SupportConversationStatus, "active" | "resolved"> };
 
 export function useLiveSupportAdmin(selectedThreadId: string | null, onInitialSelection?: (id: string) => void) {

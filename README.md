@@ -31,6 +31,7 @@ For a fresh hotel database that has been approved by the team, use `npm run db:s
 | `DATABASE_URL` | PostgreSQL connection string used by Prisma. |
 | `GEMINI_API_KEY` | Enables Gemini chatbot intent analysis. |
 | `GEMINI_MODEL` | Gemini model name; defaults to `gemini-3.6-flash`. |
+| `GEMINI_SUMMARY_MODEL` | Live Support summary model; defaults to `gemini-3.5-flash-lite` so summaries do not share the chatbot model quota. |
 | `NEXT_PUBLIC_SITE_URL` | Optional canonical site URL for password-reset links. |
 
 ## Common commands
