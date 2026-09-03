@@ -57,6 +57,7 @@ export default async function CancelBookingPage({ searchParams }: CancelBookingP
       totalAmount={booking.totalAmount}
       initialPhase={initialPhase}
       initialRefunded={booking.status === "refunded"}
+      initialCancelledAt={booking.cancelledAt}
     />
   );
 }

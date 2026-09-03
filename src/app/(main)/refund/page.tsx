@@ -59,6 +59,7 @@ export default async function RefundPage({ searchParams }: RefundPageProps) {
       totalAmount={booking.totalAmount}
       initialPhase={initialPhase}
       initialRefunded={booking.status === "refunded"}
+      initialCancelledAt={booking.cancelledAt}
     />
   );
 }

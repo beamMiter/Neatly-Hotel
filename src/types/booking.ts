@@ -98,6 +98,7 @@ export type BookingRecord = {
   cardBrand: string | null;
   cardLast4: string | null;
   createdAt: string;
+  cancelledAt: string | null;
 };
 
 export type ProfilePrefill = {
