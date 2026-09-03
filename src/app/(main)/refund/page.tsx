@@ -3,7 +3,7 @@ import { createClient } from "@/server/db/supabase-server";
 import { getBookingForCustomerPage } from "@/server/services/booking-access";
 import { CANCELLABLE_STATUSES } from "@/server/queries/bookings.query";
 import { getGuestRoomTypeById } from "@/server/queries/booking-search.query";
-import RefundReceiptView from "@/app/refund/RefundReceiptView";
+import RefundReceiptView from "@/app/(main)/refund/RefundReceiptView";
 
 type RefundPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -59,6 +59,7 @@ export default async function RefundPage({ searchParams }: RefundPageProps) {
       totalAmount={booking.totalAmount}
       initialPhase={initialPhase}
       initialRefunded={booking.status === "refunded"}
+      initialCancelledAt={booking.cancelledAt}
     />
   );
 }

@@ -15,6 +15,7 @@ type BookingSuccessViewProps = {
   initialBooking: BookingRecord;
   checkInTimeLabel: string;
   checkOutTimeLabel: string;
+  isLoggedIn: boolean;
 };
 
 const HEAD_CLASSNAME = "flex w-full flex-col items-center justify-center gap-3 bg-[#2F3E35] px-6 py-10";
@@ -32,6 +33,7 @@ export function BookingSuccessView({
   initialBooking,
   checkInTimeLabel,
   checkOutTimeLabel,
+  isLoggedIn,
 }: BookingSuccessViewProps) {
   const router = useRouter();
   const [booking, setBooking] = useState(initialBooking);
@@ -230,17 +232,12 @@ export function BookingSuccessView({
         >
           Back to Home
         </Link>
-        {/* No standalone "view my booking" page exists yet anywhere in the
-            app (checked both this branch and the team's dev branch) — this
-            button is a placeholder for the Figma spec until that page
-            exists. */}
-        <button
-          type="button"
-          disabled
-          className="cursor-not-allowed px-2 py-1 [font-family:var(--font-open-sans)] text-base leading-none font-semibold text-[#E76B39] opacity-50 lg:order-1"
+        <Link
+          href={isLoggedIn ? "/booking-history" : "/booking/lookup"}
+          className="cursor-pointer px-2 py-1 [font-family:var(--font-open-sans)] text-base leading-none font-semibold text-[#E76B39] transition-colors duration-150 hover:text-[#C14817] lg:order-1"
         >
           Check Booking Detail
-        </button>
+        </Link>
       </div>
     </div>
   );

@@ -7,6 +7,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
+import { MAX_STAY_NIGHTS } from '@/features/booking/date-rules';
 
 // ── Types ──────────────────────────────────────────────────────
 type CalendarDay = {
@@ -119,7 +120,11 @@ const ChangeDatePicker = ({ nights, checkIn, checkOut, onChange }: ChangeDatePic
 				const isSelected = isSameDay(date, checkIn) || isSameDay(date, checkOut);
 				const isRange = isBetween(date, checkIn, checkOut);
 				const isPast = date < todayStart;
-				const isDisabled = !inCurrentMonth || isPast;
+				// New check-in can only be picked within the next 30 days from
+				// today — not present on the search bar's picker (which caps stay
+				// *length* instead), added per this task's explicit request.
+				const isTooFarAhead = date > addDays(todayStart, MAX_STAY_NIGHTS);
+				const isDisabled = !inCurrentMonth || isPast || isTooFarAhead;
 
 				return (
 					<button

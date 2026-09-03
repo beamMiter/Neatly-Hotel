@@ -177,6 +177,7 @@ function toBookingRecord(row: {
   promo_code: string | null;
   discount_amount: number | string;
   created_at: Date | string;
+  cancelled_at: Date | string | null;
 }): BookingRecord {
   const isoDate = (value: Date | string) => (value instanceof Date ? value.toISOString().slice(0, 10) : value);
 
@@ -212,6 +213,12 @@ function toBookingRecord(row: {
     cardBrand: null,
     cardLast4: null,
     createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
+    cancelledAt:
+      row.cancelled_at == null
+        ? null
+        : row.cancelled_at instanceof Date
+          ? row.cancelled_at.toISOString()
+          : row.cancelled_at,
   };
 }
 
@@ -298,7 +305,7 @@ export async function createPendingBooking(
           select id, booking_code, customer_id, check_in, check_out, guests, status, total_amount,
                  guest_first_name, guest_last_name, guest_email, guest_phone,
                  guest_date_of_birth, guest_country, standard_requests, special_requests,
-                 additional_request, promo_code, discount_amount, created_at,
+                 additional_request, promo_code, discount_amount, created_at, cancelled_at,
                  payment_method, payment_status, ${input.roomTypeId}::uuid as room_type_id,
                  ${roomType.name} as room_type_name, ${input.rooms}::int as rooms_count
           from bookings where id = ${bookingId}::uuid
@@ -372,7 +379,7 @@ export async function getBookingById(id: string, customerId: string | null): Pro
     select b.id, b.booking_code, b.customer_id, b.check_in, b.check_out, b.guests, b.status, b.total_amount,
            b.guest_first_name, b.guest_last_name, b.guest_email, b.guest_phone,
            b.guest_date_of_birth, b.guest_country, b.standard_requests, b.special_requests,
-           b.additional_request, b.promo_code, b.discount_amount, b.created_at,
+           b.additional_request, b.promo_code, b.discount_amount, b.created_at, b.cancelled_at,
            b.payment_method, b.payment_status,
            br.room_type_id, br.room_type_name, coalesce(brc.rooms_count, 0) as rooms_count,
            p.card_brand, p.card_last4
@@ -418,7 +425,7 @@ export async function lookupBookingByCodeAndEmail(
     select b.id, b.booking_code, b.customer_id, b.check_in, b.check_out, b.guests, b.status, b.total_amount,
            b.guest_first_name, b.guest_last_name, b.guest_email, b.guest_phone,
            b.guest_date_of_birth, b.guest_country, b.standard_requests, b.special_requests,
-           b.additional_request, b.promo_code, b.discount_amount, b.created_at,
+           b.additional_request, b.promo_code, b.discount_amount, b.created_at, b.cancelled_at,
            b.payment_method, b.payment_status,
            br.room_type_id, br.room_type_name, coalesce(brc.rooms_count, 0) as rooms_count,
            p.card_brand, p.card_last4
