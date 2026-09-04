@@ -170,8 +170,10 @@ export function EditRoomForm({ room }: { room: RoomTypeDetail }) {
       formData.append("bedType", fields.bedType);
       formData.append("guests", fields.guests);
       formData.append("price", fields.price);
-      if (hasPromotion && fields.promotionPrice)
-        formData.append("promotionPrice", fields.promotionPrice);
+      // Sent as "" rather than omitted when checked-but-blank, so
+      // parseUpdateRoomFormData can tell that apart from "no promotion
+      // offered" and require a value instead of silently dropping it.
+      if (hasPromotion) formData.append("promotionPrice", fields.promotionPrice);
       formData.append("description", fields.description);
 
       if (mainImage?.kind === "new") {
