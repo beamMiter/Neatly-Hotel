@@ -7,11 +7,20 @@ import { TextField } from "@/components/ui/TextField";
 import { SelectField } from "@/components/ui/SelectField";
 import { ArrowLeftIcon } from "@/components/icons/ArrowLeftIcon";
 import { EditMainImage } from "@/features/rooms/components/EditMainImage";
-import { EditRoomGallery, type EditGalleryItem } from "@/features/rooms/components/EditRoomGallery";
+import {
+  EditRoomGallery,
+  type EditGalleryItem,
+} from "@/features/rooms/components/EditRoomGallery";
 import { AmenitiesList } from "@/features/rooms/components/AmenitiesList";
 import { DeleteRoomModal } from "@/features/rooms/components/DeleteRoomModal";
+import { useDelayedFlag } from "@/lib/useDelayedFlag";
+import { CardSkeletonOverlay } from "@/components/shared/CardSkeletonOverlay";
 import { BED_TYPES, type RoomTypeDetail } from "@/types/room-type";
-import { MIN_GALLERY_IMAGES, createRoomSchema, type CreateRoomFieldErrors } from "@/features/rooms/validations";
+import {
+  MIN_GALLERY_IMAGES,
+  createRoomSchema,
+  type CreateRoomFieldErrors,
+} from "@/features/rooms/validations";
 
 const GUEST_OPTIONS = [1, 2, 3, 4, 5, 6];
 
@@ -37,7 +46,8 @@ function fieldsFromRoom(room: RoomTypeDetail): FormFields {
     bedType: room.bedType,
     guests: room.guests ? String(room.guests) : "",
     price: room.price ? String(room.price) : "",
-    promotionPrice: room.promotionPrice === null ? "" : String(room.promotionPrice),
+    promotionPrice:
+      room.promotionPrice === null ? "" : String(room.promotionPrice),
     description: room.description,
   };
 }
@@ -45,24 +55,44 @@ function fieldsFromRoom(room: RoomTypeDetail): FormFields {
 export function EditRoomForm({ room }: { room: RoomTypeDetail }) {
   const router = useRouter();
   const [fields, setFields] = useState<FormFields>(() => fieldsFromRoom(room));
-  const [hasPromotion, setHasPromotion] = useState(room.promotionPrice !== null);
+  const [hasPromotion, setHasPromotion] = useState(
+    room.promotionPrice !== null,
+  );
   const [mainImage, setMainImage] = useState<MainImageState>(
-    room.mainImage ? { kind: "existing", id: room.mainImage.id, url: room.mainImage.url } : null
+    room.mainImage
+      ? { kind: "existing", id: room.mainImage.id, url: room.mainImage.url }
+      : null,
   );
   const [galleryItems, setGalleryItems] = useState<EditGalleryItem[]>(() =>
-    room.gallery.map((image) => ({ key: image.id, kind: "existing" as const, id: image.id, url: image.url }))
+    room.gallery.map((image) => ({
+      key: image.id,
+      kind: "existing" as const,
+      id: image.id,
+      url: image.url,
+    })),
   );
-  const [amenities, setAmenities] = useState<string[]>(room.amenities.length > 0 ? room.amenities : [""]);
+  const [amenities, setAmenities] = useState<string[]>(
+    room.amenities.length > 0 ? room.amenities : [""],
+  );
   const [errors, setErrors] = useState<CreateRoomFieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const showSkeleton = useDelayedFlag(isSubmitting);
   const [formError, setFormError] = useState<string | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  function handleFieldChange(event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
+  function handleFieldChange(
+    event: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >,
+  ) {
     const { name, value } = event.target;
     setFields((prev) => ({ ...prev, [name]: value }));
-    setErrors((prev) => (prev[name as keyof CreateRoomFieldErrors] ? { ...prev, [name]: undefined } : prev));
+    setErrors((prev) =>
+      prev[name as keyof CreateRoomFieldErrors]
+        ? { ...prev, [name]: undefined }
+        : prev,
+    );
   }
 
   function handleSelectMainImage(file: File) {
@@ -70,7 +100,9 @@ export function EditRoomForm({ room }: { room: RoomTypeDetail }) {
       if (prev?.kind === "new") URL.revokeObjectURL(prev.previewUrl);
       return { kind: "new", file, previewUrl: URL.createObjectURL(file) };
     });
-    setErrors((prev) => (prev.mainImage ? { ...prev, mainImage: undefined } : prev));
+    setErrors((prev) =>
+      prev.mainImage ? { ...prev, mainImage: undefined } : prev,
+    );
   }
 
   function handleRemoveMainImage() {
@@ -82,7 +114,9 @@ export function EditRoomForm({ room }: { room: RoomTypeDetail }) {
 
   function handleGalleryChange(items: EditGalleryItem[]) {
     setGalleryItems(items);
-    setErrors((prev) => (prev.gallery ? { ...prev, gallery: undefined } : prev));
+    setErrors((prev) =>
+      prev.gallery ? { ...prev, gallery: undefined } : prev,
+    );
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -122,8 +156,11 @@ export function EditRoomForm({ room }: { room: RoomTypeDetail }) {
       fieldErrors.gallery = `Upload at least ${MIN_GALLERY_IMAGES} gallery images`;
     }
 
-    const trimmedAmenities = amenities.map((amenity) => amenity.trim()).filter(Boolean);
-    if (trimmedAmenities.length === 0) fieldErrors.amenities = "Add at least one amenity";
+    const trimmedAmenities = amenities
+      .map((amenity) => amenity.trim())
+      .filter(Boolean);
+    if (trimmedAmenities.length === 0)
+      fieldErrors.amenities = "Add at least one amenity";
 
     if (!parsed.success || Object.keys(fieldErrors).length > 0) {
       setErrors(fieldErrors);
@@ -165,14 +202,20 @@ export function EditRoomForm({ room }: { room: RoomTypeDetail }) {
       }
       formData.append("galleryOrder", JSON.stringify(galleryOrder));
 
-      for (const amenity of trimmedAmenities) formData.append("amenities", amenity);
+      for (const amenity of trimmedAmenities)
+        formData.append("amenities", amenity);
 
-      const response = await fetch(`/api/room-types/${room.id}`, { method: "PATCH", body: formData });
+      const response = await fetch(`/api/room-types/${room.id}`, {
+        method: "PATCH",
+        body: formData,
+      });
       const data = await response.json();
 
       if (!response.ok) {
         if (data.fieldErrors) setErrors(data.fieldErrors);
-        setFormError(data.message ?? "Failed to update room. Please try again.");
+        setFormError(
+          data.message ?? "Failed to update room. Please try again.",
+        );
         return;
       }
 
@@ -187,11 +230,15 @@ export function EditRoomForm({ room }: { room: RoomTypeDetail }) {
   async function handleDeleteConfirm() {
     setIsDeleting(true);
     try {
-      const response = await fetch(`/api/room-types/${room.id}`, { method: "DELETE" });
+      const response = await fetch(`/api/room-types/${room.id}`, {
+        method: "DELETE",
+      });
 
       if (!response.ok) {
         const data = await response.json().catch(() => null);
-        setFormError(data?.message ?? "Failed to delete room. Please try again.");
+        setFormError(
+          data?.message ?? "Failed to delete room. Please try again.",
+        );
         setIsDeleteModalOpen(false);
         return;
       }
@@ -205,7 +252,10 @@ export function EditRoomForm({ room }: { room: RoomTypeDetail }) {
     }
   }
 
-  const mainImagePreviewUrl = mainImage?.kind === "existing" ? mainImage.url : (mainImage?.previewUrl ?? null);
+  const mainImagePreviewUrl =
+    mainImage?.kind === "existing"
+      ? mainImage.url
+      : (mainImage?.previewUrl ?? null);
 
   return (
     <>
@@ -219,7 +269,9 @@ export function EditRoomForm({ room }: { room: RoomTypeDetail }) {
             >
               <ArrowLeftIcon className="h-5 w-5" />
             </Link>
-            <h1 className="text-lg font-semibold text-brand-body">{room.roomType}</h1>
+            <h1 className="text-lg font-semibold text-brand-body">
+              {room.roomType}
+            </h1>
           </div>
 
           <button
@@ -227,16 +279,29 @@ export function EditRoomForm({ room }: { room: RoomTypeDetail }) {
             disabled={isSubmitting}
             className="cursor-pointer rounded-md bg-brand-primary px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-primary-hover disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {isSubmitting ? "Updating..." : "Update"}
+            {isSubmitting ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                Updating...
+              </span>
+            ) : (
+              "Update"
+            )}
           </button>
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-8 py-8">
-          <div className="mx-auto flex max-w-3xl flex-col gap-8 rounded-lg border border-brand-border bg-white p-8">
-            {formError && <p className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">{formError}</p>}
+          <div className="relative mx-auto flex max-w-3xl flex-col gap-8 rounded-lg border border-brand-border bg-white p-8">
+            {formError && (
+              <p className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">
+                {formError}
+              </p>
+            )}
 
             <section className="flex flex-col gap-5">
-              <h2 className="text-sm font-medium text-brand-muted">Basic Information</h2>
+              <h2 className="text-sm font-medium text-brand-muted">
+                Basic Information
+              </h2>
 
               <TextField
                 id="roomType"
@@ -318,7 +383,11 @@ export function EditRoomForm({ room }: { room: RoomTypeDetail }) {
                       checked={hasPromotion}
                       onChange={(event) => {
                         setHasPromotion(event.target.checked);
-                        setErrors((prev) => (prev.promotionPrice ? { ...prev, promotionPrice: undefined } : prev));
+                        setErrors((prev) =>
+                          prev.promotionPrice
+                            ? { ...prev, promotionPrice: undefined }
+                            : prev,
+                        );
                       }}
                       className="h-4 w-4 rounded border-brand-border text-brand-primary focus:ring-brand-primary"
                     />
@@ -340,12 +409,19 @@ export function EditRoomForm({ room }: { room: RoomTypeDetail }) {
                         : "border-brand-border focus:border-brand-primary focus:ring-brand-primary"
                     }`}
                   />
-                  {errors.promotionPrice && <p className="text-xs text-red-600">{errors.promotionPrice}</p>}
+                  {errors.promotionPrice && (
+                    <p className="text-xs text-red-600">
+                      {errors.promotionPrice}
+                    </p>
+                  )}
                 </div>
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="description" className="text-sm text-brand-body">
+                <label
+                  htmlFor="description"
+                  className="text-sm text-brand-body"
+                >
                   Room Description *
                 </label>
                 <textarea
@@ -361,14 +437,18 @@ export function EditRoomForm({ room }: { room: RoomTypeDetail }) {
                       : "border-brand-border focus:border-brand-primary focus:ring-brand-primary"
                   }`}
                 />
-                {errors.description && <p className="text-xs text-red-600">{errors.description}</p>}
+                {errors.description && (
+                  <p className="text-xs text-red-600">{errors.description}</p>
+                )}
               </div>
             </section>
 
             <hr className="border-t border-brand-border" />
 
             <section className="flex flex-col gap-4">
-              <h2 className="text-sm font-medium text-brand-muted">Room Image</h2>
+              <h2 className="text-sm font-medium text-brand-muted">
+                Room Image
+              </h2>
 
               <div className="flex flex-col gap-1.5">
                 <span className="text-sm text-brand-body">Main Image *</span>
@@ -379,24 +459,36 @@ export function EditRoomForm({ room }: { room: RoomTypeDetail }) {
                   onSelect={handleSelectMainImage}
                   onRemove={handleRemoveMainImage}
                 />
-                {errors.mainImage && <p className="text-xs text-red-600">{errors.mainImage}</p>}
+                {errors.mainImage && (
+                  <p className="text-xs text-red-600">{errors.mainImage}</p>
+                )}
               </div>
 
               <div className="flex flex-col gap-1.5">
                 <span className="text-sm text-brand-body">
                   Image Gallery(At least {MIN_GALLERY_IMAGES} pictures) *
                 </span>
-                <EditRoomGallery id="galleryImages" items={galleryItems} onChange={handleGalleryChange} />
-                {errors.gallery && <p className="text-xs text-red-600">{errors.gallery}</p>}
+                <EditRoomGallery
+                  id="galleryImages"
+                  items={galleryItems}
+                  onChange={handleGalleryChange}
+                />
+                {errors.gallery && (
+                  <p className="text-xs text-red-600">{errors.gallery}</p>
+                )}
               </div>
             </section>
 
             <hr className="border-t border-brand-border" />
 
             <section className="flex flex-col gap-4">
-              <h2 className="text-sm font-medium text-brand-muted">Room Amenities</h2>
+              <h2 className="text-sm font-medium text-brand-muted">
+                Room Amenities
+              </h2>
               <AmenitiesList amenities={amenities} onChange={setAmenities} />
-              {errors.amenities && <p className="text-xs text-red-600">{errors.amenities}</p>}
+              {errors.amenities && (
+                <p className="text-xs text-red-600">{errors.amenities}</p>
+              )}
             </section>
 
             <div className="flex justify-end">
@@ -408,6 +500,8 @@ export function EditRoomForm({ room }: { room: RoomTypeDetail }) {
                 Delete Room
               </button>
             </div>
+
+            <CardSkeletonOverlay show={showSkeleton} rows={6} />
           </div>
         </div>
       </form>

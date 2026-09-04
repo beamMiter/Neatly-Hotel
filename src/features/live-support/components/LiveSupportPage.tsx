@@ -958,7 +958,7 @@ function CreateBookingDialog({ conversation, customer, onClose, onCreated }: {
         </label>
 
         {error && <p className="mt-4 rounded-lg bg-[#fef3f2] px-4 py-3 text-sm text-[#b42318]">{error}</p>}
-        <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3"><button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-semibold text-[#475467]">Cancel</button><button disabled={isLoading || !roomTypeId || (!conversation.customer_id && !emailVerificationToken)} className="rounded-lg bg-[#2f6bff] px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">{isLoading ? "Creating..." : "Create booking"}</button></div>
+        <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3"><button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-semibold text-[#475467]">Cancel</button><button disabled={isLoading || !roomTypeId || (!conversation.customer_id && !emailVerificationToken)} className="flex items-center justify-center rounded-lg bg-[#2f6bff] px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">{isLoading ? <span className="flex items-center justify-center gap-2"><span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />Creating...</span> : "Create booking"}</button></div>
       </form>
     </div>
   );
@@ -1043,7 +1043,7 @@ function ConversationBookingCard({
           {cancelError ? <p className="mt-2 text-[12px] text-[#b42318]">{cancelError}</p> : null}
           <div className="mt-3 flex justify-end gap-2">
             <button type="button" disabled={isCancelling} onClick={() => setIsConfirmingCancellation(false)} className="rounded-lg px-3 py-2 text-[12px] font-semibold text-[#475467] disabled:opacity-50">Keep booking</button>
-            <button type="button" disabled={isCancelling} onClick={() => void cancelBooking()} className="rounded-lg bg-[#b42318] px-3 py-2 text-[12px] font-semibold text-white disabled:opacity-50">{isCancelling ? "Cancelling..." : "Yes, cancel booking"}</button>
+            <button type="button" disabled={isCancelling} onClick={() => void cancelBooking()} className="flex items-center justify-center rounded-lg bg-[#b42318] px-3 py-2 text-[12px] font-semibold text-white disabled:opacity-50">{isCancelling ? <span className="flex items-center justify-center gap-1.5"><span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />Cancelling...</span> : "Yes, cancel booking"}</button>
           </div>
         </div>
       ) : null}

@@ -206,6 +206,7 @@ const ChangeDateView = ({
 
       <ChangeDateConfirmModal
         open={isConfirmOpen}
+        isSubmitting={isSubmitting}
         onClose={() => (isSubmitting ? null : setIsConfirmOpen(false))}
         onConfirm={handleConfirmChange}
       />

@@ -128,7 +128,14 @@ export function BookingCancelConfirmCard({
           disabled={isSubmitting}
           className="flex h-12 w-fit cursor-pointer items-center justify-center whitespace-nowrap rounded bg-[#C14817] px-8 py-4 [font-family:var(--font-open-sans)] text-base font-semibold text-white transition-transform duration-150 hover:bg-[#A93F13] active:scale-90 disabled:cursor-default disabled:opacity-60"
         >
-          {isSubmitting ? "Cancelling..." : copy.confirmLabel}
+          {isSubmitting ? (
+            <span className="flex items-center justify-center gap-2">
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              Cancelling...
+            </span>
+          ) : (
+            copy.confirmLabel
+          )}
         </button>
       </div>
     </div>

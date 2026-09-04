@@ -37,7 +37,16 @@ export default function AdminLoginPage() {
         <label>อีเมล<input name="email" type="email" autoComplete="email" required /></label>
         <label>รหัสผ่าน<input name="password" type="password" autoComplete="current-password" required /></label>
         {error && <p className="text-sm text-[#D8294A]">{error}</p>}
-        <button type="submit" disabled={isLoading}>{isLoading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}</button>
+        <button type="submit" disabled={isLoading}>
+          {isLoading ? (
+            <span className="flex items-center justify-center gap-2">
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              กำลังเข้าสู่ระบบ...
+            </span>
+          ) : (
+            "เข้าสู่ระบบ"
+          )}
+        </button>
         <Link href="/">กลับหน้าเว็บไซต์</Link>
       </form>
     </main>

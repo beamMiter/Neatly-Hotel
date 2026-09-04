@@ -349,7 +349,16 @@ export default function FaqManager({ initialSettings, initialSuggestions, roomTy
                 <label className="grid w-full gap-1 text-base leading-6 text-[#2A2E3F]">Fallback message *<textarea className="h-24 w-full resize-none rounded-sm border border-[#D6D9E4] bg-white px-3 pt-3 pr-4 text-base leading-6 text-black outline-none focus:border-[#729280]" required value={settings.auto_reply_message_en} onChange={(event) => { setSettings({ ...settings, auto_reply_message_en: event.target.value }); setSaveSuccess(""); }} /><span className="text-xs leading-5 text-[#646D89]">This message appears when the chatbot cannot answer a question.</span></label>
               )}
               <div className="flex flex-wrap items-center gap-4">
-                <button className="h-12 w-fit cursor-pointer rounded-sm bg-[#C14817] px-8 text-base font-semibold text-white disabled:cursor-wait disabled:opacity-50" type="submit" disabled={isSaving}>{isSaving ? "Saving..." : "Save Messages"}</button>
+                <button className="flex h-12 w-fit cursor-pointer items-center justify-center rounded-sm bg-[#C14817] px-8 text-base font-semibold text-white disabled:cursor-wait disabled:opacity-50" type="submit" disabled={isSaving}>
+                  {isSaving ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      Saving...
+                    </span>
+                  ) : (
+                    "Save Messages"
+                  )}
+                </button>
                 {saveSuccess && <p className="m-0 text-sm font-medium text-[#527865]" role="status">{saveSuccess}</p>}
               </div>
             </form>

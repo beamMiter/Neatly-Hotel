@@ -8,8 +8,14 @@ import { SelectField } from "@/components/ui/SelectField";
 import { RoomImageUpload } from "@/features/rooms/components/RoomImageUpload";
 import { RoomGalleryUpload } from "@/features/rooms/components/RoomGalleryUpload";
 import { AmenitiesList } from "@/features/rooms/components/AmenitiesList";
+import { useDelayedFlag } from "@/lib/useDelayedFlag";
+import { CardSkeletonOverlay } from "@/components/shared/CardSkeletonOverlay";
 import { BED_TYPES } from "@/types/room-type";
-import { MIN_GALLERY_IMAGES, parseCreateRoomFormData, type CreateRoomFieldErrors } from "@/features/rooms/validations";
+import {
+  MIN_GALLERY_IMAGES,
+  parseCreateRoomFormData,
+  type CreateRoomFieldErrors,
+} from "@/features/rooms/validations";
 
 const GUEST_OPTIONS = [1, 2, 3, 4, 5, 6];
 
@@ -33,7 +39,13 @@ const initialFields: FormFields = {
   description: "",
 };
 
-function buildFormData(fields: FormFields, hasPromotion: boolean, mainImage: File | null, gallery: File[], amenities: string[]) {
+function buildFormData(
+  fields: FormFields,
+  hasPromotion: boolean,
+  mainImage: File | null,
+  gallery: File[],
+  amenities: string[],
+) {
   const formData = new FormData();
   formData.append("roomType", fields.roomType);
   formData.append("roomSizeSqm", fields.roomSizeSqm);
@@ -60,19 +72,34 @@ export function CreateRoomForm() {
   const [amenities, setAmenities] = useState<string[]>([""]);
   const [errors, setErrors] = useState<CreateRoomFieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const showSkeleton = useDelayedFlag(isSubmitting);
   const [formError, setFormError] = useState<string | null>(null);
 
-  function handleFieldChange(event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
+  function handleFieldChange(
+    event: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >,
+  ) {
     const { name, value } = event.target;
     setFields((prev) => ({ ...prev, [name]: value }));
-    setErrors((prev) => (prev[name as keyof CreateRoomFieldErrors] ? { ...prev, [name]: undefined } : prev));
+    setErrors((prev) =>
+      prev[name as keyof CreateRoomFieldErrors]
+        ? { ...prev, [name]: undefined }
+        : prev,
+    );
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormError(null);
 
-    const formData = buildFormData(fields, hasPromotion, mainImage, galleryFiles, amenities);
+    const formData = buildFormData(
+      fields,
+      hasPromotion,
+      mainImage,
+      galleryFiles,
+      amenities,
+    );
     const parsed = parseCreateRoomFormData(formData);
 
     if (!parsed.success) {
@@ -84,12 +111,17 @@ export function CreateRoomForm() {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch("/api/room-types", { method: "POST", body: formData });
+      const response = await fetch("/api/room-types", {
+        method: "POST",
+        body: formData,
+      });
       const data = await response.json();
 
       if (!response.ok) {
         if (data.fieldErrors) setErrors(data.fieldErrors);
-        setFormError(data.message ?? "Failed to create room. Please try again.");
+        setFormError(
+          data.message ?? "Failed to create room. Please try again.",
+        );
         return;
       }
 
@@ -104,7 +136,9 @@ export function CreateRoomForm() {
   return (
     <form className="flex h-full flex-col" onSubmit={handleSubmit}>
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-brand-border bg-white px-8 py-5">
-        <h1 className="text-lg font-semibold text-brand-body">Create New Room</h1>
+        <h1 className="text-lg font-semibold text-brand-body">
+          Create New Room
+        </h1>
 
         <div className="flex items-center gap-3">
           <Link
@@ -118,17 +152,30 @@ export function CreateRoomForm() {
             disabled={isSubmitting}
             className="cursor-pointer rounded-md bg-brand-primary px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-primary-hover disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {isSubmitting ? "Creating..." : "Create"}
+            {isSubmitting ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                Creating...
+              </span>
+            ) : (
+              "Create"
+            )}
           </button>
         </div>
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-8 py-8">
-        <div className="mx-auto flex max-w-3xl flex-col gap-8 rounded-lg border border-brand-border bg-white p-8">
-          {formError && <p className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">{formError}</p>}
+        <div className="relative mx-auto flex max-w-3xl flex-col gap-8 rounded-lg border border-brand-border bg-white p-8">
+          {formError && (
+            <p className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">
+              {formError}
+            </p>
+          )}
 
           <section className="flex flex-col gap-5">
-            <h2 className="text-sm font-medium text-brand-muted">Basic Information</h2>
+            <h2 className="text-sm font-medium text-brand-muted">
+              Basic Information
+            </h2>
 
             <TextField
               id="roomType"
@@ -210,7 +257,11 @@ export function CreateRoomForm() {
                     checked={hasPromotion}
                     onChange={(event) => {
                       setHasPromotion(event.target.checked);
-                      setErrors((prev) => (prev.promotionPrice ? { ...prev, promotionPrice: undefined } : prev));
+                      setErrors((prev) =>
+                        prev.promotionPrice
+                          ? { ...prev, promotionPrice: undefined }
+                          : prev,
+                      );
                     }}
                     className="h-4 w-4 rounded border-brand-border text-brand-primary focus:ring-brand-primary"
                   />
@@ -232,7 +283,11 @@ export function CreateRoomForm() {
                       : "border-brand-border focus:border-brand-primary focus:ring-brand-primary"
                   }`}
                 />
-                {errors.promotionPrice && <p className="text-xs text-red-600">{errors.promotionPrice}</p>}
+                {errors.promotionPrice && (
+                  <p className="text-xs text-red-600">
+                    {errors.promotionPrice}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -253,7 +308,9 @@ export function CreateRoomForm() {
                     : "border-brand-border focus:border-brand-primary focus:ring-brand-primary"
                 }`}
               />
-              {errors.description && <p className="text-xs text-red-600">{errors.description}</p>}
+              {errors.description && (
+                <p className="text-xs text-red-600">{errors.description}</p>
+              )}
             </div>
           </section>
 
@@ -269,38 +326,56 @@ export function CreateRoomForm() {
                 file={mainImage}
                 onChange={(file) => {
                   setMainImage(file);
-                  setErrors((prev) => (prev.mainImage ? { ...prev, mainImage: undefined } : prev));
+                  setErrors((prev) =>
+                    prev.mainImage ? { ...prev, mainImage: undefined } : prev,
+                  );
                 }}
               />
-              {errors.mainImage && <p className="text-xs text-red-600">{errors.mainImage}</p>}
+              {errors.mainImage && (
+                <p className="text-xs text-red-600">{errors.mainImage}</p>
+              )}
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <span className="text-sm text-brand-body">Image Gallery(At least {MIN_GALLERY_IMAGES} pictures) *</span>
+              <span className="text-sm text-brand-body">
+                Image Gallery(At least {MIN_GALLERY_IMAGES} pictures) *
+              </span>
               <RoomGalleryUpload
                 id="galleryImages"
                 onChange={(files) => {
                   setGalleryFiles(files);
-                  setErrors((prev) => (prev.gallery ? { ...prev, gallery: undefined } : prev));
+                  setErrors((prev) =>
+                    prev.gallery ? { ...prev, gallery: undefined } : prev,
+                  );
                 }}
               />
-              {errors.gallery && <p className="text-xs text-red-600">{errors.gallery}</p>}
+              {errors.gallery && (
+                <p className="text-xs text-red-600">{errors.gallery}</p>
+              )}
             </div>
           </section>
 
           <hr className="border-t border-brand-border" />
 
           <section className="flex flex-col gap-4">
-            <h2 className="text-sm font-medium text-brand-muted">Room Amenities</h2>
+            <h2 className="text-sm font-medium text-brand-muted">
+              Room Amenities
+            </h2>
             <AmenitiesList
               amenities={amenities}
               onChange={(next) => {
                 setAmenities(next);
-                setErrors((prev) => (prev.amenities ? { ...prev, amenities: undefined } : prev));
+                setErrors((prev) =>
+                  prev.amenities ? { ...prev, amenities: undefined } : prev,
+                );
               }}
             />
-            {errors.amenities && <p className="text-xs text-red-600">{errors.amenities}</p>}
+            {errors.amenities && (
+              <p className="text-xs text-red-600">{errors.amenities}</p>
+            )}
           </section>
+
+          <CardSkeletonOverlay show={showSkeleton} rows={6} />
         </div>
       </div>
     </form>

@@ -4,12 +4,19 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { ChevronDownIcon } from "@/components/icons/ChevronDownIcon";
+import { CardSkeletonOverlay } from "@/components/shared/CardSkeletonOverlay";
+import { useDelayedFlag } from "@/lib/useDelayedFlag";
 import {
   createPhysicalRoomSchema,
   type CreatePhysicalRoomFieldErrors,
 } from "@/features/room-management/validations";
 import type { RoomTypeOption } from "@/types/rooms";
-import { BED_TYPES, ROOM_STATUSES, type BedType, type RoomStatus } from "@/types/rooms";
+import {
+  BED_TYPES,
+  ROOM_STATUSES,
+  type BedType,
+  type RoomStatus,
+} from "@/types/rooms";
 
 type CreateRoomFormProps = {
   roomTypes: RoomTypeOption[];
@@ -25,14 +32,20 @@ export function CreateRoomForm({ roomTypes }: CreateRoomFormProps) {
   const [errors, setErrors] = useState<CreatePhysicalRoomFieldErrors>({});
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
+  const showSkeleton = useDelayedFlag(saving);
 
   const selectedRoomType = useMemo(
-    () => roomTypes.find((option) => option.id === roomTypeId || option.name === roomType),
+    () =>
+      roomTypes.find(
+        (option) => option.id === roomTypeId || option.name === roomType,
+      ),
     [roomTypeId, roomType, roomTypes],
   );
 
   function handleRoomTypeChange(value: string) {
-    const option = roomTypes.find((item) => item.id === value || item.name === value);
+    const option = roomTypes.find(
+      (item) => item.id === value || item.name === value,
+    );
     setRoomTypeId(option?.id ?? "");
     setRoomType(option?.name ?? value);
 
@@ -63,8 +76,12 @@ export function CreateRoomForm({ roomTypes }: CreateRoomFormProps) {
       const fieldErrors: CreatePhysicalRoomFieldErrors = {};
       for (const issue of parsed.error.issues) {
         const field = issue.path[0];
-        if (typeof field === "string" && !fieldErrors[field as keyof CreatePhysicalRoomFieldErrors]) {
-          fieldErrors[field as keyof CreatePhysicalRoomFieldErrors] = issue.message;
+        if (
+          typeof field === "string" &&
+          !fieldErrors[field as keyof CreatePhysicalRoomFieldErrors]
+        ) {
+          fieldErrors[field as keyof CreatePhysicalRoomFieldErrors] =
+            issue.message;
         }
       }
       setErrors(fieldErrors);
@@ -91,7 +108,9 @@ export function CreateRoomForm({ roomTypes }: CreateRoomFormProps) {
     } catch (error) {
       console.error("[room-management] Create room failed:", error);
       setFormError(
-        error instanceof Error ? error.message : "Could not create room. Please try again.",
+        error instanceof Error
+          ? error.message
+          : "Could not create room. Please try again.",
       );
     } finally {
       setSaving(false);
@@ -117,13 +136,20 @@ export function CreateRoomForm({ roomTypes }: CreateRoomFormProps) {
             disabled={saving}
             className="flex h-10 items-center rounded-[4px] bg-[#C34A2C] px-5 text-[14px] font-medium text-white transition-[background-color,transform] duration-150 hover:bg-[#A93F13] active:scale-95 disabled:opacity-60 disabled:active:scale-100"
           >
-            {saving ? "Creating..." : "Create Room"}
+            {saving ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                Creating...
+              </span>
+            ) : (
+              "Create Room"
+            )}
           </button>
         </div>
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-10 py-6">
-        <div className="rounded-[4px] bg-white px-10 py-8">
+        <div className="relative rounded-[4px] bg-white px-10 py-8">
           <div className="flex max-w-[560px] flex-col gap-6">
             <Field id="room-no" label="Room no." required error={errors.roomNo}>
               <input
@@ -142,7 +168,12 @@ export function CreateRoomForm({ roomTypes }: CreateRoomFormProps) {
               />
             </Field>
 
-            <Field id="room-type" label="Room type" required error={errors.roomType}>
+            <Field
+              id="room-type"
+              label="Room type"
+              required
+              error={errors.roomType}
+            >
               <SelectField
                 id="room-type"
                 value={roomTypeId || roomType}
@@ -153,14 +184,22 @@ export function CreateRoomForm({ roomTypes }: CreateRoomFormProps) {
                   Select room type
                 </option>
                 {roomTypes.map((option) => (
-                  <option key={option.id ?? option.name} value={option.id ?? option.name}>
+                  <option
+                    key={option.id ?? option.name}
+                    value={option.id ?? option.name}
+                  >
                     {option.name}
                   </option>
                 ))}
               </SelectField>
             </Field>
 
-            <Field id="bed-type" label="Bed Type" required error={errors.bedType}>
+            <Field
+              id="bed-type"
+              label="Bed Type"
+              required
+              error={errors.bedType}
+            >
               <SelectField
                 id="bed-type"
                 value={bedType}
@@ -201,7 +240,8 @@ export function CreateRoomForm({ roomTypes }: CreateRoomFormProps) {
 
             {selectedRoomType?.bedType ? (
               <p className="text-[13px] text-[#667085]">
-                Default bed type for {selectedRoomType.name}: {selectedRoomType.bedType}
+                Default bed type for {selectedRoomType.name}:{" "}
+                {selectedRoomType.bedType}
               </p>
             ) : null}
 
@@ -209,6 +249,8 @@ export function CreateRoomForm({ roomTypes }: CreateRoomFormProps) {
               <p className="text-[13px] text-[#C83B3B]">{formError}</p>
             ) : null}
           </div>
+
+          <CardSkeletonOverlay show={showSkeleton} rows={4} columns={1} />
         </div>
       </div>
     </form>

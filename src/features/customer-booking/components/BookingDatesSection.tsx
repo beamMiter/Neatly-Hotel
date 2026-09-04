@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { CloseIcon } from "@/components/icons/CloseIcon";
+import { CardSkeletonOverlay } from "@/components/shared/CardSkeletonOverlay";
+import { useDelayedFlag } from "@/lib/useDelayedFlag";
 import { nightsBetween } from "@/features/booking/date-rules";
 import { resolveAddOnQuantity } from "@/lib/addon-pricing";
 import {
@@ -49,8 +51,11 @@ function EditDatesModal({
   const bookingCheckOut = toDateInputValue(booking.checkOut);
   const [checkIn, setCheckIn] = useState(bookingCheckIn);
   const [checkOut, setCheckOut] = useState(bookingCheckOut);
-  const [paymentMethod, setPaymentMethod] = useState<"credit_card" | "cash">(booking.paymentMethod);
+  const [paymentMethod, setPaymentMethod] = useState<"credit_card" | "cash">(
+    booking.paymentMethod,
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const showSkeleton = useDelayedFlag(isSubmitting);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -76,12 +81,19 @@ function EditDatesModal({
     [booking.status, bookingCheckIn, bookingCheckOut, checkIn, checkOut],
   );
 
-  const nextNights = dateValidation.ok ? dateValidation.nextNights : booking.nights;
-  const perNightRoomRate = booking.nights > 0 ? booking.roomSubtotal / booking.nights : 0;
+  const nextNights = dateValidation.ok
+    ? dateValidation.nextNights
+    : booking.nights;
+  const perNightRoomRate =
+    booking.nights > 0 ? booking.roomSubtotal / booking.nights : 0;
 
   const estimatedAddonsTotal = useMemo(() => {
     return catalog
-      .filter((option) => option.category === "special" && option.code in booking.specialRequestSelections)
+      .filter(
+        (option) =>
+          option.category === "special" &&
+          option.code in booking.specialRequestSelections,
+      )
       .reduce((sum, option) => {
         const quantity = resolveAddOnQuantity(
           option.billingType,
@@ -92,9 +104,13 @@ function EditDatesModal({
       }, 0);
   }, [catalog, booking.specialRequestSelections, nextNights]);
 
-  const estimatedTotal = perNightRoomRate * nextNights + estimatedAddonsTotal - booking.discountAmount;
+  const estimatedTotal =
+    perNightRoomRate * nextNights +
+    estimatedAddonsTotal -
+    booking.discountAmount;
   const estimatedDifference = Math.max(0, estimatedTotal - booking.totalAmount);
-  const datesUnchanged = checkIn === bookingCheckIn && checkOut === bookingCheckOut;
+  const datesUnchanged =
+    checkIn === bookingCheckIn && checkOut === bookingCheckOut;
   const showPaymentSection =
     !datesUnchanged && dateValidation.ok && estimatedDifference > 0;
 
@@ -109,7 +125,10 @@ function EditDatesModal({
 
     try {
       const payload: Record<string, unknown> = { checkIn, checkOut };
-      if (showPaymentSection && !isUnpaidPendingPaymentBooking(booking.status)) {
+      if (
+        showPaymentSection &&
+        !isUnpaidPendingPaymentBooking(booking.status)
+      ) {
         payload.paymentMethod = paymentMethod;
       }
 
@@ -149,7 +168,10 @@ function EditDatesModal({
         className="relative flex max-h-full w-full max-w-lg flex-col overflow-hidden rounded-lg bg-white shadow-lg"
       >
         <div className="flex items-center justify-between border-b border-brand-border px-6 py-4">
-          <h2 id="edit-dates-title" className="text-lg font-semibold text-brand-body">
+          <h2
+            id="edit-dates-title"
+            className="text-lg font-semibold text-brand-body"
+          >
             Edit stay dates
           </h2>
           <button
@@ -163,7 +185,7 @@ function EditDatesModal({
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+        <div className="relative min-h-0 flex-1 overflow-y-auto px-6 py-6">
           <p className="mb-4 text-sm text-brand-muted">
             {isCheckedIn
               ? "Guest is checked in — you can extend check-out only."
@@ -185,10 +207,17 @@ function EditDatesModal({
                     const nextCheckIn = event.target.value;
                     setCheckIn(nextCheckIn);
                     setError(null);
-                    const currentNights = Math.max(nightsBetween(nextCheckIn, checkOut), 1);
+                    const currentNights = Math.max(
+                      nightsBetween(nextCheckIn, checkOut),
+                      1,
+                    );
                     if (currentNights < booking.nights) {
-                      const minCheckOut = new Date(`${nextCheckIn}T00:00:00.000Z`);
-                      minCheckOut.setUTCDate(minCheckOut.getUTCDate() + booking.nights);
+                      const minCheckOut = new Date(
+                        `${nextCheckIn}T00:00:00.000Z`,
+                      );
+                      minCheckOut.setUTCDate(
+                        minCheckOut.getUTCDate() + booking.nights,
+                      );
                       setCheckOut(minCheckOut.toISOString().slice(0, 10));
                     }
                   }}
@@ -206,7 +235,9 @@ function EditDatesModal({
                 min={
                   isCheckedIn
                     ? (() => {
-                        const min = new Date(`${bookingCheckOut}T00:00:00.000Z`);
+                        const min = new Date(
+                          `${bookingCheckOut}T00:00:00.000Z`,
+                        );
                         min.setUTCDate(min.getUTCDate() + 1);
                         return min.toISOString().slice(0, 10);
                       })()
@@ -231,7 +262,10 @@ function EditDatesModal({
                 {nextNights} night{nextNights === 1 ? "" : "s"}
               </span>
               {dateValidation.ok && dateValidation.nightsAdded > 0 && (
-                <span className="text-brand-muted"> (+{dateValidation.nightsAdded} added)</span>
+                <span className="text-brand-muted">
+                  {" "}
+                  (+{dateValidation.nightsAdded} added)
+                </span>
               )}
             </p>
           </div>
@@ -241,7 +275,13 @@ function EditDatesModal({
               <p className="text-sm text-brand-body">
                 {getAdminEditPaymentLabel(booking.status)}:{" "}
                 <span className="font-semibold">
-                  {formatThb(getAdminEditPaymentAmount(booking.status, estimatedTotal, estimatedDifference))}
+                  {formatThb(
+                    getAdminEditPaymentAmount(
+                      booking.status,
+                      estimatedTotal,
+                      estimatedDifference,
+                    ),
+                  )}
                 </span>
               </p>
               {!isUnpaidPendingPaymentBooking(booking.status) && (
@@ -277,9 +317,13 @@ function EditDatesModal({
           )}
 
           {!dateValidation.ok && (
-            <p className="mt-4 text-sm text-amber-700">{dateValidation.message}</p>
+            <p className="mt-4 text-sm text-amber-700">
+              {dateValidation.message}
+            </p>
           )}
           {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
+
+          <CardSkeletonOverlay show={showSkeleton} rows={3} columns={1} />
         </div>
 
         <div className="flex justify-end gap-3 border-t border-brand-border px-6 py-4">
@@ -297,7 +341,14 @@ function EditDatesModal({
             onClick={handleSave}
             className="h-11 rounded bg-brand-primary px-6 text-sm font-semibold text-white transition-colors hover:bg-brand-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isSubmitting ? "Saving..." : "Save dates"}
+            {isSubmitting ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                Saving...
+              </span>
+            ) : (
+              "Save dates"
+            )}
           </button>
         </div>
       </div>
@@ -305,7 +356,10 @@ function EditDatesModal({
   );
 }
 
-export function BookingDatesSection({ booking, catalog }: BookingDatesSectionProps) {
+export function BookingDatesSection({
+  booking,
+  catalog,
+}: BookingDatesSectionProps) {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const canEdit = isAdminBookingEditable(booking.status);
   const modalKey = `${booking.id}-${toDateInputValue(booking.checkIn)}-${toDateInputValue(booking.checkOut)}-${booking.totalAmount}-${booking.roomSubtotal}`;
@@ -326,12 +380,16 @@ export function BookingDatesSection({ booking, catalog }: BookingDatesSectionPro
               </button>
             )}
           </div>
-          <span className="text-sm text-brand-body">{formatDisplayDate(booking.checkIn)}</span>
+          <span className="text-sm text-brand-body">
+            {formatDisplayDate(booking.checkIn)}
+          </span>
         </div>
 
         <div className="flex flex-col gap-1">
           <span className="text-sm text-brand-muted">Check-out</span>
-          <span className="text-sm text-brand-body">{formatDisplayDate(booking.checkOut)}</span>
+          <span className="text-sm text-brand-body">
+            {formatDisplayDate(booking.checkOut)}
+          </span>
         </div>
       </div>
 

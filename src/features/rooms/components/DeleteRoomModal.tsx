@@ -36,7 +36,14 @@ export function DeleteRoomModal({ open, onClose, onConfirm, isDeleting }: Delete
             disabled={isDeleting}
             className="cursor-pointer rounded-md border border-brand-primary px-4 py-2 text-sm font-semibold text-brand-primary transition-colors hover:bg-brand-surface-alt disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {isDeleting ? "Deleting..." : "Yes, I want to delete"}
+            {isDeleting ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                Deleting...
+              </span>
+            ) : (
+              "Yes, I want to delete"
+            )}
           </button>
           <button
             type="button"

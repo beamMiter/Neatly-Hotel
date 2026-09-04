@@ -4,6 +4,8 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CloseIcon } from "@/components/icons/CloseIcon";
 import { PlusIcon } from "@/components/icons/PlusIcon";
+import { CardSkeletonOverlay } from "@/components/shared/CardSkeletonOverlay";
+import { useDelayedFlag } from "@/lib/useDelayedFlag";
 import type { HotelInformation } from "@/types/hotel";
 
 type HotelInformationViewProps = {
@@ -20,6 +22,7 @@ export function HotelInformationView({ hotel }: HotelInformationViewProps) {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [removeLogo, setRemoveLogo] = useState(false);
   const [saving, setSaving] = useState(false);
+  const showSkeleton = useDelayedFlag(saving);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
@@ -116,12 +119,19 @@ export function HotelInformationView({ hotel }: HotelInformationViewProps) {
           disabled={saving}
           className="flex h-10 cursor-pointer items-center rounded-[4px] bg-[#C34A2C] px-5 text-[14px] font-medium text-white disabled:cursor-default disabled:opacity-60"
         >
-          {saving ? "Updating..." : "Update"}
+          {saving ? (
+            <span className="flex items-center justify-center gap-2">
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              Updating...
+            </span>
+          ) : (
+            "Update"
+          )}
         </button>
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-10 py-6">
-        <div className="rounded-[4px] bg-white px-10 py-8">
+        <div className="relative rounded-[4px] bg-white px-10 py-8">
           <div className="flex max-w-[720px] flex-col gap-6">
             <Field id="hotel-name" label="Hotel name" required>
               <input
@@ -215,6 +225,8 @@ export function HotelInformationView({ hotel }: HotelInformationViewProps) {
               </p>
             ) : null}
           </div>
+
+          <CardSkeletonOverlay show={showSkeleton} rows={4} columns={1} />
         </div>
       </div>
     </form>

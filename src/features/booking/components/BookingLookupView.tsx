@@ -98,7 +98,14 @@ export function BookingLookupView() {
           disabled={isLoading}
           className="h-12 rounded bg-[#C14817] px-8 [font-family:var(--font-open-sans)] text-base font-semibold text-white hover:bg-[#A93F13] disabled:opacity-60"
         >
-          {isLoading ? "Searching..." : "Find booking"}
+          {isLoading ? (
+            <span className="flex items-center justify-center gap-2">
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              Searching...
+            </span>
+          ) : (
+            "Find booking"
+          )}
         </button>
       </form>
 

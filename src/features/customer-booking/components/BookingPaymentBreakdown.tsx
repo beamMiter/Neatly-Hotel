@@ -156,7 +156,16 @@ export function BookingPaymentBreakdown({ booking }: BookingPaymentBreakdownProp
             disabled={isCreatingLink}
             className="inline-flex w-fit rounded bg-brand-primary px-3 py-2 text-xs font-semibold text-white hover:bg-brand-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isCreatingLink ? "Preparing link..." : copied ? "Link copied" : "Copy payment link"}
+            {isCreatingLink ? (
+              <span className="flex items-center justify-center gap-1.5">
+                <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                Preparing link...
+              </span>
+            ) : copied ? (
+              "Link copied"
+            ) : (
+              "Copy payment link"
+            )}
           </button>
           {linkError && <p className="text-xs text-red-600">{linkError}</p>}
           {paymentUrl && (
