@@ -221,11 +221,12 @@ export async function markSupportConversationRead(conversationId: string, adminI
   return lastReadAt;
 }
 
-export async function countWaitingSupportConversations() {
+export async function countUnassignedSupportConversations() {
   const { count, error } = await supabaseAdmin
     .from("support_conversations")
     .select("id", { count: "exact", head: true })
-    .eq("status", "waiting");
+    .neq("status", "resolved")
+    .is("assigned_agent_id", null);
 
   if (error) throw new Error(error.message);
   return count ?? 0;

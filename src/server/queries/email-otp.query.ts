@@ -1,7 +1,7 @@
 import "server-only";
 import crypto from "node:crypto";
 import { prisma } from "@/server/db";
-import { sendBookingOtpEmail } from "@/server/services/email";
+import { isMailerConfigured, sendBookingOtpEmail } from "@/server/services/email";
 import type { SendEmailOtpResult, VerifyEmailOtpResult } from "@/types/email-otp";
 
 const OTP_LENGTH = 6;
@@ -94,7 +94,7 @@ export async function sendEmailOtp(rawEmail: string): Promise<SendEmailOtpResult
     values (${email}, ${codeHash}, ${expiresAt})
   `;
 
-  if (process.env.RESEND_API_KEY) {
+  if (isMailerConfigured()) {
     const sent = await sendBookingOtpEmail(email, code);
     if (!sent.ok) {
       return { ok: false, code: "SEND_FAILED", message: sent.message };

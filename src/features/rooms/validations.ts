@@ -77,6 +77,17 @@ export function parseCreateRoomFormData(formData: FormData): ParseCreateRoomForm
     }
   }
 
+  // The loop above only records a field when it's a non-empty string, so
+  // ticking "Promotion Price" but leaving it blank looks identical to never
+  // checking the box at all — both send no promotionPrice — and the room
+  // would silently save with no promotion, never telling the admin their
+  // checked box was ignored. CreateRoomForm/EditRoomForm send "" explicitly
+  // (not omit the field) whenever the box is checked, so that case is
+  // distinguishable here and rejected instead.
+  if (formData.get("promotionPrice") === "") {
+    fieldErrors.promotionPrice = "Please enter a promotion price";
+  }
+
   const mainImageEntry = formData.get("mainImage");
   const mainImage = mainImageEntry instanceof File && isValidRoomImage(mainImageEntry) ? mainImageEntry : null;
   if (!mainImage) {
@@ -141,6 +152,12 @@ export function parseUpdateRoomFormData(formData: FormData): ParseUpdateRoomForm
       const key = issue.path[0] as keyof CreateRoomFieldErrors | undefined;
       if (key && !fieldErrors[key]) fieldErrors[key] = issue.message;
     }
+  }
+
+  // See the matching comment in parseCreateRoomFormData: an explicit "" means
+  // the box is checked but left blank, distinct from never checking it.
+  if (formData.get("promotionPrice") === "") {
+    fieldErrors.promotionPrice = "Please enter a promotion price";
   }
 
   const mainImageEntry = formData.get("mainImage");

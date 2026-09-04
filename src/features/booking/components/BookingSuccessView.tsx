@@ -15,6 +15,7 @@ type BookingSuccessViewProps = {
   initialBooking: BookingRecord;
   checkInTimeLabel: string;
   checkOutTimeLabel: string;
+  isLoggedIn: boolean;
 };
 
 const HEAD_CLASSNAME = "flex w-full flex-col items-center justify-center gap-3 bg-[#2F3E35] px-6 py-10";
@@ -32,6 +33,7 @@ export function BookingSuccessView({
   initialBooking,
   checkInTimeLabel,
   checkOutTimeLabel,
+  isLoggedIn,
 }: BookingSuccessViewProps) {
   const router = useRouter();
   const [booking, setBooking] = useState(initialBooking);
@@ -41,27 +43,47 @@ export function BookingSuccessView({
   useEffect(() => {
     if (booking.paymentMethod === "cash" || booking.paymentStatus !== "pending") return;
     startedAtRef.current ??= Date.now();
+    let cancelled = false;
 
-    const interval = setInterval(async () => {
+    async function refreshPaymentStatus() {
       if (startedAtRef.current !== null && Date.now() - startedAtRef.current > POLL_TIMEOUT_MS) {
         setTimedOut(true);
-        clearInterval(interval);
-        return;
+        return false;
       }
 
       try {
+        // Ask the server to reconcile with Stripe when the webhook is late
+        // or missing (local `next dev` without `stripe listen`).
+        await fetch(`/api/bookings/${bookingId}/confirm-payment`, { method: "POST" }).catch(
+          () => null,
+        );
+
         const response = await fetch(`/api/bookings/${bookingId}`);
-        if (!response.ok) return;
+        if (!response.ok || cancelled) return true;
         const data = await response.json();
         const updated = data.booking as BookingRecord;
         setBooking(updated);
-        if (updated.paymentStatus === "paid") setTimedOut(false);
+        if (updated.paymentStatus === "paid") {
+          setTimedOut(false);
+          return false;
+        }
       } catch {
         // keep polling — a transient network error shouldn't stop the loop
       }
+      return true;
+    }
+
+    void refreshPaymentStatus();
+    const interval = setInterval(() => {
+      void refreshPaymentStatus().then((keepGoing) => {
+        if (!keepGoing) clearInterval(interval);
+      });
     }, POLL_INTERVAL_MS);
 
-    return () => clearInterval(interval);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [bookingId, booking.paymentMethod, booking.paymentStatus]);
 
   // A failed webhook can land *before* this page's own first fetch — the
@@ -230,17 +252,12 @@ export function BookingSuccessView({
         >
           Back to Home
         </Link>
-        {/* No standalone "view my booking" page exists yet anywhere in the
-            app (checked both this branch and the team's dev branch) — this
-            button is a placeholder for the Figma spec until that page
-            exists. */}
-        <button
-          type="button"
-          disabled
-          className="cursor-not-allowed px-2 py-1 [font-family:var(--font-open-sans)] text-base leading-none font-semibold text-[#E76B39] opacity-50 lg:order-1"
+        <Link
+          href={isLoggedIn ? "/booking-history" : "/booking/lookup"}
+          className="cursor-pointer px-2 py-1 [font-family:var(--font-open-sans)] text-base leading-none font-semibold text-[#E76B39] transition-colors duration-150 hover:text-[#C14817] lg:order-1"
         >
           Check Booking Detail
-        </button>
+        </Link>
       </div>
     </div>
   );

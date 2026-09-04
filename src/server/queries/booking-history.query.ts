@@ -1,12 +1,12 @@
 import "server-only";
 import { differenceInCalendarDays } from "date-fns";
 import { supabaseAdmin } from "@/server/db/supabase-admin";
-import type { BookingHistoryItem, BookingHistoryStatus, BookingLineItem } from "@/types/booking";
+import type { BookingHistoryItem, BookingHistoryStatus, BookingLineItem, BookingPayment } from "@/types/booking";
 
 const IMAGE_BUCKET = "room-images";
 
 const BOOKING_SELECT =
-  "id, booking_code, check_in, check_out, guests, status, total_amount, created_at, cancelled_at, additional_request, promo_code, discount_amount, special_requests, booking_rooms(price_per_night, rooms(room_type_id, room_types(name, room_images(storage_path, is_cover, sort_order))))";
+  "id, booking_code, check_in, check_out, guests, status, total_amount, created_at, cancelled_at, additional_request, promo_code, discount_amount, special_requests, payment_method, booking_rooms(price_per_night, rooms(room_type_id, room_types(name, room_images(storage_path, is_cover, sort_order))))";
 
 type RoomImageRow = { storage_path: string; is_cover: boolean; sort_order: number | null };
 
@@ -38,8 +38,14 @@ type BookingRow = {
   promo_code: string | null;
   discount_amount: number | string;
   special_requests: SelectedSpecialRequestRow[] | null;
+  payment_method: string;
   booking_rooms: BookingRoomRow[] | null;
 };
+
+function asPaymentMethod(value: string): BookingPayment["method"] {
+  if (value === "cash" || value === "promptpay") return value;
+  return "credit_card";
+}
 
 // bookings.status is the richer BookingStatus from src/types/booking.ts
 // (pending_payment | confirmed | checked_in | completed | cancelled) — this
@@ -130,7 +136,7 @@ function toBookingHistoryItem(row: BookingRow, lastDigits: string): BookingHisto
     checkOutDate: row.check_out,
     checkedInAt: null,
     cancelledAt: row.cancelled_at,
-    payment: { method: "credit_card", lastDigits },
+    payment: { method: asPaymentMethod(row.payment_method), lastDigits },
     lineItems,
     totalAmount: Number(row.total_amount),
     additionalRequest: row.additional_request,

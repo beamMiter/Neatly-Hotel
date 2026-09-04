@@ -37,8 +37,15 @@ export function formatStayDate(isoDate: string): string {
   return formatBookingDate(`${isoDate}T12:00:00${BANGKOK_OFFSET}`);
 }
 
+const PAYMENT_METHOD_LABEL: Record<BookingPayment["method"], string> = {
+  credit_card: "Credit Card",
+  cash: "Cash",
+  promptpay: "PromptPay",
+};
+
 export function formatPaymentMethod(payment: BookingPayment): string {
-  return `Credit Card - *${payment.lastDigits}`;
+  const label = PAYMENT_METHOD_LABEL[payment.method];
+  return payment.lastDigits ? `${label} - *${payment.lastDigits}` : label;
 }
 
 export function getBookingActions(

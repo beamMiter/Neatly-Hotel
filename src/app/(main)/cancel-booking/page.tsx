@@ -3,7 +3,7 @@ import { createClient } from "@/server/db/supabase-server";
 import { getBookingForCustomerPage } from "@/server/services/booking-access";
 import { CANCELLABLE_STATUSES } from "@/server/queries/bookings.query";
 import { getGuestRoomTypeById } from "@/server/queries/booking-search.query";
-import CancelBookingReceiptView from "@/app/cancel-booking/CancelBookingReceiptView";
+import CancelBookingReceiptView from "@/app/(main)/cancel-booking/CancelBookingReceiptView";
 
 type CancelBookingPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -57,6 +57,7 @@ export default async function CancelBookingPage({ searchParams }: CancelBookingP
       totalAmount={booking.totalAmount}
       initialPhase={initialPhase}
       initialRefunded={booking.status === "refunded"}
+      initialCancelledAt={booking.cancelledAt}
     />
   );
 }

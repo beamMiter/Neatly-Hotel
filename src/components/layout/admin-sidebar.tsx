@@ -62,8 +62,8 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
       try {
         const response = await fetch("/api/live-support/admin?notifications=true", { cache: "no-store" });
         if (!response.ok || cancelled) return;
-        const data = await response.json() as { unreadCount?: number };
-        setLiveSupportCount(typeof data.unreadCount === "number" ? data.unreadCount : 0);
+        const data = await response.json() as { unassignedCount?: number };
+        setLiveSupportCount(typeof data.unassignedCount === "number" ? data.unassignedCount : 0);
       } catch {
         // Keep the last known count when a polling request fails.
       }
@@ -118,7 +118,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
               {item.href === "/live-support" && liveSupportCount > 0 ? (
                 <span
                   className="min-w-5 rounded-full bg-[#E5484D] px-1.5 text-center text-[11px] font-semibold leading-5 text-white"
-                  aria-label={`${liveSupportCount} new customer chats`}
+                  aria-label={`${liveSupportCount} unassigned support chats`}
                 >
                   {liveSupportCount > 99 ? "99+" : liveSupportCount}
                 </span>

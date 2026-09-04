@@ -6,7 +6,6 @@ import { useMemo, useState } from "react";
 import { ChevronDownIcon } from "@/components/icons/ChevronDownIcon";
 import { CardSkeletonOverlay } from "@/components/shared/CardSkeletonOverlay";
 import { useDelayedFlag } from "@/lib/useDelayedFlag";
-import { RoomStatusBadge } from "@/features/room-management/components/room-status-badge";
 import {
   createPhysicalRoomSchema,
   type CreatePhysicalRoomFieldErrors,
@@ -237,9 +236,6 @@ export function CreateRoomForm({ roomTypes }: CreateRoomFormProps) {
                   </option>
                 ))}
               </SelectField>
-              <div className="mt-2">
-                <RoomStatusBadge status={status} />
-              </div>
             </Field>
 
             {selectedRoomType?.bedType ? (

@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/server/db/supabase-server";
 import { getBookingForCustomerPage } from "@/server/services/booking-access";
 import { getGuestRoomTypeById } from "@/server/queries/booking-search.query";
-import ChangeDateView from "@/app/change-date/ChangeDateView";
+import ChangeDateView from "@/app/(main)/change-date/ChangeDateView";
 
 type ChangeDatePageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;

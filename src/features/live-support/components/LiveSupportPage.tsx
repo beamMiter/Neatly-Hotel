@@ -7,7 +7,7 @@ import type { SupportBooking, SupportConversation, SupportConversationStatus, Su
 import { useLiveSupportAdmin } from "@/features/live-support/components/useLiveSupportAdmin";
 import { COUNTRIES } from "@/lib/countries";
 
-type SupportTab = "open" | "mine" | "resolved";
+type SupportTab = "unassigned" | "mine" | "team" | "resolved";
 type SupportFilter = "all" | "booking" | "room" | "payment" | "other";
 type MobilePanel = "conversations" | "chat" | "details";
 
@@ -25,8 +25,9 @@ type Conversation = {
 };
 
 const TABS: Array<{ key: SupportTab; label: string }> = [
-  { key: "open", label: "Open" },
+  { key: "unassigned", label: "Unassigned" },
   { key: "mine", label: "My Chats" },
+  { key: "team", label: "Team Chats" },
   { key: "resolved", label: "Resolved" },
 ];
 
@@ -39,7 +40,7 @@ const FILTERS: Array<{ key: SupportFilter; label: string }> = [
 ];
 
 export function LiveSupportPage() {
-  const [activeTab, setActiveTab] = useState<SupportTab>("open");
+  const [activeTab, setActiveTab] = useState<SupportTab>("unassigned");
   const [activeFilter, setActiveFilter] = useState<SupportFilter>("all");
   const [search, setSearch] = useState("");
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
@@ -50,6 +51,7 @@ export function LiveSupportPage() {
   const [hasNewMessagesBelow, setHasNewMessagesBelow] = useState(false);
   const [isDocumentVisible, setIsDocumentVisible] = useState(true);
   const [isDesktopChatVisible, setIsDesktopChatVisible] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const chatViewportRef = useRef<HTMLDivElement>(null);
   const previousLastMessageIdRef = useRef<string | null>(null);
   const lastMarkedReadMessageRef = useRef<string | null>(null);
@@ -74,9 +76,11 @@ export function LiveSupportPage() {
     id: conversation.id,
     tab: conversation.status === "resolved"
       ? "resolved"
-      : conversation.assigned_agent_id === currentAdminId
-        ? "mine"
-        : "open",
+      : !conversation.assigned_agent_id
+        ? "unassigned"
+        : conversation.assigned_agent_id === currentAdminId
+          ? "mine"
+          : "team",
     name: conversation.customer_name ?? `Guest ${conversation.id.slice(0, 6)}`,
     preview: conversation.latest_message_content ?? "No messages yet",
     time: new Intl.DateTimeFormat("th-TH", { hour: "2-digit", minute: "2-digit" }).format(new Date(conversation.last_message_at)),
@@ -90,7 +94,13 @@ export function LiveSupportPage() {
   })), [conversations, currentAdminId]);
 
   const unreadConversationCount = threads.filter((thread) => thread.unread).length;
-  const waitingConversationCount = conversations.filter((conversation) => conversation.status === "waiting").length;
+  const unreadNotifications = useMemo(
+    () => threads.filter((thread) => thread.unread),
+    [threads],
+  );
+  const unassignedConversationCount = conversations.filter((conversation) => (
+    conversation.status !== "resolved" && !conversation.assigned_agent_id
+  )).length;
 
   const visibleThreads = useMemo(() => {
     const normalized = search.trim().toLowerCase();
@@ -217,6 +227,8 @@ export function LiveSupportPage() {
     action: "takeover";
     expectedAssignedAgentId: string;
   } | {
+    action: "regenerate_summary";
+  } | {
     status: Extract<SupportConversationStatus, "active" | "resolved">;
   }) {
     if (!currentConversation) return;
@@ -226,10 +238,23 @@ export function LiveSupportPage() {
     setActiveTab(
       updatedConversation.status === "resolved"
         ? "resolved"
-        : updatedConversation.assigned_agent_id === currentAdminId
-          ? "mine"
-          : "open",
+        : !updatedConversation.assigned_agent_id
+          ? "unassigned"
+          : updatedConversation.assigned_agent_id === currentAdminId
+            ? "mine"
+            : "team",
     );
+  }
+
+  function openNotification(conversationId: string) {
+    setSelectedThreadId(conversationId);
+    setMobilePanel("chat");
+    setIsNotificationsOpen(false);
+    void markConversationRead(conversationId);
+  }
+
+  function markAllNotificationsRead() {
+    void Promise.all(unreadNotifications.map((notification) => markConversationRead(notification.id)));
   }
 
   return (
@@ -239,7 +264,7 @@ export function LiveSupportPage() {
         <div className="absolute right-1/3 bottom-[-6rem] h-72 w-72 rounded-full bg-[#f4f1ff]/60 blur-3xl" />
       </div>
 
-      <header className="relative z-10 flex h-16 shrink-0 items-center justify-between border-b border-[#e7eaf0] bg-white px-4 shadow-[0_1px_0_rgba(17,24,39,0.02)] sm:h-[72px] sm:px-6 xl:px-8">
+      <header className={`relative ${isNotificationsOpen ? "z-40" : "z-10"} flex h-16 shrink-0 items-center justify-between border-b border-[#e7eaf0] bg-white px-4 shadow-[0_1px_0_rgba(17,24,39,0.02)] sm:h-[72px] sm:px-6 xl:px-8`}>
         <div className="flex items-center gap-4">
           <div>
             <div className="flex items-center gap-3">
@@ -257,21 +282,51 @@ export function LiveSupportPage() {
         <div className="flex items-center gap-3 text-[14px] text-[#3f4a5a] sm:gap-5">
           <span className="hidden items-center gap-2 sm:inline-flex">
             <span className="h-2.5 w-2.5 rounded-full bg-[#20b15d]" />
-            {waitingConversationCount} waiting
+            {unassignedConversationCount} unassigned
           </span>
           <span className="hidden h-6 w-px bg-[#e3e8ef] sm:block" aria-hidden />
-          <button
-            type="button"
-            className="relative grid h-11 w-11 place-items-center rounded-full border border-[#e2e7ef] bg-white text-[#5f6b7a] transition-colors hover:bg-[#f7f9fc]"
-            aria-label="Notifications"
-          >
-            <BellIcon className="h-5 w-5" />
-            {unreadConversationCount > 0 ? (
-              <span className="absolute -right-0.5 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-[#e11d48] px-1 text-[11px] font-semibold text-white">
-                {unreadConversationCount > 99 ? "99+" : unreadConversationCount}
-              </span>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setIsNotificationsOpen((open) => !open)}
+              className="relative z-20 grid h-11 w-11 place-items-center rounded-full border border-[#e2e7ef] bg-white text-[#5f6b7a] transition-colors hover:bg-[#f7f9fc]"
+              aria-label="Notifications"
+              aria-haspopup="menu"
+              aria-expanded={isNotificationsOpen}
+            >
+              <BellIcon className="h-5 w-5" />
+              {unreadConversationCount > 0 ? (
+                <span className="absolute -right-0.5 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-[#e11d48] px-1 text-[11px] font-semibold text-white">
+                  {unreadConversationCount > 99 ? "99+" : unreadConversationCount}
+                </span>
+              ) : null}
+            </button>
+            {isNotificationsOpen ? (
+              <>
+                <button type="button" className="fixed inset-0 z-10 cursor-default" onClick={() => setIsNotificationsOpen(false)} aria-label="Close notifications" />
+                <section role="menu" aria-label="Live Support notifications" className="absolute right-0 top-full z-20 mt-2 w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-[#e2e7ef] bg-white shadow-[0_16px_36px_rgba(16,24,40,0.18)]">
+                  <div className="flex items-center justify-between border-b border-[#edf0f5] px-4 py-3">
+                    <div><p className="text-sm font-semibold text-[#101828]">New customer messages</p><p className="mt-0.5 text-xs text-[#667085]">{unreadNotifications.length} unread</p></div>
+                    {unreadNotifications.length > 0 ? <button type="button" onClick={markAllNotificationsRead} className="text-xs font-semibold text-[#2f6bff] hover:text-[#1f54e8]">Mark all read</button> : null}
+                  </div>
+                  {unreadNotifications.length === 0 ? (
+                    <p className="px-4 py-8 text-center text-sm text-[#667085]">You&apos;re all caught up.</p>
+                  ) : (
+                    <ul className="max-h-80 overflow-y-auto">
+                      {unreadNotifications.map((notification) => (
+                        <li key={notification.id} className="border-b border-[#edf0f5] last:border-b-0">
+                          <button type="button" role="menuitem" onClick={() => openNotification(notification.id)} className="w-full px-4 py-3 text-left hover:bg-[#f7f9fc]">
+                            <div className="flex items-center justify-between gap-3"><span className="truncate text-sm font-semibold text-[#344054]">{notification.name}</span><span className="shrink-0 text-xs text-[#667085]">{notification.time}</span></div>
+                            <p className="mt-1 line-clamp-2 text-xs leading-5 text-[#667085]">{notification.preview}</p>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              </>
             ) : null}
-          </button>
+          </div>
         </div>
       </header>
 
@@ -332,7 +387,7 @@ export function LiveSupportPage() {
               />
             </label>
 
-            <div className="scrollbar-hide mt-4 flex gap-2 overflow-x-auto pb-4">
+            <div className="mt-4 flex gap-2 overflow-x-auto overscroll-x-contain pb-3 pr-2">
               {FILTERS.map((filter) => {
                 const active = activeFilter === filter.key;
                 return (
@@ -430,7 +485,7 @@ export function LiveSupportPage() {
               </button>
             </div>
 
-            <div className="flex w-full flex-nowrap items-center gap-2 overflow-x-auto pb-0.5 scrollbar-hide sm:gap-3">
+            <div className="flex w-full flex-nowrap items-center gap-2 overflow-x-auto overscroll-x-contain pb-2 pr-2 sm:gap-3">
               {!currentConversation?.assigned_agent_id ? (
                 <button
                   type="button"
@@ -464,16 +519,19 @@ export function LiveSupportPage() {
                 </>
               )}
               {isAssignedToCurrentAdmin ? (
-                <select
-                  value={currentConversation?.status ?? "active"}
-                  onChange={(event) => void updateConversation({ status: event.target.value as Extract<SupportConversationStatus, "active" | "resolved"> })}
-                  disabled={!currentConversation || isConversationLoading}
-                  className="h-10 rounded-xl border border-[#d9deea] bg-white px-3 text-[13px] font-medium capitalize text-[#344054] outline-none focus:border-[#91a6ff] disabled:opacity-50"
-                  aria-label="Conversation status"
-                >
-                  <option value="active">Active</option>
-                  <option value="resolved">Resolved</option>
-                </select>
+                <div className="relative shrink-0">
+                  <select
+                    value={currentConversation?.status ?? "active"}
+                    onChange={(event) => void updateConversation({ status: event.target.value as Extract<SupportConversationStatus, "active" | "resolved"> })}
+                    disabled={!currentConversation || isConversationLoading}
+                    className="h-10 appearance-none rounded-xl border border-[#d9deea] bg-white py-0 pl-3 pr-10 text-[13px] font-medium capitalize text-[#344054] outline-none focus:border-[#91a6ff] disabled:opacity-50"
+                    aria-label="Conversation status"
+                  >
+                    <option value="active">Active</option>
+                    <option value="resolved">Resolved</option>
+                  </select>
+                  <ChevronDownIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#475467]" />
+                </div>
               ) : null}
             </div>
             {supportError ? <p role="alert" className="text-[13px] font-medium text-[#b42318]">{supportError}</p> : null}
@@ -565,7 +623,7 @@ export function LiveSupportPage() {
                   onClick={() => scrollChatToBottom()}
                   className="rounded-full border border-[#cfd9ee] bg-white px-4 py-2 text-[13px] font-semibold text-[#2f6bff] shadow-[0_8px_20px_rgba(15,23,42,0.14)] hover:bg-[#f7f9ff]"
                 >
-                  New messages Ã¢â€ â€œ
+                  New messages &darr;
                 </button>
               </div>
             ) : null}
@@ -688,6 +746,16 @@ export function LiveSupportPage() {
           </PanelCard>
 
           <PanelCard title="AI Conversation Summary">
+            {isCurrentConversationResolved && isAssignedToCurrentAdmin ? (
+              <button
+                type="button"
+                onClick={() => void updateConversation({ action: "regenerate_summary" })}
+                disabled={isConversationLoading}
+                className="mb-3 text-[13px] font-semibold text-[#2f6bff] hover:text-[#1f54e8] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Regenerate summary
+              </button>
+            ) : null}
             <div className="rounded-[16px] bg-[#eef4ff] p-4 text-[14px] leading-6 whitespace-pre-line text-[#334a78]">
               {currentConversation?.summary ?? "Summary will be generated when this conversation is resolved."}
             </div>
@@ -716,6 +784,21 @@ export function LiveSupportPage() {
 }
 
 type RoomOption = { id: string; name: string; guests: number; discountedPrice: number };
+
+async function readBookingApiResponse<T extends object>(response: Response): Promise<T> {
+  const contentType = response.headers.get("content-type") ?? "";
+  if (contentType.includes("application/json")) {
+    return response.json() as Promise<T>;
+  }
+
+  // A missing route, proxy failure, or development error page is HTML. Avoid
+  // showing its JSON parser exception to staff, since it hides the real issue.
+  const body = await response.text();
+  const preview = body.replace(/\s+/g, " ").slice(0, 120);
+  throw new Error(
+    `The booking service returned an unexpected response (${response.status}).${preview ? " Please try again or check the server logs." : ""}`,
+  );
+}
 
 function CreateBookingDialog({ conversation, customer, onClose, onCreated }: {
   conversation: SupportConversation;
@@ -761,8 +844,8 @@ function CreateBookingDialog({ conversation, customer, onClose, onCreated }: {
     try {
       const params = new URLSearchParams({ checkIn, checkOut, guests: String(guests), rooms: String(rooms) });
       const response = await fetch(`/api/live-support/admin/booking?${params}`);
-      const data = await response.json() as { rooms?: RoomOption[]; error?: string };
-      if (!response.ok) throw new Error(data.error ?? "Unable to check availability");
+      const data = await readBookingApiResponse<{ rooms?: RoomOption[]; error?: string; message?: string }>(response);
+      if (!response.ok) throw new Error(data.error ?? data.message ?? "Unable to check availability");
       setAvailableRooms(data.rooms ?? []);
       setRoomTypeId(data.rooms?.[0]?.id ?? "");
       if (!data.rooms?.length) setError("No rooms are available for these dates.");
@@ -791,9 +874,9 @@ function CreateBookingDialog({ conversation, customer, onClose, onCreated }: {
           },
         }),
       });
-      const data = await response.json() as { error?: string; supportMessage?: SupportMessage };
+      const data = await readBookingApiResponse<{ error?: string; message?: string; supportMessage?: SupportMessage }>(response);
       if (!response.ok) {
-        throw new Error(data.error ?? "Unable to create booking");
+        throw new Error(data.error ?? data.message ?? "Unable to create booking");
       }
       onCreated(data.supportMessage);
     } catch (cause) {
@@ -808,7 +891,7 @@ function CreateBookingDialog({ conversation, customer, onClose, onCreated }: {
       <form onSubmit={createBooking} className="max-h-[calc(100dvh-16px)] w-full max-w-3xl overflow-y-auto rounded-[16px] bg-white p-4 pb-[max(16px,env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[92vh] sm:rounded-[22px] sm:p-6">
         <div className="flex items-start justify-between gap-4">
           <div><h2 id="create-booking-title" className="text-xl font-semibold text-[#111827]">Create Booking</h2><p className="mt-1 text-sm text-[#667085]">Guest bookings require email verification. The customer chooses payment on the Neatly Hotel website.</p></div>
-          <button type="button" onClick={onClose} className="text-2xl text-[#667085]" aria-label="Close">Ãƒâ€”</button>
+          <button type="button" onClick={onClose} className="text-2xl text-[#667085]" aria-label="Close">&times;</button>
         </div>
 
         <div className="mt-5 rounded-xl border border-[#e2e8f0] bg-[#f8fafc] p-4">
@@ -831,7 +914,7 @@ function CreateBookingDialog({ conversation, customer, onClose, onCreated }: {
           <BookingField label="Rooms"><input required type="number" min="1" max="3" value={rooms} onChange={(event) => updateAvailabilityCriteria(() => setRooms(Number(event.target.value)))} /></BookingField>
         </div>
         <button type="button" onClick={() => void findAvailableRooms()} disabled={isLoading} className="mt-3 rounded-lg border border-[#2f6bff] px-4 py-2 text-sm font-semibold text-[#2f6bff] disabled:opacity-50">Check availability</button>
-        {availableRooms.length > 0 && <div className="mt-3"><BookingField label="Available room type"><select required value={roomTypeId} onChange={(event) => setRoomTypeId(event.target.value)}>{availableRooms.map((room) => <option key={room.id} value={room.id}>{room.name} Ã‚Â· THB {room.discountedPrice.toLocaleString()} / night</option>)}</select></BookingField></div>}
+        {availableRooms.length > 0 && <div className="mt-3"><BookingField label="Available room type"><select required value={roomTypeId} onChange={(event) => setRoomTypeId(event.target.value)}>{availableRooms.map((room) => <option key={room.id} value={room.id}>{room.name} &middot; THB {room.discountedPrice.toLocaleString()} / night</option>)}</select></BookingField></div>}
 
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <BookingField label="First name"><input required value={firstName} onChange={(event) => setFirstName(event.target.value)} /></BookingField>
@@ -910,8 +993,8 @@ function ConversationBookingCard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ conversationId, bookingId: booking.id }),
       });
-      const data = await response.json().catch(() => ({})) as { error?: string };
-      if (!response.ok) throw new Error(data.error ?? "Unable to cancel booking");
+      const data = await readBookingApiResponse<{ error?: string; message?: string }>(response);
+      if (!response.ok) throw new Error(data.error ?? data.message ?? "Unable to cancel booking");
       setIsConfirmingCancellation(false);
       onCancelled();
     } catch (error) {
@@ -1107,6 +1190,14 @@ function ChevronLeftIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
       <path d="m15 18-6-6 6-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ChevronDownIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="m7 10 5 5 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

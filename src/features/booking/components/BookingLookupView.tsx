@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { isChangeDateEligible, isRefundEligible, nightsBetween } from "@/features/booking/date-rules";
 import { formatDateLabel, formatThb } from "@/features/booking/format";
 import { CancelBookingModal } from "@/features/booking-history/components/CancelBookingModal";
@@ -14,8 +14,9 @@ const INPUT_CLASSNAME =
 const LABEL_CLASSNAME = "[font-family:var(--font-inter)] text-base leading-[150%] text-[#2A2E3F]";
 
 export function BookingLookupView() {
-  const [bookingCode, setBookingCode] = useState("");
-  const [email, setEmail] = useState("");
+  const searchParams = useSearchParams();
+  const [bookingCode, setBookingCode] = useState(() => searchParams.get("code")?.trim() ?? "");
+  const [email, setEmail] = useState(() => searchParams.get("email")?.trim() ?? "");
   const [booking, setBooking] = useState<BookingRecord | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
