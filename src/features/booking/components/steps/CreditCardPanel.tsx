@@ -124,7 +124,14 @@ function CreditCardForm({ promoCode, onPromoCodeChange, promoMessage, promoValid
           disabled={isSubmitting || !stripe || !elements}
           className="flex h-12 w-[194px] items-center justify-center rounded bg-[#C14817] px-8 py-4 [font-family:var(--font-open-sans)] text-base leading-none font-semibold text-white transition-[background-color,transform] duration-150 hover:bg-[#A93F13] active:scale-90 disabled:opacity-60 disabled:active:scale-100"
         >
-          {isSubmitting ? "Confirming..." : "Confirm Booking"}
+          {isSubmitting ? (
+            <span className="flex items-center justify-center gap-2">
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              Confirming...
+            </span>
+          ) : (
+            "Confirm Booking"
+          )}
         </button>
       </div>
     </div>
