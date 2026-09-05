@@ -23,6 +23,7 @@ const copy = {
     guests: "จำนวนผู้ใช้บริการ",
     total: "รวม",
     saving: "กำลังบันทึก...",
+    skip: "ข้ามบริการเสริม",
     confirm: "ยืนยันการจอง",
     unavailable: "ไม่สามารถเชื่อมต่อ Live Support ได้ กรุณาเริ่มแชตใหม่แล้วลองอีกครั้ง",
     saveFailed: "ไม่สามารถบันทึกบริการเสริมได้",
@@ -47,6 +48,7 @@ const copy = {
     guests: "Guests",
     total: "Total",
     saving: "Saving requests...",
+    skip: "Skip special requests",
     confirm: "Confirm booking",
     unavailable: "Live Support session is unavailable. Please reset the chat and try again.",
     saveFailed: "Unable to save special requests",
@@ -137,9 +139,10 @@ export function SupportBookingCard({
     setConfirmError("");
   }
 
-  async function confirmBooking() {
+  async function confirmBooking(specialRequests = selectedCounts) {
     if (isConfirming) return;
-    if (specialRequestOptions.length > 0) {
+    const hasSpecialRequestsToSave = Object.keys(specialRequests).length > 0 || booking.specialRequests.length > 0;
+    if (specialRequestOptions.length > 0 && hasSpecialRequestsToSave) {
       if (!visitorToken) {
         setConfirmError(t.unavailable);
         return;
@@ -153,7 +156,7 @@ export function SupportBookingCard({
           body: JSON.stringify({
             visitorToken,
             bookingId: booking.id,
-            specialRequests: Object.entries(selectedCounts).map(([code, count]) => ({ code, count })),
+            specialRequests: Object.entries(specialRequests).map(([code, count]) => ({ code, count })),
           }),
         });
         const data = await response.json().catch(() => ({})) as { error?: string };
@@ -201,7 +204,10 @@ export function SupportBookingCard({
         <div className="col-span-2 flex items-end justify-between border-t border-[#EEF0F4] pt-3"><dt className="text-sm font-medium text-[#646D89]">{t.total}</dt><dd className="m-0 text-base font-semibold text-[#C14817]">THB {previewTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}</dd></div>
       </dl>
       {isPending && confirmError && <p className="m-0 border-t border-[#F3D4C8] bg-[#FFF8F5] px-4 py-2 text-xs text-[#B42318]">{confirmError}</p>}
-      {isPending && <div className="border-t border-[#EEF0F4] p-3"><button type="button" onClick={() => void confirmBooking()} disabled={isConfirming} className="flex w-full items-center justify-center rounded-lg bg-[#C14817] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#A93F13] focus:outline-2 focus:outline-offset-2 focus:outline-[#C14817]">{isConfirming ? <span className="flex items-center justify-center gap-2"><span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />{t.saving}</span> : t.confirm}</button></div>}
+      {isPending && <div className="grid gap-2 border-t border-[#EEF0F4] p-3">
+        {specialRequestOptions.length > 0 && <button type="button" onClick={() => void confirmBooking({})} disabled={isConfirming} className="flex w-full items-center justify-center rounded-lg border border-[#C14817] bg-white px-4 py-3 text-sm font-semibold text-[#C14817] transition-colors hover:bg-[#FFF1EB] focus:outline-2 focus:outline-offset-2 focus:outline-[#C14817]">{t.skip}</button>}
+        <button type="button" onClick={() => void confirmBooking()} disabled={isConfirming} className="flex w-full items-center justify-center rounded-lg bg-[#C14817] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#A93F13] focus:outline-2 focus:outline-offset-2 focus:outline-[#C14817]">{isConfirming ? <span className="flex items-center justify-center gap-2"><span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />{t.saving}</span> : t.confirm}</button>
+      </div>}
     </article>
   );
 }
