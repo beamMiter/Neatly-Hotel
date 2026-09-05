@@ -24,6 +24,7 @@ import type {
   SelectedSpecialRequest,
   SpecialRequestOption,
 } from "@/types/booking";
+import { LIVE_SUPPORT_TOKEN_KEY } from "@/lib/support-booking-proposal";
 
 type BookingWizardProps = {
   roomTypeId: string;
@@ -36,6 +37,7 @@ type BookingWizardProps = {
   specialRequestCatalog: SpecialRequestOption[];
   prefill: ProfilePrefill | null;
   isLoggedIn: boolean;
+  fromLiveSupport: boolean;
   checkInTimeLabel: string;
   checkOutTimeLabel: string;
 };
@@ -60,6 +62,7 @@ export function BookingWizard({
   specialRequestCatalog,
   prefill,
   isLoggedIn,
+  fromLiveSupport,
   checkInTimeLabel,
   checkOutTimeLabel,
 }: BookingWizardProps) {
@@ -220,7 +223,7 @@ export function BookingWizard({
     );
   }
 
-  const handleEmailVerified = useCallback((_token: string, _expiresAt: string) => {
+  const handleEmailVerified = useCallback((_token: string) => {
     setEmailVerified(true);
     setEmailVerificationToken(_token);
     setEmailVerificationError(undefined);
@@ -286,6 +289,9 @@ export function BookingWizard({
       checkOut,
       guests,
       rooms,
+      ...(fromLiveSupport
+        ? { supportVisitorToken: window.localStorage.getItem(LIVE_SUPPORT_TOKEN_KEY) }
+        : {}),
     };
 
     try {

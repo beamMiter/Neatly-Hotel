@@ -7,6 +7,7 @@ import type {
   SupportCustomer,
   SupportMessage,
 } from "@/types/live-support";
+import { decodeSupportBookingProposal } from "@/lib/support-booking-proposal";
 
 export class SupportMessageLimitError extends Error {
   constructor() {
@@ -204,7 +205,12 @@ export async function listSupportConversations(adminId: string) {
     customer_name: conversation.customer_name ?? (conversation.customer_id ? customerNameById.get(conversation.customer_id) || null : null),
     latest_visitor_message_at: latestVisitorMessageByConversation.get(conversation.id) ?? null,
     last_read_at: readAtByConversation.get(conversation.id) ?? null,
-    latest_message_content: latestMessageByConversation.get(conversation.id)?.content ?? null,
+    latest_message_content: (() => {
+      const content = latestMessageByConversation.get(conversation.id)?.content;
+      if (!content) return null;
+      const proposal = decodeSupportBookingProposal(content);
+      return proposal ? `Booking proposal: ${proposal.roomName}` : content;
+    })(),
   })) as SupportConversation[];
 }
 
@@ -328,6 +334,8 @@ export async function getSupportCustomer(customerId: string | null): Promise<Sup
 type SupportBookingRow = {
   id: string;
   booking_code: string;
+  customer_id: string | null;
+  guest_email: string | null;
   check_in: string;
   check_out: string;
   status: string;
@@ -340,7 +348,7 @@ type SupportBookingRow = {
 export async function listSupportBookings(conversation: SupportConversation): Promise<SupportBooking[]> {
   let request = supabaseAdmin
     .from("bookings")
-    .select("id, booking_code, check_in, check_out, status, total_amount, addons_total, special_requests, booking_rooms(rooms(room_type))")
+    .select("id, booking_code, customer_id, guest_email, check_in, check_out, status, total_amount, addons_total, special_requests, booking_rooms(rooms(room_type))")
     .order("created_at", { ascending: false })
     .limit(3);
 
@@ -354,6 +362,8 @@ export async function listSupportBookings(conversation: SupportConversation): Pr
   return ((data ?? []) as unknown as SupportBookingRow[]).map((booking) => ({
     id: booking.id,
     bookingCode: booking.booking_code,
+    guestEmail: booking.guest_email ?? "",
+    requiresEmailVerification: !booking.customer_id,
     roomType: booking.booking_rooms?.[0]?.rooms?.room_type ?? "Room not specified",
     checkIn: booking.check_in,
     checkOut: booking.check_out,

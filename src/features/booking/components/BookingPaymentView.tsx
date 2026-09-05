@@ -2,28 +2,41 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { CardNumberElement, Elements, useElements, useStripe } from "@stripe/react-stripe-js";
 import { StripeCardFields } from "@/features/booking/components/StripeCardFields";
+import { EmailOtpVerification } from "@/features/booking/components/EmailOtpVerification";
 import { PromptPayIcon } from "@/components/icons/PromptPayIcon";
 import { formatDateLabel, formatThb } from "@/features/booking/format";
 import { stripePromise } from "@/features/booking/stripe-client";
+import { BOOKING_EMAIL_VERIFICATION_HEADER, bookingEmailVerificationStorageKey } from "@/lib/booking-email-verification";
 import type { BookingRecord } from "@/types/booking";
 
 type PaymentMethod = "cash" | "credit_card" | "promptpay";
+
+const subscribeToHydration = () => () => {};
 
 type BookingPaymentViewProps = {
   bookingId: string;
   booking: BookingRecord;
   amountDue?: number;
+  requiresEmailVerification: boolean;
 };
 
-export function BookingPaymentView({ bookingId, booking, amountDue = 0 }: BookingPaymentViewProps) {
+export function BookingPaymentView({ bookingId, booking, amountDue = 0, requiresEmailVerification }: BookingPaymentViewProps) {
   const router = useRouter();
   const [method, setMethod] = useState<PaymentMethod | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [isStartingPayment, setIsStartingPayment] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [verifiedEmailToken, setVerifiedEmailToken] = useState<string | null>(null);
+  const isHydrated = useSyncExternalStore(subscribeToHydration, () => true, () => false);
+  const emailVerificationLoaded = !requiresEmailVerification || isHydrated;
+  const emailVerificationToken = verifiedEmailToken ?? (
+    requiresEmailVerification && isHydrated
+      ? window.sessionStorage.getItem(bookingEmailVerificationStorageKey(bookingId))
+      : null
+  );
 
   const isTopUp =
     amountDue > 0 && booking.paymentStatus === "pending" && booking.status !== "pending_payment";
@@ -31,13 +44,26 @@ export function BookingPaymentView({ bookingId, booking, amountDue = 0 }: Bookin
   const canPay = isInitialPayment || isTopUp;
   const chargeAmount = isTopUp ? amountDue : booking.totalAmount;
 
+  function verificationHeaders() {
+    return emailVerificationToken
+      ? { [BOOKING_EMAIL_VERIFICATION_HEADER]: emailVerificationToken }
+      : undefined;
+  }
+
+  function handleVerificationRejected(status: number) {
+    if (status !== 403 || !requiresEmailVerification) return;
+    window.sessionStorage.removeItem(bookingEmailVerificationStorageKey(bookingId));
+    setVerifiedEmailToken(null);
+  }
+
   async function choosePayAtHotel() {
     setIsStartingPayment(true);
     setError(null);
     try {
-      const response = await fetch(`/api/bookings/${bookingId}/pay-at-hotel`, { method: "POST" });
+      const response = await fetch(`/api/bookings/${bookingId}/pay-at-hotel`, { method: "POST", headers: verificationHeaders() });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
+        handleVerificationRejected(response.status);
         setError(data.message ?? "Unable to confirm pay at hotel");
         return;
       }
@@ -53,9 +79,10 @@ export function BookingPaymentView({ bookingId, booking, amountDue = 0 }: Bookin
     setIsStartingPayment(true);
     setError(null);
     try {
-      const response = await fetch(`/api/bookings/${bookingId}/payment-intent`, { method: "POST" });
+      const response = await fetch(`/api/bookings/${bookingId}/payment-intent`, { method: "POST", headers: verificationHeaders() });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.clientSecret) {
+        handleVerificationRejected(response.status);
         setError(data.message ?? "Unable to start card payment");
         return;
       }
@@ -106,7 +133,23 @@ export function BookingPaymentView({ bookingId, booking, amountDue = 0 }: Bookin
         </dl>
       </section>
 
-      {!canPay ? (
+      {requiresEmailVerification && emailVerificationLoaded && !emailVerificationToken && canPay && (
+        <EmailOtpVerification
+          email={booking.guestInfo.email}
+          emailValid={/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(booking.guestInfo.email)}
+          verified={false}
+          onVerified={(token) => {
+            window.sessionStorage.setItem(bookingEmailVerificationStorageKey(bookingId), token);
+            setVerifiedEmailToken(token);
+            setError(null);
+          }}
+          onClearVerification={() => setVerifiedEmailToken(null)}
+        />
+      )}
+
+      {!emailVerificationLoaded ? (
+        <section className="rounded-lg border border-[#E4E6ED] bg-white p-6 text-sm text-[#646D89]">Checking email verification...</section>
+      ) : !canPay ? (
         <section className="rounded-lg border border-[#E4E6ED] bg-white p-6 text-center">
           <h2 className="text-xl font-semibold text-[#2A2E3F]">This booking is already being processed</h2>
           <p className="mt-2 text-sm text-[#646D89]">Check the booking status or contact the hotel if you need help.</p>
@@ -114,7 +157,7 @@ export function BookingPaymentView({ bookingId, booking, amountDue = 0 }: Bookin
             View booking
           </Link>
         </section>
-      ) : clientSecret ? (
+      ) : requiresEmailVerification && !emailVerificationToken ? null : clientSecret ? (
         <section className="rounded-lg border border-[#E4E6ED] bg-white p-6">
           <Elements stripe={stripePromise}>
             {method === "promptpay" ? (
@@ -125,7 +168,6 @@ export function BookingPaymentView({ bookingId, booking, amountDue = 0 }: Bookin
               />
             ) : (
               <CardPaymentForm
-                bookingId={bookingId}
                 clientSecret={clientSecret}
                 successPath={`/booking/success?bookingId=${bookingId}`}
               />
@@ -207,11 +249,9 @@ export function BookingPaymentView({ bookingId, booking, amountDue = 0 }: Bookin
 }
 
 function CardPaymentForm({
-  bookingId,
   clientSecret,
   successPath,
 }: {
-  bookingId: string;
   clientSecret: string;
   successPath: string;
 }) {

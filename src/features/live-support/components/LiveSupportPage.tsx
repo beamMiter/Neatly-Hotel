@@ -2,10 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { EmailOtpVerification } from "@/features/booking/components/EmailOtpVerification";
-import type { SupportBooking, SupportConversation, SupportConversationStatus, SupportCustomer, SupportMessage } from "@/types/live-support";
+import type { SupportBooking, SupportBookingProposal, SupportConversation, SupportConversationStatus, SupportMessage } from "@/types/live-support";
 import { useLiveSupportAdmin } from "@/features/live-support/components/useLiveSupportAdmin";
-import { COUNTRIES } from "@/lib/countries";
+import { decodeSupportBookingProposal } from "@/lib/support-booking-proposal";
 
 type SupportTab = "unassigned" | "mine" | "team" | "resolved";
 type SupportFilter = "all" | "booking" | "room" | "payment" | "other";
@@ -562,6 +561,7 @@ export function LiveSupportPage() {
                 const isSystem = message.sender === "system";
 
                 if (isSystem) {
+                  const proposal = decodeSupportBookingProposal(message.content);
                   const bookingCode = message.content.match(/Booking\s+(NB-[A-Z0-9-]+)/i)?.[1];
                   const booking = bookingCode
                     ? bookings.find((item) => item.bookingCode.toUpperCase() === bookingCode.toUpperCase())
@@ -570,9 +570,11 @@ export function LiveSupportPage() {
                   return (
                     <div key={message.id} className="grid justify-items-center gap-3">
                       <div className="max-w-[min(92%,36rem)] rounded-xl border border-[#b9e7c9] bg-[#effaf2] px-4 py-3 text-center text-[13px] leading-5 text-[#176b3a]">
-                        {message.content}
+                        {proposal ? "Booking proposal sent to the customer." : message.content}
                       </div>
-                      {booking && /ready for confirmation/i.test(message.content) ? (
+                      {proposal ? (
+                        <AdminBookingProposalCard proposal={proposal} />
+                      ) : booking && (/ready for confirmation/i.test(message.content) || /created from the live support proposal/i.test(message.content)) ? (
                         <ConversationBookingCard
                           booking={booking}
                           conversationId={message.conversation_id}
@@ -741,7 +743,7 @@ export function LiveSupportPage() {
               className="flex h-14 w-full items-center justify-center gap-2 rounded-[14px] border border-[#d9deea] bg-white px-4 text-[14px] font-medium text-[#344054] transition-colors hover:border-[#b8c3dc] hover:bg-[#fbfcfe] disabled:cursor-not-allowed disabled:opacity-50"
             >
               <CalendarIcon className="h-4 w-4 text-[#2f6bff]" />
-              <span>Create Booking</span>
+              <span>Send Booking Proposal</span>
             </button>
           </PanelCard>
 
@@ -770,7 +772,6 @@ export function LiveSupportPage() {
       {isCreateBookingOpen && currentConversation && (
         <CreateBookingDialog
           conversation={currentConversation}
-          customer={customer}
           onClose={() => setIsCreateBookingOpen(false)}
           onCreated={(supportMessage) => {
             setIsCreateBookingOpen(false);
@@ -800,28 +801,17 @@ async function readBookingApiResponse<T extends object>(response: Response): Pro
   );
 }
 
-function CreateBookingDialog({ conversation, customer, onClose, onCreated }: {
+function CreateBookingDialog({ conversation, onClose, onCreated }: {
   conversation: SupportConversation;
-  customer: SupportCustomer | null;
   onClose: () => void;
   onCreated: (supportMessage?: SupportMessage) => void;
 }) {
-  const nameParts = (customer?.name ?? conversation.customer_name ?? "").trim().split(/\s+/).filter(Boolean);
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
   const [guests, setGuests] = useState(1);
   const [rooms, setRooms] = useState(1);
   const [availableRooms, setAvailableRooms] = useState<RoomOption[]>([]);
   const [roomTypeId, setRoomTypeId] = useState("");
-  const [firstName, setFirstName] = useState(nameParts[0] ?? "");
-  const [lastName, setLastName] = useState(nameParts.slice(1).join(" "));
-  const [email, setEmail] = useState(customer?.email ?? "");
-  const [phone, setPhone] = useState(customer?.phone ?? conversation.customer_phone ?? "");
-  const [dateOfBirth, setDateOfBirth] = useState("");
-  const [country, setCountry] = useState(customer?.country ?? "Thailand");
-  const [emailVerificationToken, setEmailVerificationToken] = useState<string | null>(null);
-  const [emailVerificationError, setEmailVerificationError] = useState<string | undefined>();
-  const [allowSpecialRequests, setAllowSpecialRequests] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -830,12 +820,6 @@ function CreateBookingDialog({ conversation, customer, onClose, onCreated }: {
     setAvailableRooms([]);
     setRoomTypeId("");
     setError("");
-  }
-
-  function updateEmail(value: string) {
-    setEmail(value);
-    setEmailVerificationToken(null);
-    setEmailVerificationError(undefined);
   }
 
   async function findAvailableRooms() {
@@ -856,7 +840,7 @@ function CreateBookingDialog({ conversation, customer, onClose, onCreated }: {
     }
   }
 
-  async function createBooking(event: React.FormEvent<HTMLFormElement>) {
+  async function createBookingProposal(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!roomTypeId) { setError("Check availability and select a room type first."); return; }
     setIsLoading(true); setError("");
@@ -866,21 +850,16 @@ function CreateBookingDialog({ conversation, customer, onClose, onCreated }: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           conversationId: conversation.id,
-          allowSpecialRequests,
-          ...(conversation.customer_id ? {} : { emailVerificationToken }),
-          booking: {
-            roomTypeId, checkIn, checkOut, guests, rooms, firstName, lastName, email, phone,
-            dateOfBirth, country, standardRequests: [], specialRequests: [], paymentMethod: "cash",
-          },
+          proposal: { roomTypeId, checkIn, checkOut, guests, rooms },
         }),
       });
       const data = await readBookingApiResponse<{ error?: string; message?: string; supportMessage?: SupportMessage }>(response);
       if (!response.ok) {
-        throw new Error(data.error ?? data.message ?? "Unable to create booking");
+        throw new Error(data.error ?? data.message ?? "Unable to send booking proposal");
       }
       onCreated(data.supportMessage);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Unable to create booking");
+      setError(cause instanceof Error ? cause.message : "Unable to send booking proposal");
     } finally {
       setIsLoading(false);
     }
@@ -888,25 +867,12 @@ function CreateBookingDialog({ conversation, customer, onClose, onCreated }: {
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-[#101828]/45 p-2 sm:p-4" role="dialog" aria-modal="true" aria-labelledby="create-booking-title">
-      <form onSubmit={createBooking} className="max-h-[calc(100dvh-16px)] w-full max-w-3xl overflow-y-auto rounded-[16px] bg-white p-4 pb-[max(16px,env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[92vh] sm:rounded-[22px] sm:p-6">
+      <form onSubmit={createBookingProposal} className="max-h-[calc(100dvh-16px)] w-full max-w-3xl overflow-y-auto rounded-[16px] bg-white p-4 pb-[max(16px,env(safe-area-inset-bottom))] shadow-2xl sm:max-h-[92vh] sm:rounded-[22px] sm:p-6">
         <div className="flex items-start justify-between gap-4">
-          <div><h2 id="create-booking-title" className="text-xl font-semibold text-[#111827]">Create Booking</h2><p className="mt-1 text-sm text-[#667085]">Guest bookings require email verification. The customer chooses payment on the Neatly Hotel website.</p></div>
+          <div><h2 id="create-booking-title" className="text-xl font-semibold text-[#111827]">Send Booking Proposal</h2><p className="mt-1 text-sm text-[#667085]">The customer completes their details, verification, requests, and payment in the standard booking flow.</p></div>
           <button type="button" onClick={onClose} className="text-2xl text-[#667085]" aria-label="Close">&times;</button>
         </div>
 
-        <div className="mt-5 rounded-xl border border-[#e2e8f0] bg-[#f8fafc] p-4">
-          {conversation.customer_id ? (
-            <div>
-              <p className="text-sm font-semibold text-[#18794e]">Signed-in customer</p>
-              <p className="mt-1 text-sm text-[#475467]">This booking remains linked to the customer who started this conversation.</p>
-            </div>
-          ) : (
-            <div>
-              <p className="text-sm font-semibold text-[#475467]">Guest booking</p>
-              <p className="mt-1 text-sm text-[#667085]">The callback phone number is not used to find or link a member account. Verify the guest email before creating the booking.</p>
-            </div>
-          )}
-        </div>
         <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <BookingField label="Check-in"><input required type="date" value={checkIn} onChange={(event) => updateAvailabilityCriteria(() => setCheckIn(event.target.value))} /></BookingField>
           <BookingField label="Check-out"><input required type="date" value={checkOut} onChange={(event) => updateAvailabilityCriteria(() => setCheckOut(event.target.value))} /></BookingField>
@@ -916,49 +882,8 @@ function CreateBookingDialog({ conversation, customer, onClose, onCreated }: {
         <button type="button" onClick={() => void findAvailableRooms()} disabled={isLoading} className="mt-3 rounded-lg border border-[#2f6bff] px-4 py-2 text-sm font-semibold text-[#2f6bff] disabled:opacity-50">Check availability</button>
         {availableRooms.length > 0 && <div className="mt-3"><BookingField label="Available room type"><select required value={roomTypeId} onChange={(event) => setRoomTypeId(event.target.value)}>{availableRooms.map((room) => <option key={room.id} value={room.id}>{room.name} &middot; THB {room.discountedPrice.toLocaleString()} / night</option>)}</select></BookingField></div>}
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-2">
-          <BookingField label="First name"><input required value={firstName} onChange={(event) => setFirstName(event.target.value)} /></BookingField>
-          <BookingField label="Last name"><input required value={lastName} onChange={(event) => setLastName(event.target.value)} /></BookingField>
-          <BookingField label="Email"><input required type="email" value={email} onChange={(event) => updateEmail(event.target.value)} /></BookingField>
-          <BookingField label="Phone"><input required type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} /></BookingField>
-          <BookingField label="Date of birth"><input required type="date" value={dateOfBirth} onChange={(event) => setDateOfBirth(event.target.value)} /></BookingField>
-          <BookingField label="Country"><select required value={country} onChange={(event) => setCountry(event.target.value)}>{COUNTRIES.map((item) => <option key={item} value={item}>{item}</option>)}</select></BookingField>
-        </div>
-
-        {!conversation.customer_id && (
-          <div className="mt-5">
-            <EmailOtpVerification
-              email={email.trim()}
-              emailValid={/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())}
-              verified={Boolean(emailVerificationToken)}
-              error={emailVerificationError}
-              onVerified={(token) => {
-                setEmailVerificationToken(token);
-                setEmailVerificationError(undefined);
-              }}
-              onClearVerification={() => {
-                setEmailVerificationToken(null);
-                setEmailVerificationError(undefined);
-              }}
-            />
-          </div>
-        )}
-
-        <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-xl border border-[#d9e4fb] bg-[#f7f9ff] p-4">
-          <input
-            type="checkbox"
-            checked={allowSpecialRequests}
-            onChange={(event) => setAllowSpecialRequests(event.target.checked)}
-            className="mt-0.5 h-4 w-4 accent-[#2f6bff]"
-          />
-          <span>
-            <span className="block text-sm font-semibold text-[#344054]">Allow customer to choose special requests</span>
-            <span className="mt-1 block text-xs leading-5 text-[#667085]">The customer will choose optional add-ons and see the updated total before confirming the booking.</span>
-          </span>
-        </label>
-
         {error && <p className="mt-4 rounded-lg bg-[#fef3f2] px-4 py-3 text-sm text-[#b42318]">{error}</p>}
-        <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3"><button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-semibold text-[#475467]">Cancel</button><button disabled={isLoading || !roomTypeId || (!conversation.customer_id && !emailVerificationToken)} className="flex items-center justify-center rounded-lg bg-[#2f6bff] px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">{isLoading ? <span className="flex items-center justify-center gap-2"><span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />Creating...</span> : "Create booking"}</button></div>
+        <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3"><button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-semibold text-[#475467]">Cancel</button><button disabled={isLoading || !roomTypeId} className="flex items-center justify-center rounded-lg bg-[#2f6bff] px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">{isLoading ? <span className="flex items-center justify-center gap-2"><span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />Sending...</span> : "Send proposal"}</button></div>
       </form>
     </div>
   );
@@ -966,6 +891,20 @@ function CreateBookingDialog({ conversation, customer, onClose, onCreated }: {
 
 function BookingField({ label, children }: { label: string; children: React.ReactNode }) {
   return <label className="grid gap-1 text-sm font-medium text-[#344054]"><span>{label}</span><span className="[&_input]:h-10 [&_input]:w-full [&_input]:rounded-lg [&_input]:border [&_input]:border-[#d0d5dd] [&_input]:px-3 [&_select]:h-10 [&_select]:w-full [&_select]:rounded-lg [&_select]:border [&_select]:border-[#d0d5dd] [&_select]:bg-white [&_select]:px-3">{children}</span></label>;
+}
+
+function AdminBookingProposalCard({ proposal }: { proposal: SupportBookingProposal }) {
+  return (
+    <article className="w-full max-w-[28rem] rounded-[16px] border border-[#d9e4fb] bg-white p-4 shadow-[0_8px_20px_rgba(15,23,42,0.06)]">
+      <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#526aa8]">Booking proposal</p>
+      <h3 className="mt-1 text-[16px] font-semibold text-[#111827]">{proposal.roomName}</h3>
+      <div className="mt-3 grid gap-1 text-[13px] text-[#667085] sm:grid-cols-2">
+        <span>{proposal.checkIn} - {proposal.checkOut}</span>
+        <span className="sm:text-right">{proposal.rooms} room(s) · {proposal.guests} guest(s)</span>
+      </div>
+      <p className="mt-3 border-t border-[#edf0f5] pt-3 text-[12px] text-[#667085]">Availability will be checked again when the customer completes the booking.</p>
+    </article>
+  );
 }
 
 function ConversationBookingCard({

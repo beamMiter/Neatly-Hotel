@@ -23,7 +23,7 @@ export type SupportMessageResponse = {
 };
 
 export type SupportSessionResponse = {
-  conversation: Pick<SupportConversation, "id" | "status" | "assigned_agent_id" | "booking_id"> | null;
+  conversation: Pick<SupportConversation, "id" | "status" | "assigned_agent_id" | "booking_id" | "customer_id"> | null;
   messages: SupportMessageResponse[];
   booking?: SupportBooking | null;
   specialRequestOptions?: SpecialRequestOption[];

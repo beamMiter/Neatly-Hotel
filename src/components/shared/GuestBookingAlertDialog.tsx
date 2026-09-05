@@ -8,6 +8,7 @@ type GuestBookingAlertDialogProps = {
   open: boolean;
   onClose: () => void;
   onContinueAsGuest: () => void;
+  onNavigate?: () => void;
   loginHref: string;
 };
 
@@ -52,7 +53,7 @@ function ConsentRow({
   );
 }
 
-export function GuestBookingAlertDialog({ open, onClose, onContinueAsGuest, loginHref }: GuestBookingAlertDialogProps) {
+export function GuestBookingAlertDialog({ open, onClose, onContinueAsGuest, onNavigate, loginHref }: GuestBookingAlertDialogProps) {
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [acceptPdpa, setAcceptPdpa] = useState(false);
 
@@ -68,7 +69,13 @@ export function GuestBookingAlertDialog({ open, onClose, onContinueAsGuest, logi
 
   function handleContinueAsGuest() {
     resetConsent();
+    onNavigate?.();
     onContinueAsGuest();
+  }
+
+  function handleNavigate() {
+    handleClose();
+    onNavigate?.();
   }
 
   useEffect(() => {
@@ -90,7 +97,7 @@ export function GuestBookingAlertDialog({ open, onClose, onContinueAsGuest, logi
   return (
     <div
       role="presentation"
-      className="fixed inset-0 z-60 flex items-center justify-center bg-black/40 px-4"
+      className="fixed inset-0 z-60 flex items-center justify-center bg-black/40 p-3 sm:p-6"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) handleClose();
       }}
@@ -99,9 +106,9 @@ export function GuestBookingAlertDialog({ open, onClose, onContinueAsGuest, logi
         role="dialog"
         aria-modal="true"
         aria-labelledby="guest-booking-title"
-        className="w-full max-w-3xl rounded-sm bg-white shadow-[2px_2px_12px_rgba(64,50,133,0.12)]"
+        className="flex max-h-[calc(100dvh-24px)] w-full max-w-2xl flex-col overflow-hidden rounded-xl bg-white shadow-[2px_2px_12px_rgba(64,50,133,0.12)] sm:max-h-[calc(100dvh-48px)]"
       >
-        <div className="flex items-center justify-between border-b border-[#E4E6ED] px-6 py-4">
+        <div className="flex shrink-0 items-center justify-between border-b border-[#E4E6ED] px-4 py-3.5 sm:px-6 sm:py-4">
           <h2
             id="guest-booking-title"
             className="[font-family:var(--font-inter)] text-xl font-semibold text-[#2A2E3F]"
@@ -118,12 +125,12 @@ export function GuestBookingAlertDialog({ open, onClose, onContinueAsGuest, logi
           </button>
         </div>
 
-        <div className="flex flex-col gap-5 px-6 py-6">
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-5 sm:gap-5 sm:px-6 sm:py-6">
           <p className="[font-family:var(--font-inter)] text-base leading-7 text-[#646D89]">
             You&apos;re about to book without signing in. If you continue as a guest, you won&apos;t be able to:
           </p>
 
-          <ul className="flex flex-col gap-2 pl-5">
+          <ul className="flex flex-col gap-1.5 pl-5 sm:gap-2">
             {LIMITATIONS.map((item) => (
               <li key={item} className="list-disc [font-family:var(--font-inter)] text-sm leading-6 text-[#646D89]">
                 {item}
@@ -136,7 +143,7 @@ export function GuestBookingAlertDialog({ open, onClose, onContinueAsGuest, logi
             booking.
           </p>
 
-          <div className="flex flex-col gap-4 border-t border-[#E4E6ED] pt-5">
+          <div className="flex flex-col gap-4 border-t border-[#E4E6ED] pt-4 sm:pt-5">
             <ConsentRow checked={acceptTerms} onChange={() => setAcceptTerms((value) => !value)}>
               I accept the guest booking terms — no refunds and no date changes once confirmed.
             </ConsentRow>
@@ -147,19 +154,20 @@ export function GuestBookingAlertDialog({ open, onClose, onContinueAsGuest, logi
           </div>
         </div>
 
-        <div className="flex flex-col gap-3 border-t border-[#E4E6ED] px-6 py-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex shrink-0 flex-col gap-4 border-t border-[#E4E6ED] bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-5">
           <Link
             href="/booking/lookup"
-            onClick={handleClose}
-            className="[font-family:var(--font-inter)] text-sm font-medium text-[#646D89] underline hover:text-[#2A2E3F]"
+            onClick={handleNavigate}
+            className="self-center text-center [font-family:var(--font-inter)] text-sm font-medium text-[#646D89] underline hover:text-[#2A2E3F] sm:self-auto sm:text-left"
           >
             Already booked as a guest? Find your booking
           </Link>
 
-          <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="grid w-full grid-cols-2 gap-3 sm:flex sm:w-auto sm:flex-row">
             <Link
               href={loginHref}
-              className="flex items-center justify-center rounded-sm border border-[#E76B39] bg-white px-6 py-3 [font-family:var(--font-open-sans)] text-base font-semibold text-[#E76B39] transition-colors hover:bg-[#FFF7F3]"
+              onClick={handleNavigate}
+              className="flex min-h-12 items-center justify-center rounded border border-[#E76B39] bg-white px-3 py-3 text-center [font-family:var(--font-open-sans)] text-sm font-semibold text-[#E76B39] transition-colors hover:bg-[#FFF7F3] sm:px-5 sm:text-base"
             >
               Log in / Sign up
             </Link>
@@ -167,7 +175,7 @@ export function GuestBookingAlertDialog({ open, onClose, onContinueAsGuest, logi
               type="button"
               onClick={handleContinueAsGuest}
               disabled={!canContinue}
-              className="cursor-pointer rounded-sm bg-[#C14817] px-6 py-3 [font-family:var(--font-open-sans)] text-base font-semibold text-white transition-colors hover:bg-[#A93F13] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-[#C14817]"
+              className="min-h-12 cursor-pointer rounded bg-[#C14817] px-3 py-3 text-center [font-family:var(--font-open-sans)] text-sm font-semibold text-white transition-colors hover:bg-[#A93F13] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-[#C14817] sm:px-5 sm:text-base"
             >
               Continue as Guest
             </button>

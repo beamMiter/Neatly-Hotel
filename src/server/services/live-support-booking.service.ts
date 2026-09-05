@@ -1,8 +1,10 @@
 import "server-only";
-import { parseCreateBookingPayload } from "@/features/booking/validations";
 import { validateStayDates } from "@/features/booking/date-rules";
-import { cancelBooking, createPendingBooking, updatePendingBookingSpecialRequests } from "@/server/queries/bookings.query";
+import { cancelBooking, updatePendingBookingSpecialRequests } from "@/server/queries/bookings.query";
 import { assertEmailVerificationToken } from "@/server/queries/email-otp.query";
+import { searchRoomTypes } from "@/server/queries/booking-search.query";
+import { decodeSupportBookingProposal, encodeSupportBookingProposal } from "@/lib/support-booking-proposal";
+import type { SupportBookingProposal } from "@/types/live-support";
 import {
   addSupportMessage,
   findVisitorConversation,
@@ -14,71 +16,88 @@ import {
 
 export class AdminBookingValidationError extends Error {}
 
-export async function createBookingForSupportConversation(input: {
+export async function createBookingProposalForSupportConversation(input: {
   conversationId: string;
-  emailVerificationToken?: string;
-  booking: unknown;
-  allowSpecialRequests?: boolean;
+  proposal: Pick<SupportBookingProposal, "roomTypeId" | "checkIn" | "checkOut" | "guests" | "rooms">;
 }) {
   const conversation = await getSupportConversation(input.conversationId);
   if (!conversation) throw new AdminBookingValidationError("Support conversation was not found");
 
-  const parsed = parseCreateBookingPayload(input.booking);
-  if (!parsed.success) throw new AdminBookingValidationError("Please complete all required booking details");
-  const { data } = parsed;
-  const dateError = validateStayDates(data.checkIn, data.checkOut);
+  const dateError = validateStayDates(input.proposal.checkIn, input.proposal.checkOut);
   if (dateError) throw new AdminBookingValidationError(dateError);
 
-  const customerId = conversation.customer_id;
-  // Callback contact details never identify a member. Only a customer who
-  // authenticated before starting this conversation receives a member booking.
-  if (!customerId && (!input.emailVerificationToken || !assertEmailVerificationToken(data.email, input.emailVerificationToken))) {
-    throw new AdminBookingValidationError("Please verify the guest email before creating a booking");
-  }
-
-  const { booking } = await createPendingBooking({
-    customerId,
-    roomTypeId: data.roomTypeId,
-    checkIn: data.checkIn,
-    checkOut: data.checkOut,
-    guests: data.guests,
-    rooms: data.rooms,
-    guestInfo: {
-      firstName: data.firstName,
-      lastName: data.lastName,
-      email: data.email,
-      phone: data.phone,
-      dateOfBirth: data.dateOfBirth.toISOString().slice(0, 10),
-      country: data.country,
-    },
-    standardRequests: data.standardRequests,
-    specialRequests: data.specialRequests,
-    additionalRequest: data.additionalRequest ?? null,
-    promoCode: data.promoCode ?? null,
-    // The customer chooses the final payment method on the main website.
-    // This creates a standard 30-minute pending-payment hold in the meantime.
-    paymentMethod: "credit_card",
+  const availableRooms = await searchRoomTypes({
+    checkIn: input.proposal.checkIn,
+    checkOut: input.proposal.checkOut,
+    guests: input.proposal.guests,
+    rooms: input.proposal.rooms,
   });
+  const room = availableRooms.find((item) => item.id === input.proposal.roomTypeId);
+  if (!room) throw new AdminBookingValidationError("The selected room is no longer available");
 
-  await updateSupportConversation(conversation.id, {
-    booking_id: booking.id,
-    customer_id: customerId,
-    customer_name: `${data.firstName} ${data.lastName}`.trim() || null,
-  });
+  const proposal: SupportBookingProposal = {
+    roomTypeId: room.id,
+    roomName: room.name,
+    pricePerNight: room.discountedPrice,
+    checkIn: input.proposal.checkIn,
+    checkOut: input.proposal.checkOut,
+    guests: input.proposal.guests,
+    rooms: input.proposal.rooms,
+  };
+  await updateSupportConversation(conversation.id, { booking_id: null });
   const supportMessage = await addSupportMessage(
     conversation.id,
     "system",
-    input.allowSpecialRequests
-      ? `Booking ${booking.bookingCode} is ready for confirmation with special requests. Choose any extras you need, then confirm the booking.`
-      : `Booking ${booking.bookingCode} is ready for confirmation. Review the booking and choose a payment method on the Neatly Hotel website.`,
+    encodeSupportBookingProposal(proposal),
   );
 
-  return { booking, customerType: customerId ? "member" as const : "guest" as const, customerId, supportMessage };
+  return { proposal, supportMessage };
+}
+
+export async function linkBookingToSupportConversation(input: {
+  visitorToken: string;
+  bookingId: string;
+  bookingCode: string;
+  customerId: string | null;
+  customerName: string;
+  roomTypeId: string;
+  checkIn: string;
+  checkOut: string;
+  guests: number;
+  rooms: number;
+}) {
+  const conversation = await findVisitorConversation(input.visitorToken);
+  if (!conversation) return false;
+
+  const messages = await listConversationMessages(conversation.id);
+  const proposal = messages.findLast((message) => message.sender === "system" && decodeSupportBookingProposal(message.content));
+  const details = proposal ? decodeSupportBookingProposal(proposal.content) : null;
+  if (
+    !details
+    || details.roomTypeId !== input.roomTypeId
+    || details.checkIn !== input.checkIn
+    || details.checkOut !== input.checkOut
+    || details.guests !== input.guests
+    || details.rooms !== input.rooms
+  ) return false;
+
+  await updateSupportConversation(conversation.id, {
+    booking_id: input.bookingId,
+    customer_id: input.customerId,
+    customer_name: input.customerName || conversation.customer_name,
+  });
+  await addSupportMessage(
+    conversation.id,
+    "system",
+    `Booking ${input.bookingCode} was created from the live support proposal.`,
+  );
+  return true;
 }
 
 export async function confirmVisitorBookingSpecialRequests(input: {
   visitorToken: string;
   bookingId: string;
+  emailVerificationToken?: string;
   specialRequests: { code: string; count?: number }[];
 }) {
   const conversation = await findVisitorConversation(input.visitorToken);
@@ -90,10 +109,22 @@ export async function confirmVisitorBookingSpecialRequests(input: {
     listSupportBookings(conversation),
   ]);
   const booking = bookings.find((item) => item.id === input.bookingId);
+  if (!booking) {
+    throw new AdminBookingValidationError("Booking does not belong to this support conversation");
+  }
+  if (
+    booking.requiresEmailVerification
+    && (!input.emailVerificationToken || !assertEmailVerificationToken(booking.guestEmail, input.emailVerificationToken))
+  ) {
+    throw new AdminBookingValidationError("Please verify your email before confirming this booking");
+  }
   const allowsSpecialRequests = Boolean(booking && messages.some((message) =>
     message.sender === "system" &&
     message.content.startsWith(`Booking ${booking.bookingCode} is ready for confirmation with special requests.`),
   ));
+  if (!allowsSpecialRequests && input.specialRequests.length === 0) {
+    return { booking };
+  }
   if (!allowsSpecialRequests) {
     throw new AdminBookingValidationError("Special requests are not enabled for this booking");
   }

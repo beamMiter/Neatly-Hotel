@@ -18,6 +18,8 @@ import {
 } from "@/server/payments/stripe";
 import { supabaseAdmin } from "@/server/db/supabase-admin";
 import { bookingAccessErrorResponse } from "@/server/services/booking-access";
+import { assertEmailVerificationToken } from "@/server/queries/email-otp.query";
+import { BOOKING_EMAIL_VERIFICATION_HEADER } from "@/lib/booking-email-verification";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -50,6 +52,12 @@ export async function POST(request: Request, { params }: RouteParams) {
   }
   if (!booking) {
     return NextResponse.json({ message: "Booking not found" }, { status: 404 });
+  }
+  if (!user && !assertEmailVerificationToken(
+    booking.guestInfo.email,
+    request.headers.get(BOOKING_EMAIL_VERIFICATION_HEADER) ?? "",
+  )) {
+    return NextResponse.json({ message: "Please verify your email before payment" }, { status: 403 });
   }
 
   const balance = await getBookingPaymentBalance(id);

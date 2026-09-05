@@ -43,9 +43,21 @@ export type SupportCustomer = {
   country: string | null;
 };
 
+export type SupportBookingProposal = {
+  roomTypeId: string;
+  roomName: string;
+  pricePerNight: number;
+  checkIn: string;
+  checkOut: string;
+  guests: number;
+  rooms: number;
+};
+
 export type SupportBooking = {
   id: string;
   bookingCode: string;
+  guestEmail: string;
+  requiresEmailVerification: boolean;
   roomType: string;
   checkIn: string;
   checkOut: string;
