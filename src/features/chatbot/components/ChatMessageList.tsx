@@ -17,6 +17,7 @@ type Props = {
   visitorToken: string | null;
   isLoggedIn: boolean;
   onGuestBookingDialogChange: (open: boolean) => void;
+  onNavigateToMainFlow: () => void;
   locale: WidgetLocale;
   isSupportResolved: boolean;
   isBooking: boolean;
@@ -42,7 +43,7 @@ export function ChatMessageList(props: Props) {
       {props.messages.map((message) => {
         const proposal = decodeSupportBookingProposal(message.content);
         if (proposal && message.id === latestProposalMessageId && !props.supportBooking && !props.isSupportResolved) {
-          return <SupportBookingProposalCard key={message.id} proposal={proposal} isLoggedIn={props.isLoggedIn} onGuestBookingDialogChange={props.onGuestBookingDialogChange} />;
+          return <SupportBookingProposalCard key={message.id} proposal={proposal} isLoggedIn={props.isLoggedIn} onGuestBookingDialogChange={props.onGuestBookingDialogChange} onNavigateToMainFlow={props.onNavigateToMainFlow} />;
         }
         if (isBookingConfirmationMessage(message, props.supportBooking) && props.supportBooking && !props.isSupportResolved) {
           return <SupportBookingCard key={message.id} booking={props.supportBooking} specialRequestOptions={props.specialRequestOptions} visitorToken={props.visitorToken} locale={props.locale} onConfirmed={props.onPayment} />;

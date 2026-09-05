@@ -10,10 +10,12 @@ export function SupportBookingProposalCard({
   proposal,
   isLoggedIn,
   onGuestBookingDialogChange,
+  onNavigateToMainFlow,
 }: {
   proposal: SupportBookingProposal;
   isLoggedIn: boolean;
   onGuestBookingDialogChange: (open: boolean) => void;
+  onNavigateToMainFlow: () => void;
 }) {
   const router = useRouter();
   const [isGuestDialogOpen, setIsGuestDialogOpen] = useState(false);
@@ -26,6 +28,7 @@ export function SupportBookingProposalCard({
 
   function continueToBooking() {
     if (isLoggedIn) {
+      onNavigateToMainFlow();
       router.push(bookingHref);
       return;
     }
@@ -66,6 +69,7 @@ export function SupportBookingProposalCard({
         open={isGuestDialogOpen}
         onClose={closeGuestDialog}
         onContinueAsGuest={continueAsGuest}
+        onNavigate={onNavigateToMainFlow}
         loginHref={`/login?redirectTo=${encodeURIComponent(bookingHref)}`}
       />
     </>

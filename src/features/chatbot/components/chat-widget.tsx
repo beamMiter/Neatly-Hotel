@@ -466,6 +466,7 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
               visitorToken={visitorToken}
               isLoggedIn={Boolean(supportConversation?.customer_id)}
               onGuestBookingDialogChange={setIsGuestBookingDialogOpen}
+              onNavigateToMainFlow={() => setIsOpen(false)}
               locale={locale}
               isSupportResolved={isSupportResolved}
               isBooking={isBooking}
@@ -479,7 +480,10 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
               }}
               onCreateLiveSupport={createLiveSupport}
               onPayment={() => {
-                if (supportBooking) router.push("/booking/payment?bookingId=" + supportBooking.id);
+                if (supportBooking) {
+                  setIsOpen(false);
+                  router.push("/booking/payment?bookingId=" + supportBooking.id);
+                }
               }}
             />
             {messages.length === 1 && (

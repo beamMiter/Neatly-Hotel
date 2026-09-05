@@ -8,6 +8,7 @@ type GuestBookingAlertDialogProps = {
   open: boolean;
   onClose: () => void;
   onContinueAsGuest: () => void;
+  onNavigate?: () => void;
   loginHref: string;
 };
 
@@ -52,7 +53,7 @@ function ConsentRow({
   );
 }
 
-export function GuestBookingAlertDialog({ open, onClose, onContinueAsGuest, loginHref }: GuestBookingAlertDialogProps) {
+export function GuestBookingAlertDialog({ open, onClose, onContinueAsGuest, onNavigate, loginHref }: GuestBookingAlertDialogProps) {
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [acceptPdpa, setAcceptPdpa] = useState(false);
 
@@ -68,7 +69,13 @@ export function GuestBookingAlertDialog({ open, onClose, onContinueAsGuest, logi
 
   function handleContinueAsGuest() {
     resetConsent();
+    onNavigate?.();
     onContinueAsGuest();
+  }
+
+  function handleNavigate() {
+    handleClose();
+    onNavigate?.();
   }
 
   useEffect(() => {
@@ -150,7 +157,7 @@ export function GuestBookingAlertDialog({ open, onClose, onContinueAsGuest, logi
         <div className="flex shrink-0 flex-col gap-4 border-t border-[#E4E6ED] bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-5">
           <Link
             href="/booking/lookup"
-            onClick={handleClose}
+            onClick={handleNavigate}
             className="self-center text-center [font-family:var(--font-inter)] text-sm font-medium text-[#646D89] underline hover:text-[#2A2E3F] sm:self-auto sm:text-left"
           >
             Already booked as a guest? Find your booking
@@ -159,6 +166,7 @@ export function GuestBookingAlertDialog({ open, onClose, onContinueAsGuest, logi
           <div className="grid w-full grid-cols-2 gap-3 sm:flex sm:w-auto sm:flex-row">
             <Link
               href={loginHref}
+              onClick={handleNavigate}
               className="flex min-h-12 items-center justify-center rounded border border-[#E76B39] bg-white px-3 py-3 text-center [font-family:var(--font-open-sans)] text-sm font-semibold text-[#E76B39] transition-colors hover:bg-[#FFF7F3] sm:px-5 sm:text-base"
             >
               Log in / Sign up
