@@ -10,8 +10,8 @@ import {
   mergeSupportMessages,
   toChatMessage,
 } from "@/features/chatbot/components/live-support-message-order";
+import { LIVE_SUPPORT_TOKEN_KEY } from "@/lib/support-booking-proposal";
 
-const LIVE_SUPPORT_TOKEN_KEY = "neatly-live-support-token";
 const LIVE_SUPPORT_POLL_INTERVAL_MS = 5_000;
 
 export function useLiveSupportVisitor({

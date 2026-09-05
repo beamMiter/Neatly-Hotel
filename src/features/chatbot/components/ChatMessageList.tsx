@@ -3,6 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { SupportBookingCard, isBookingConfirmationMessage } from "@/features/chatbot/components/support-booking-card";
+import { SupportBookingProposalCard } from "@/features/chatbot/components/support-booking-proposal-card";
+import { decodeSupportBookingProposal } from "@/lib/support-booking-proposal";
 import type { ChatMessage, WidgetLocale } from "@/features/chatbot/components/chat-widget.types";
 import type { ChatbotRoomResult } from "@/types/chatbot";
 import type { SpecialRequestOption } from "@/types/booking";
@@ -13,6 +15,8 @@ type Props = {
   supportBooking: SupportBooking | null;
   specialRequestOptions: SpecialRequestOption[];
   visitorToken: string | null;
+  isLoggedIn: boolean;
+  onGuestBookingDialogChange: (open: boolean) => void;
   locale: WidgetLocale;
   isSupportResolved: boolean;
   isBooking: boolean;
@@ -31,14 +35,22 @@ export function ChatMessageList(props: Props) {
   const isSpecialBookingOption = (optionName: string) => ["seminar", "group", "bulk"].some((term) => optionName.trim().toLowerCase().includes(term));
   const specialBookingRequest = (optionName: string) => props.locale === "th" ? "สนใจ" + optionName : "I am interested in " + optionName;
 
+  const latestProposalMessageId = props.messages.findLast((message) => decodeSupportBookingProposal(message.content))?.id;
+
   return (
     <>
-      {props.messages.map((message) => isBookingConfirmationMessage(message, props.supportBooking) && props.supportBooking && !props.isSupportResolved ? (
-        <SupportBookingCard key={message.id} booking={props.supportBooking} specialRequestOptions={props.specialRequestOptions} visitorToken={props.visitorToken} locale={props.locale} onConfirmed={props.onPayment} />
-      ) : (
+      {props.messages.map((message) => {
+        const proposal = decodeSupportBookingProposal(message.content);
+        if (proposal && message.id === latestProposalMessageId && !props.supportBooking && !props.isSupportResolved) {
+          return <SupportBookingProposalCard key={message.id} proposal={proposal} isLoggedIn={props.isLoggedIn} onGuestBookingDialogChange={props.onGuestBookingDialogChange} />;
+        }
+        if (isBookingConfirmationMessage(message, props.supportBooking) && props.supportBooking && !props.isSupportResolved) {
+          return <SupportBookingCard key={message.id} booking={props.supportBooking} specialRequestOptions={props.specialRequestOptions} visitorToken={props.visitorToken} locale={props.locale} onConfirmed={props.onPayment} />;
+        }
+        return (
         <div key={message.id} className="w-full">
           <div className={"flex w-full " + (message.role === "user" ? "justify-end" : "justify-start")}>
-            <p className={"m-0 max-w-[255px] whitespace-pre-line rounded-lg px-4 py-2 text-base leading-6 tracking-[-.02em] " + (message.role === "user" ? "bg-[#C14817] text-white" : "bg-white text-[#646D89]")}>{message.content}</p>
+            <p className={"m-0 max-w-[255px] whitespace-pre-line rounded-lg px-4 py-2 text-base leading-6 tracking-[-.02em] " + (message.role === "user" ? "bg-[#C14817] text-white" : "bg-white text-[#646D89]")}>{proposal ? (props.supportBooking ? "Booking proposal completed." : "Booking proposal replaced.") : message.content}</p>
           </div>
           {!!message.rooms?.length && <RoomCards message={message} locale={props.locale} isBooking={props.isBooking} bookNowLabel={props.bookNowLabel} viewDetailsLabel={props.viewDetailsLabel} onStartBooking={props.onStartBooking} />}
           {message.suggestion?.format === "Option with details" && message.suggestion.options.length > 0 && (
@@ -52,7 +64,8 @@ export function ChatMessageList(props: Props) {
             </div>
           )}
         </div>
-      ))}
+        );
+      })}
     </>
   );
 }

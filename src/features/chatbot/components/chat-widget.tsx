@@ -124,6 +124,7 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isBooking, setIsBooking] = useState(false);
+  const [isGuestBookingDialogOpen, setIsGuestBookingDialogOpen] = useState(false);
   const [hasSelectedRoom, setHasSelectedRoom] = useState(false);
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -463,6 +464,8 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
               supportBooking={supportBooking}
               specialRequestOptions={specialRequestOptions}
               visitorToken={visitorToken}
+              isLoggedIn={Boolean(supportConversation?.customer_id)}
+              onGuestBookingDialogChange={setIsGuestBookingDialogOpen}
               locale={locale}
               isSupportResolved={isSupportResolved}
               isBooking={isBooking}
@@ -594,7 +597,7 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
           )}
 
           {view === "chat" && (
-          <form className="flex min-h-[67px] w-full items-center gap-2 bg-white px-4 pt-2 pb-[max(12px,env(safe-area-inset-bottom))] shadow-[0_-8px_12px_6px_rgba(0,0,0,.05)] sm:h-[67.33px] sm:min-h-[67.33px] sm:pb-6" onSubmit={handleSubmit}>
+          <form className={`flex min-h-[67px] w-full items-center gap-2 bg-white px-4 pt-2 pb-[max(12px,env(safe-area-inset-bottom))] shadow-[0_-8px_12px_6px_rgba(0,0,0,.05)] sm:h-[67.33px] sm:min-h-[67.33px] sm:pb-6 ${isGuestBookingDialogOpen ? "[&_button[type=submit]]:hidden" : ""}`} onSubmit={handleSubmit}>
             <textarea className="h-[35.33px] min-h-[35.33px] min-w-0 flex-1 resize-none rounded-[16.9952px] border-0 bg-white px-2 py-[5.665px] text-base leading-6 tracking-[-.02em] text-[#42495e] outline-none placeholder:text-[#9AA1B9]"
               ref={inputRef}
               value={input}
@@ -604,7 +607,7 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
               maxLength={800}
               placeholder={t.messagePlaceholder}
               aria-label="ข้อความ"
-              disabled={isCollectingPhone}
+              disabled={isCollectingPhone || isGuestBookingDialogOpen}
             />
             <button className="grid h-6 w-6 shrink-0 cursor-pointer place-items-center border-0 bg-transparent disabled:cursor-default disabled:opacity-60" type="submit" disabled={!input.trim() || isLoading || isCollectingPhone} aria-label="ส่งข้อความ">
               <svg className="h-6 w-6 -rotate-[8deg] fill-[#E76B39]" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 20 18-8L3 4v6l13 2-13 2v6Z" /></svg>

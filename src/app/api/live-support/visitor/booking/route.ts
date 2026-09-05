@@ -7,6 +7,7 @@ import { BookingNotFoundError, InvalidBookingTransitionError } from "@/server/qu
 const requestSchema = z.object({
   visitorToken: z.string().uuid(),
   bookingId: z.string().uuid(),
+  emailVerificationToken: z.string().min(1).max(1024).optional(),
   specialRequests: z.array(z.object({
     code: z.string().trim().min(1).max(100),
     count: z.number().int().min(1).max(MAX_ADD_ON_COUNT).optional(),

@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { EmailOtpVerification } from "@/features/booking/components/EmailOtpVerification";
 import { resolveAddOnQuantity } from "@/lib/addon-pricing";
+import { bookingEmailVerificationStorageKey } from "@/lib/booking-email-verification";
 import type { SpecialRequestOption } from "@/types/booking";
 import type { SupportBooking } from "@/types/live-support";
 import type { WidgetLocale } from "@/features/chatbot/components/chat-widget.types";
@@ -121,6 +123,9 @@ export function SupportBookingCard({
       return [selected.code, count];
     }),
   ));
+  const [isSkippingSpecialRequests, setIsSkippingSpecialRequests] = useState(false);
+  const [emailVerificationToken, setEmailVerificationToken] = useState<string | null>(null);
+  const [emailVerificationError, setEmailVerificationError] = useState<string | undefined>();
   const [isConfirming, setIsConfirming] = useState(false);
   const [confirmError, setConfirmError] = useState("");
   const addonsTotal = useMemo(() => specialRequestOptions.reduce((sum, option) => {
@@ -130,6 +135,7 @@ export function SupportBookingCard({
   const previewTotal = booking.totalAmount - booking.addonsTotal + addonsTotal;
 
   function toggleSpecialRequest(code: string) {
+    if (isSkippingSpecialRequests) return;
     setSelectedCounts((current) => {
       const next = { ...current };
       if (next[code]) delete next[code];
@@ -139,12 +145,26 @@ export function SupportBookingCard({
     setConfirmError("");
   }
 
-  async function confirmBooking(specialRequests = selectedCounts) {
+  function toggleSkipSpecialRequests() {
+    const next = !isSkippingSpecialRequests;
+    setIsSkippingSpecialRequests(next);
+    if (next) setSelectedCounts({});
+    setConfirmError("");
+  }
+
+  async function confirmBooking() {
     if (isConfirming) return;
+    const specialRequests = isSkippingSpecialRequests ? {} : selectedCounts;
     const hasSpecialRequestsToSave = Object.keys(specialRequests).length > 0 || booking.specialRequests.length > 0;
-    if (specialRequestOptions.length > 0 && hasSpecialRequestsToSave) {
+    const needsServerConfirmation = booking.requiresEmailVerification
+      || (specialRequestOptions.length > 0 && hasSpecialRequestsToSave);
+    if (needsServerConfirmation) {
       if (!visitorToken) {
         setConfirmError(t.unavailable);
+        return;
+      }
+      if (booking.requiresEmailVerification && !emailVerificationToken) {
+        setEmailVerificationError("Please verify your email before confirming this booking");
         return;
       }
       setIsConfirming(true);
@@ -156,6 +176,7 @@ export function SupportBookingCard({
           body: JSON.stringify({
             visitorToken,
             bookingId: booking.id,
+            ...(emailVerificationToken ? { emailVerificationToken } : {}),
             specialRequests: Object.entries(specialRequests).map(([code, count]) => ({ code, count })),
           }),
         });
@@ -166,6 +187,9 @@ export function SupportBookingCard({
         setIsConfirming(false);
         return;
       }
+    }
+    if (emailVerificationToken) {
+      window.sessionStorage.setItem(bookingEmailVerificationStorageKey(booking.id), emailVerificationToken);
     }
     onConfirmed();
   }
@@ -190,23 +214,44 @@ export function SupportBookingCard({
               {specialRequestOptions.map((option) => {
                 const selected = Boolean(selectedCounts[option.code]);
                 const allowsCount = option.billingType === "per_leg" || option.billingType === "per_day_guest";
-                return <div className={`rounded-lg border p-2.5 ${selected ? "border-[#E5A98F] bg-[#FFF8F5]" : "border-[#E4E6ED] bg-white"}`} key={option.code}>
-                  <label className="flex cursor-pointer items-start gap-2.5">
-                    <input className="mt-0.5 h-4 w-4 accent-[#C14817]" type="checkbox" checked={selected} onChange={() => toggleSpecialRequest(option.code)} />
-                    <span className="min-w-0 flex-1"><span className="block text-sm font-medium text-[#2A2E3F]">{option.label}</span><span className="block text-xs text-[#8A91A7]">THB {option.price.toLocaleString("en-US")}{addOnPriceLabel(option, locale)}</span></span>
+                return <div className={`rounded-lg border p-2.5 transition-colors ${isSkippingSpecialRequests ? "border-[#E4E6ED] bg-[#F4F5F7]" : selected ? "border-[#E5A98F] bg-[#FFF8F5]" : "border-[#E4E6ED] bg-white"}`} key={option.code}>
+                  <label className={`flex items-start gap-2.5 ${isSkippingSpecialRequests ? "cursor-not-allowed" : "cursor-pointer"}`}>
+                    <input className="mt-0.5 h-4 w-4 accent-[#C14817] disabled:cursor-not-allowed" type="checkbox" checked={selected} disabled={isSkippingSpecialRequests} onChange={() => toggleSpecialRequest(option.code)} />
+                    <span className="min-w-0 flex-1"><span className={`block text-sm font-medium ${isSkippingSpecialRequests ? "text-[#A4A9B8]" : "text-[#2A2E3F]"}`}>{option.label}</span><span className={`block text-xs ${isSkippingSpecialRequests ? "text-[#B4B8C5]" : "text-[#8A91A7]"}`}>THB {option.price.toLocaleString("en-US")}{addOnPriceLabel(option, locale)}</span></span>
                   </label>
                   {selected && allowsCount && <label className="mt-2 flex items-center justify-between border-t border-[#F0DDD5] pt-2 text-xs text-[#646D89]">{option.billingType === "per_leg" ? t.trips : t.guests}<select className="h-8 rounded-md border border-[#D6D9E4] bg-white px-2 text-sm text-[#2A2E3F]" value={selectedCounts[option.code]} onChange={(event) => setSelectedCounts((current) => ({ ...current, [option.code]: Number(event.target.value) }))}><option value={1}>1</option><option value={2}>2</option></select></label>}
                 </div>;
               })}
+              <label className={`flex cursor-pointer items-start gap-2.5 rounded-lg border p-2.5 transition-colors ${isSkippingSpecialRequests ? "border-[#E5A98F] bg-[#FFF8F5]" : "border-[#E4E6ED] bg-white"}`}>
+                <input className="mt-0.5 h-4 w-4 accent-[#C14817]" type="checkbox" checked={isSkippingSpecialRequests} onChange={toggleSkipSpecialRequests} />
+                <span className="min-w-0 flex-1 text-sm font-medium text-[#2A2E3F]">{t.skip}</span>
+              </label>
             </dd>
+          </div>
+        )}
+        {isPending && booking.requiresEmailVerification && (
+          <div className="col-span-2 border-t border-[#EEF0F4] pt-3">
+            <EmailOtpVerification
+              email={booking.guestEmail}
+              emailValid={/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(booking.guestEmail)}
+              verified={Boolean(emailVerificationToken)}
+              error={emailVerificationError}
+              onVerified={(token) => {
+                setEmailVerificationToken(token);
+                setEmailVerificationError(undefined);
+              }}
+              onClearVerification={() => {
+                setEmailVerificationToken(null);
+                setEmailVerificationError(undefined);
+              }}
+            />
           </div>
         )}
         <div className="col-span-2 flex items-end justify-between border-t border-[#EEF0F4] pt-3"><dt className="text-sm font-medium text-[#646D89]">{t.total}</dt><dd className="m-0 text-base font-semibold text-[#C14817]">THB {previewTotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}</dd></div>
       </dl>
       {isPending && confirmError && <p className="m-0 border-t border-[#F3D4C8] bg-[#FFF8F5] px-4 py-2 text-xs text-[#B42318]">{confirmError}</p>}
       {isPending && <div className="grid gap-2 border-t border-[#EEF0F4] p-3">
-        {specialRequestOptions.length > 0 && <button type="button" onClick={() => void confirmBooking({})} disabled={isConfirming} className="flex w-full items-center justify-center rounded-lg border border-[#C14817] bg-white px-4 py-3 text-sm font-semibold text-[#C14817] transition-colors hover:bg-[#FFF1EB] focus:outline-2 focus:outline-offset-2 focus:outline-[#C14817]">{t.skip}</button>}
-        <button type="button" onClick={() => void confirmBooking()} disabled={isConfirming} className="flex w-full items-center justify-center rounded-lg bg-[#C14817] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#A93F13] focus:outline-2 focus:outline-offset-2 focus:outline-[#C14817]">{isConfirming ? <span className="flex items-center justify-center gap-2"><span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />{t.saving}</span> : t.confirm}</button>
+        <button type="button" onClick={() => void confirmBooking()} disabled={isConfirming || (booking.requiresEmailVerification && !emailVerificationToken)} className="flex w-full items-center justify-center rounded-lg bg-[#C14817] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#A93F13] focus:outline-2 focus:outline-offset-2 focus:outline-[#C14817] disabled:cursor-not-allowed disabled:opacity-50">{isConfirming ? <span className="flex items-center justify-center gap-2"><span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />{t.saving}</span> : t.confirm}</button>
       </div>}
     </article>
   );
