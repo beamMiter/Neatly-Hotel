@@ -10,8 +10,8 @@ import {
   mergeSupportMessages,
   toChatMessage,
 } from "@/features/chatbot/components/live-support-message-order";
+import { LIVE_SUPPORT_TOKEN_KEY } from "@/lib/support-booking-proposal";
 
-const LIVE_SUPPORT_TOKEN_KEY = "neatly-live-support-token";
 const LIVE_SUPPORT_POLL_INTERVAL_MS = 5_000;
 
 export function useLiveSupportVisitor({
@@ -55,7 +55,7 @@ export function useLiveSupportVisitor({
         setVisitorToken(savedToken);
         setHasRequestedLiveSupport(true);
         setSupportConversation(data.conversation);
-        setSupportBooking(data.booking ?? null);
+        setSupportBooking(data.proposalBooking ?? null);
         setSpecialRequestOptions(data.specialRequestOptions ?? []);
         setMessages(mergeSupportMessages([], data.messages));
       })
@@ -73,7 +73,7 @@ export function useLiveSupportVisitor({
         const data = (await response.json()) as SupportSessionResponse;
         if (cancelled || !data.conversation) return;
         setSupportConversation(data.conversation);
-        setSupportBooking(data.booking ?? null);
+        setSupportBooking(data.proposalBooking ?? null);
         setSpecialRequestOptions(data.specialRequestOptions ?? []);
         setMessages((current) => mergeSupportMessages(current, data.messages));
       } catch {}

@@ -17,6 +17,7 @@ import { cancelPaymentIntent, createBookingPaymentIntent } from "@/server/paymen
 import { supabaseAdmin } from "@/server/db/supabase-admin";
 import { assertEmailVerificationToken } from "@/server/queries/email-otp.query";
 import { maybeSendGuestBookingConfirmationEmail } from "@/server/services/booking-confirmation-email";
+import { linkBookingToSupportConversation } from "@/server/services/live-support-booking.service";
 
 export async function POST(request: Request) {
   // Booking creation runs entirely through Prisma (see bookings.query.ts's
@@ -37,6 +38,9 @@ export async function POST(request: Request) {
   // guests leave it null and are identified by guest_* columns.
 
   const body = await request.json().catch(() => null);
+  const supportVisitorToken = body && typeof body === "object" && typeof (body as Record<string, unknown>).supportVisitorToken === "string"
+    ? (body as Record<string, unknown>).supportVisitorToken as string
+    : null;
   const parsed = parseCreateBookingPayload(body);
   if (!parsed.success) {
     return NextResponse.json({ message: "Validation failed", fieldErrors: parsed.fieldErrors }, { status: 400 });
@@ -87,11 +91,30 @@ export async function POST(request: Request) {
       paymentMethod: data.paymentMethod,
     });
 
+    async function linkLiveSupportBooking() {
+      if (!supportVisitorToken) return;
+      await linkBookingToSupportConversation({
+        visitorToken: supportVisitorToken,
+        bookingId: booking.id,
+        bookingCode: booking.bookingCode,
+        customerId: user?.id ?? null,
+        customerName: `${data.firstName} ${data.lastName}`.trim(),
+        roomTypeId: data.roomTypeId,
+        checkIn: data.checkIn,
+        checkOut: data.checkOut,
+        guests: data.guests,
+        rooms: data.rooms,
+      }).catch((error) => {
+        console.error("[api/bookings] failed to link live support proposal:", error);
+      });
+    }
+
     if (data.paymentMethod === "cash") {
       await markBookingCashConfirmed(booking.id);
       // Cash create inserts status=confirmed already, so markBookingCashConfirmed
       // does not send mail — send once here for guest bookings.
       await maybeSendGuestBookingConfirmationEmail(booking.id);
+      await linkLiveSupportBooking();
       return NextResponse.json(
         { message: "Booking confirmed", bookingId: booking.id, paymentMethod: "cash" },
         { status: 201 },
@@ -143,6 +166,8 @@ export async function POST(request: Request) {
         { status: 502 },
       );
     }
+
+    await linkLiveSupportBooking();
 
     return NextResponse.json(
       {

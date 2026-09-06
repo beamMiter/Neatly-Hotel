@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, KeyboardEvent, PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
 import BookingSearch from "@/components/shared/BookingSearch";
 import { buildBookingHref } from "@/features/booking-flow/utils";
 import { ChatMessageList } from "@/features/chatbot/components/ChatMessageList";
@@ -19,6 +19,13 @@ type ChatResponse = {
   suggestion?: ChatbotSuggestion;
 };
 
+type HeaderDrag = {
+  pointerId: number;
+  startY: number;
+  lastY: number;
+  lastTime: number;
+  velocity: number;
+};
 
 const CHATBOT_LOCALE_KEY = "neatly-chatbot-locale";
 
@@ -117,9 +124,14 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isBooking, setIsBooking] = useState(false);
+  const [isGuestBookingDialogOpen, setIsGuestBookingDialogOpen] = useState(false);
   const [hasSelectedRoom, setHasSelectedRoom] = useState(false);
+  const [dragOffset, setDragOffset] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const headerDragRef = useRef<HeaderDrag | null>(null);
+  const dragOffsetRef = useRef(0);
   const liveSupport = useLiveSupportVisitor({
     initialMessage,
     locale,
@@ -172,6 +184,43 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
   useEffect(() => {
     if (isOpen) inputRef.current?.focus();
   }, [isOpen]);
+
+  function startHeaderDrag(event: ReactPointerEvent<HTMLElement>) {
+    if (
+      !event.isPrimary ||
+      event.button !== 0 ||
+      !window.matchMedia("(max-width: 639px)").matches ||
+      (event.target as HTMLElement).closest("button")
+    ) return;
+
+    headerDragRef.current = { pointerId: event.pointerId, startY: event.clientY, lastY: event.clientY, lastTime: event.timeStamp, velocity: 0 };
+    dragOffsetRef.current = 0;
+    setIsDragging(true);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function moveHeaderDrag(event: ReactPointerEvent<HTMLElement>) {
+    const drag = headerDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const offset = Math.max(0, event.clientY - drag.startY);
+    const elapsed = Math.max(1, event.timeStamp - drag.lastTime);
+    drag.velocity = (event.clientY - drag.lastY) / elapsed;
+    drag.lastY = event.clientY;
+    drag.lastTime = event.timeStamp;
+    dragOffsetRef.current = offset;
+    setDragOffset(offset);
+  }
+
+  function finishHeaderDrag(event: ReactPointerEvent<HTMLElement>, cancelled = false) {
+    const drag = headerDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const shouldClose = !cancelled && (dragOffsetRef.current >= 120 || (dragOffsetRef.current >= 40 && drag.velocity >= 0.65));
+    headerDragRef.current = null;
+    dragOffsetRef.current = 0;
+    setIsDragging(false);
+    setDragOffset(0);
+    if (shouldClose) setIsOpen(false);
+  }
 
   async function sendMessage(text: string, searchOverride: ChatbotSearchState = search, suggestionId?: string) {
     const content = text.trim();
@@ -349,8 +398,19 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
       aria-label="ผู้ช่วย Neatly Hotel"
     >
       {isOpen && (
-        <section className="flex h-[min(831px,calc(100dvh-40px))] w-[min(375px,100vw)] flex-col overflow-hidden rounded-t-lg border-0 bg-[#F7F7FB] shadow-[0_22px_70px_rgba(34,40,58,.2)] sm:h-[min(1008px,calc(100dvh-36px))] sm:w-[min(375px,calc(100vw-36px))] sm:rounded-none sm:border sm:border-[#E4E6ED]" aria-live="polite">
-          <header className="relative flex h-[60px] min-h-[60px] items-center justify-between border-b border-[#E4E6ED] bg-white pl-4">
+        <section
+          className="flex h-[min(831px,calc(100dvh-40px))] w-[min(375px,100vw)] flex-col overflow-hidden rounded-t-lg border-0 bg-[#F7F7FB] shadow-[0_22px_70px_rgba(34,40,58,.2)] sm:h-[min(1008px,calc(100dvh-36px))] sm:w-[min(375px,calc(100vw-36px))] sm:rounded-none sm:border sm:border-[#E4E6ED]"
+          style={{ transform: `translateY(${dragOffset}px)`, transition: isDragging ? "none" : "transform 180ms cubic-bezier(.2,.8,.2,1)", willChange: isDragging ? "transform" : undefined }}
+          aria-live="polite"
+        >
+          <header
+            className="relative flex h-[60px] min-h-[60px] touch-none select-none items-center justify-between border-b border-[#E4E6ED] bg-white pl-4 sm:touch-auto sm:select-auto"
+            onPointerDown={startHeaderDrag}
+            onPointerMove={moveHeaderDrag}
+            onPointerUp={finishHeaderDrag}
+            onPointerCancel={(event) => finishHeaderDrag(event, true)}
+          >
+            <span className="absolute top-1 left-1/2 h-1 w-9 -translate-x-1/2 rounded-full bg-[#D6D9E4] sm:hidden" aria-hidden="true" />
             <div className="flex h-10 min-w-0 flex-1 items-center gap-2">
               <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#F1F5F3] p-1 shadow-[4px_4px_16px_rgba(0,0,0,.08)]">
                 <svg className="h-8 w-8" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="9" fill="#DFE9E3"/><path d="M8 10h18v13H15l-5 4v-4H8V10Z" fill="#658477"/><path d="M12 14h10M12 18h7" stroke="white" strokeWidth="2" strokeLinecap="round"/><path d="M26 4v7M22.5 7.5h7" stroke="#E65B2E" strokeWidth="2"/></svg>
@@ -404,6 +464,9 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
               supportBooking={supportBooking}
               specialRequestOptions={specialRequestOptions}
               visitorToken={visitorToken}
+              isLoggedIn={Boolean(supportConversation?.customer_id)}
+              onGuestBookingDialogChange={setIsGuestBookingDialogOpen}
+              onNavigateToMainFlow={() => setIsOpen(false)}
               locale={locale}
               isSupportResolved={isSupportResolved}
               isBooking={isBooking}
@@ -417,7 +480,10 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
               }}
               onCreateLiveSupport={createLiveSupport}
               onPayment={() => {
-                if (supportBooking) router.push("/booking/payment?bookingId=" + supportBooking.id);
+                if (supportBooking) {
+                  setIsOpen(false);
+                  router.push("/booking/payment?bookingId=" + supportBooking.id);
+                }
               }}
             />
             {messages.length === 1 && (
@@ -535,7 +601,7 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
           )}
 
           {view === "chat" && (
-          <form className="flex min-h-[67px] w-full items-center gap-2 bg-white px-4 pt-2 pb-[max(12px,env(safe-area-inset-bottom))] shadow-[0_-8px_12px_6px_rgba(0,0,0,.05)] sm:h-[67.33px] sm:min-h-[67.33px] sm:pb-6" onSubmit={handleSubmit}>
+          <form className={`flex min-h-[67px] w-full items-center gap-2 bg-white px-4 pt-2 pb-[max(12px,env(safe-area-inset-bottom))] shadow-[0_-8px_12px_6px_rgba(0,0,0,.05)] sm:h-[67.33px] sm:min-h-[67.33px] sm:pb-6 ${isGuestBookingDialogOpen ? "[&_button[type=submit]]:hidden" : ""}`} onSubmit={handleSubmit}>
             <textarea className="h-[35.33px] min-h-[35.33px] min-w-0 flex-1 resize-none rounded-[16.9952px] border-0 bg-white px-2 py-[5.665px] text-base leading-6 tracking-[-.02em] text-[#42495e] outline-none placeholder:text-[#9AA1B9]"
               ref={inputRef}
               value={input}
@@ -545,7 +611,7 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
               maxLength={800}
               placeholder={t.messagePlaceholder}
               aria-label="ข้อความ"
-              disabled={isCollectingPhone}
+              disabled={isCollectingPhone || isGuestBookingDialogOpen}
             />
             <button className="grid h-6 w-6 shrink-0 cursor-pointer place-items-center border-0 bg-transparent disabled:cursor-default disabled:opacity-60" type="submit" disabled={!input.trim() || isLoading || isCollectingPhone} aria-label="ส่งข้อความ">
               <svg className="h-6 w-6 -rotate-[8deg] fill-[#E76B39]" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 20 18-8L3 4v6l13 2-13 2v6Z" /></svg>

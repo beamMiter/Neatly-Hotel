@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { hasDatabaseUrl } from "@/server/db";
 import { searchRoomTypes } from "@/server/queries/booking-search.query";
-import { BookingConflictError, InvalidGuestsError, RoomTypeNotFoundError } from "@/server/queries/bookings.query";
 import {
   BookingNotFoundError,
   InvalidBookingTransitionError,
@@ -13,7 +12,7 @@ import {
 import {
   AdminBookingValidationError,
   cancelSupportBookingForAdmin,
-  createBookingForSupportConversation,
+  createBookingProposalForSupportConversation,
 } from "@/server/services/live-support-booking.service";
 
 const availabilitySchema = z.object({
@@ -56,23 +55,19 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const parsed = z.object({
     conversationId: z.string().uuid(),
-    emailVerificationToken: z.string().min(1).max(1024).optional(),
-    allowSpecialRequests: z.boolean().default(false),
-    booking: z.unknown(),
+    proposal: availabilitySchema.extend({ roomTypeId: z.string().uuid() }).strict(),
   }).safeParse(body);
   if (!parsed.success) return Response.json({ error: "Invalid booking request" }, { status: 400 });
 
   try {
-    const result = await createBookingForSupportConversation(parsed.data);
+    const result = await createBookingProposalForSupportConversation(parsed.data);
     return Response.json(result, { status: 201 });
   } catch (error) {
-    if (error instanceof AdminBookingValidationError || error instanceof InvalidGuestsError) {
+    if (error instanceof AdminBookingValidationError) {
       return Response.json({ error: error.message }, { status: 422 });
     }
-    if (error instanceof BookingConflictError) return Response.json({ error: error.message }, { status: 409 });
-    if (error instanceof RoomTypeNotFoundError) return Response.json({ error: "Room type was not found" }, { status: 404 });
-    console.error("Admin support booking creation failed:", error);
-    return Response.json({ error: "Unable to create booking" }, { status: 500 });
+    console.error("Admin support booking proposal failed:", error);
+    return Response.json({ error: "Unable to send booking proposal" }, { status: 500 });
   }
 }
 

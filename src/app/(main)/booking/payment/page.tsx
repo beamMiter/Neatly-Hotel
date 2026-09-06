@@ -23,7 +23,7 @@ export default async function BookingPaymentPage({ searchParams }: BookingPaymen
 
   return (
     <main className="flex-1 bg-[#F7F7FB]">
-      <BookingPaymentView bookingId={bookingId} booking={booking} amountDue={balance.amountDue} />
+      <BookingPaymentView bookingId={bookingId} booking={booking} amountDue={balance.amountDue} requiresEmailVerification={!user} />
     </main>
   );
 }

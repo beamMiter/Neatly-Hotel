@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useInterval } from "@/lib/useInterval";
 
 const LABEL_CLASSNAME = "[font-family:var(--font-inter)] text-base leading-[150%] text-[#2A2E3F]";
@@ -34,6 +34,7 @@ export function EmailOtpVerification({
   const [codeSent, setCodeSent] = useState(false);
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
   const previousEmailRef = useRef(email);
+  const otpInputId = useId();
 
   useInterval(
     () => setCooldownSeconds((prev) => (prev > 0 ? prev - 1 : 0)),
@@ -144,11 +145,11 @@ export function EmailOtpVerification({
       {codeSent && (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <div className="flex flex-1 flex-col gap-1">
-            <label htmlFor="otpCode" className={LABEL_CLASSNAME}>
+            <label htmlFor={otpInputId} className={LABEL_CLASSNAME}>
               Verification code
             </label>
             <input
-              id="otpCode"
+              id={otpInputId}
               inputMode="numeric"
               autoComplete="one-time-code"
               maxLength={6}

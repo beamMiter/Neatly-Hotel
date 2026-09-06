@@ -26,6 +26,7 @@ type BookingFlowPageProps = {
     checkOut?: string;
     guests?: string;
     rooms?: string;
+    source?: string;
   }>;
 };
 
@@ -69,6 +70,7 @@ export default async function BookingFlowPage({ params, searchParams }: BookingF
         specialRequestCatalog={specialRequestCatalog}
         prefill={prefill}
         isLoggedIn={!!user}
+        fromLiveSupport={query.source === "live-support"}
         checkInTimeLabel={formatCheckTimeLabel(hotel.checkInTime)}
         checkOutTimeLabel={formatCheckTimeLabel(hotel.checkOutTime)}
       />
