@@ -7,9 +7,9 @@ import {
   createOrReopenVisitorConversation,
   ExpiredSupportConversationError,
   findVisitorConversation,
+  getLinkedSupportBooking,
   isResolvedSupportConversationExpired,
   listConversationMessages,
-  listSupportBookings,
   SupportMessageLimitError,
 } from "@/server/queries/live-support.query";
 import { getSpecialRequestCatalogForDisplay } from "@/server/queries/special-requests.query";
@@ -96,20 +96,19 @@ export async function GET(request: Request) {
       );
     }
 
-    const [messages, bookings] = await Promise.all([
+    const [messages, proposalBooking] = await Promise.all([
       listConversationMessages(conversation.id),
-      listSupportBookings(conversation),
+      getLinkedSupportBooking(conversation),
     ]);
-    const booking = bookings[0] ?? null;
-    const allowsSpecialRequests = Boolean(booking && messages.some((message) =>
+    const allowsSpecialRequests = Boolean(proposalBooking && messages.some((message) =>
       message.sender === "system" &&
-      message.content.startsWith(`Booking ${booking.bookingCode} is ready for confirmation with special requests.`),
+      message.content.startsWith(`Booking ${proposalBooking.bookingCode} is ready for confirmation with special requests.`),
     ));
     const specialRequestOptions = allowsSpecialRequests
       ? (await getSpecialRequestCatalogForDisplay()).filter((option) => option.category === "special")
       : [];
     return Response.json(
-      { conversation, messages, booking, specialRequestOptions },
+      { conversation, messages, proposalBooking, specialRequestOptions },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {

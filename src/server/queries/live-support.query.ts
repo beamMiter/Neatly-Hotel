@@ -373,3 +373,12 @@ export async function listSupportBookings(conversation: SupportConversation): Pr
     specialRequests: (booking.special_requests ?? []).map((item) => ({ ...item, quantity: item.quantity ?? 1 })),
   }));
 }
+
+export async function getLinkedSupportBooking(
+  conversation: SupportConversation,
+): Promise<SupportBooking | null> {
+  if (!conversation.booking_id) return null;
+
+  const bookings = await listSupportBookings(conversation);
+  return bookings.find((booking) => booking.id === conversation.booking_id) ?? null;
+}

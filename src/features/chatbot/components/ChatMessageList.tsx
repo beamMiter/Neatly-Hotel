@@ -42,7 +42,8 @@ export function ChatMessageList(props: Props) {
     <>
       {props.messages.map((message) => {
         const proposal = decodeSupportBookingProposal(message.content);
-        if (proposal && message.id === latestProposalMessageId && !props.supportBooking && !props.isSupportResolved) {
+        const isLatestProposal = message.id === latestProposalMessageId;
+        if (proposal && isLatestProposal && !props.supportBooking && !props.isSupportResolved) {
           return <SupportBookingProposalCard key={message.id} proposal={proposal} isLoggedIn={props.isLoggedIn} onGuestBookingDialogChange={props.onGuestBookingDialogChange} onNavigateToMainFlow={props.onNavigateToMainFlow} />;
         }
         if (isBookingConfirmationMessage(message, props.supportBooking) && props.supportBooking && !props.isSupportResolved) {
@@ -51,7 +52,7 @@ export function ChatMessageList(props: Props) {
         return (
         <div key={message.id} className="w-full">
           <div className={"flex w-full " + (message.role === "user" ? "justify-end" : "justify-start")}>
-            <p className={"m-0 max-w-[255px] whitespace-pre-line rounded-lg px-4 py-2 text-base leading-6 tracking-[-.02em] " + (message.role === "user" ? "bg-[#C14817] text-white" : "bg-white text-[#646D89]")}>{proposal ? (props.supportBooking ? "Booking proposal completed." : "Booking proposal replaced.") : message.content}</p>
+            <p className={"m-0 max-w-[255px] whitespace-pre-line rounded-lg px-4 py-2 text-base leading-6 tracking-[-.02em] " + (message.role === "user" ? "bg-[#C14817] text-white" : "bg-white text-[#646D89]")}>{proposal ? (isLatestProposal && props.supportBooking ? "Booking proposal completed." : "Booking proposal replaced.") : message.content}</p>
           </div>
           {!!message.rooms?.length && <RoomCards message={message} locale={props.locale} isBooking={props.isBooking} bookNowLabel={props.bookNowLabel} viewDetailsLabel={props.viewDetailsLabel} onStartBooking={props.onStartBooking} />}
           {message.suggestion?.format === "Option with details" && message.suggestion.options.length > 0 && (
