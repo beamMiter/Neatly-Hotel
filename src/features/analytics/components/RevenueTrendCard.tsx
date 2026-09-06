@@ -92,6 +92,11 @@ export function RevenueTrendCard({ initialData, initialFrom, initialTo }: { init
                 axisLine={false}
                 tick={{ fill: "#8a93a3", fontSize: 12 }}
                 tickFormatter={(value: number) => value.toLocaleString("en-US")}
+                // Recharts' default YAxis width (60px) is sized for short
+                // labels; comma-formatted revenue in the millions (e.g.
+                // "2,500,000") is wider than that, so its left edge was
+                // rendered past x=0 and clipped by the chart's own bounds.
+                width={76}
               />
               <Tooltip formatter={(value) => [formatThb(Number(value)), "Revenue"]} />
               <Area type="monotone" dataKey="amount" stroke="#bd5b28" strokeWidth={2} fill="url(#revenueFill)" />
