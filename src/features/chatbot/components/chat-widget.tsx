@@ -330,7 +330,7 @@ export default function ChatWidget({ greetingMessage = defaultGreeting, greeting
   function createLiveSupport(content: string, phone: string | null = null) {
     if (isLoading || hasRequestedLiveSupport) return;
     const contextMessage = messages.findLast((message) => message.role === "user")?.content ?? content;
-    createLiveSupportRequest(content, phone?.trim() || null, contextMessage);
+    createLiveSupportRequest(content, phone?.trim() || null, contextMessage, messages);
   }
 
   function startLiveSupport(event: FormEvent<HTMLFormElement>) {

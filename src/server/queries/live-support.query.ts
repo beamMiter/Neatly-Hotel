@@ -6,6 +6,7 @@ import type {
   SupportConversation,
   SupportCustomer,
   SupportMessage,
+  SupportTranscriptMessage,
 } from "@/types/live-support";
 import { decodeSupportBookingProposal } from "@/lib/support-booking-proposal";
 
@@ -137,6 +138,30 @@ export async function addSupportMessage(
 
   if (error) throw new Error(error.message);
   return data as SupportMessage;
+}
+
+export async function addSupportTranscriptMessages(
+  conversationId: string,
+  messages: SupportTranscriptMessage[],
+) {
+  if (messages.length === 0) return [];
+
+  // Finish imported chatbot turns immediately before the live-support request.
+  const firstCreatedAt = Date.now() - messages.length;
+  const { data, error } = await supabaseAdmin
+    .from("support_messages")
+    .insert(messages.map((message, index) => ({
+      conversation_id: conversationId,
+      sender: message.role === "user" ? "visitor" : "system",
+      sender_name: message.role === "assistant" ? "Neatly Assistant" : null,
+      content: message.content,
+      created_at: new Date(firstCreatedAt + index).toISOString(),
+    })))
+    .select("*")
+    .order("created_at", { ascending: true });
+
+  if (error) throw new Error(error.message);
+  return (data ?? []) as SupportMessage[];
 }
 
 export async function addVisitorSupportMessage(

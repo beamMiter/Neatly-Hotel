@@ -559,8 +559,9 @@ export function LiveSupportPage() {
               {supportMessages.map((message) => {
                 const isAgent = message.sender === "agent";
                 const isSystem = message.sender === "system";
+                const isChatbot = isSystem && message.sender_name === "Neatly Assistant";
 
-                if (isSystem) {
+                if (isSystem && !isChatbot) {
                   const proposal = decodeSupportBookingProposal(message.content);
                   const bookingCode = message.content.match(/Booking\s+(NB-[A-Z0-9-]+)/i)?.[1];
                   const booking = bookingCode
@@ -593,15 +594,18 @@ export function LiveSupportPage() {
                     }`}
                   >
                     {!isAgent ? (
-                      <span className="hidden sm:inline-flex"><Avatar initials={currentThread?.initials ?? "?"} accent={currentThread?.accent ?? "from-[#eef2f7] to-[#f8fafc]"} /></span>
+                      <span className="hidden sm:inline-flex"><Avatar initials={isChatbot ? "NA" : currentThread?.initials ?? "?"} accent={isChatbot ? "from-[#dcece3] to-[#f1f8f3]" : currentThread?.accent ?? "from-[#eef2f7] to-[#f8fafc]"} /></span>
                     ) : null}
 
                     <div className={`max-w-[min(80%,34rem)] ${isAgent ? "text-right" : "text-left"}`}>
+                      {isChatbot ? <div className="mb-1 pl-1 text-[12px] font-medium text-[#667085]">Neatly Assistant</div> : null}
                       <div
                         className={`inline-block rounded-[18px] px-4 py-3 text-[15px] leading-7 shadow-sm ${
                           isAgent
                             ? "rounded-br-[8px] bg-[#2f6bff] text-white"
-                            : "rounded-bl-[8px] bg-[#eef2f7] text-[#111827]"
+                            : isChatbot
+                              ? "rounded-bl-[8px] bg-[#eaf5ee] text-[#24563b]"
+                              : "rounded-bl-[8px] bg-[#eef2f7] text-[#111827]"
                         }`}
                       >
                         {message.content}
