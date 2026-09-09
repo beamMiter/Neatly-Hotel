@@ -31,6 +31,11 @@ export type SupportMessage = {
   created_at: string;
 };
 
+export type SupportTranscriptMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
+
 export type SupportAgent = {
   id: string;
   label: string;

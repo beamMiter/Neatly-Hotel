@@ -103,7 +103,7 @@ export function useLiveSupportVisitor({
     return true;
   }
 
-  function createLiveSupport(content: string, phone: string | null, contextMessage: string) {
+  function createLiveSupport(content: string, phone: string | null, contextMessage: string, history: ChatMessage[]) {
     if (hasRequestedLiveSupport) return;
     const savedToken = window.localStorage.getItem(LIVE_SUPPORT_TOKEN_KEY);
     const token = savedToken ?? crypto.randomUUID();
@@ -112,12 +112,20 @@ export function useLiveSupportVisitor({
     void fetch("/api/live-support/visitor", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ visitorToken: token, contactPhone: phone, content, locale, contextMessage }),
+      body: JSON.stringify({
+        visitorToken: token,
+        contactPhone: phone,
+        content,
+        locale,
+        contextMessage,
+        history: history.map(({ role, content: messageContent }) => ({ role, content: messageContent })),
+      }),
     })
       .then(async (response) => {
         if (!response.ok) throw new Error("Unable to start live support");
         return (await response.json()) as {
           conversation: SupportSessionResponse["conversation"];
+          historyMessages: SupportMessageResponse[];
           message: SupportMessageResponse;
           systemMessage: SupportMessageResponse | null;
           contextMessage: SupportMessageResponse | null;
@@ -128,7 +136,12 @@ export function useLiveSupportVisitor({
         setHasRequestedLiveSupport(true);
         setSupportConversation(data.conversation);
         setIsCollectingPhone(false);
+        const persistedHistory = data.historyMessages.map((savedMessage, index) => ({
+          ...history[index],
+          ...toChatMessage(savedMessage),
+        }));
         setMessages(mergeChatMessages([], [
+          ...persistedHistory,
           toChatMessage(data.message),
           ...(data.systemMessage ? [toChatMessage(data.systemMessage)] : []),
           ...(data.contextMessage ? [toChatMessage(data.contextMessage)] : []),

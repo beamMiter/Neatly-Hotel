@@ -3,6 +3,7 @@ import { redactChatbotMessage } from "@/lib/chatbot-redaction";
 import { createClient } from "@/server/db/supabase-server";
 import {
   addSupportMessage,
+  addSupportTranscriptMessages,
   addVisitorSupportMessage,
   createOrReopenVisitorConversation,
   ExpiredSupportConversationError,
@@ -27,8 +28,9 @@ import {
   requestId,
 } from "@/server/services/api-security";
 
-const MAX_REQUEST_BYTES = 8 * 1024;
+const MAX_REQUEST_BYTES = 128 * 1024;
 const MAX_CONVERSATION_MESSAGES = 500;
+const MAX_TRANSCRIPT_MESSAGES = 60;
 
 const visitorTokenSchema = z.uuid();
 const visitorMessageSchema = z
@@ -38,6 +40,10 @@ const visitorMessageSchema = z
     contactPhone: z.string().trim().max(32).nullable().optional(),
     locale: z.enum(["th", "en"]).optional(),
     contextMessage: z.string().trim().min(1).max(800).optional(),
+    history: z.array(z.object({
+      role: z.enum(["user", "assistant"]),
+      content: z.string().trim().min(1).max(2000),
+    }).strict()).max(MAX_TRANSCRIPT_MESSAGES).optional(),
   })
   .strict();
 
@@ -160,6 +166,9 @@ export async function POST(request: Request) {
       contactPhone,
       user?.id ?? null,
     );
+    const historyMessages = started && parsed.data.history?.length
+      ? await addSupportTranscriptMessages(conversation.id, parsed.data.history)
+      : [];
     const message = await addVisitorSupportMessage(
       conversation.id,
       parsed.data.content,
@@ -169,6 +178,7 @@ export async function POST(request: Request) {
       ? await addSupportMessage(conversation.id, "system", waitingMessage[parsed.data.locale ?? "en"])
       : null;
     const contextMessage = started
+      && historyMessages.length === 0
       && parsed.data.contextMessage
       && parsed.data.contextMessage !== parsed.data.content
       ? await addSupportMessage(
@@ -192,7 +202,7 @@ export async function POST(request: Request) {
         logApiFailure("live-support:handoff-event", id, error);
       }
     }
-    return Response.json({ conversation, message, systemMessage, contextMessage }, { status: 201 });
+    return Response.json({ conversation, historyMessages, message, systemMessage, contextMessage }, { status: 201 });
   } catch (error) {
     if (error instanceof ExpiredSupportConversationError) {
       return Response.json(
