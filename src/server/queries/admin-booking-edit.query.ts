@@ -105,25 +105,6 @@ function parseStoredSpecialRequests(value: unknown): SelectedSpecialRequest[] {
     .map((item) => ({ ...item, quantity: item.quantity ?? 1 }));
 }
 
-async function hasAssignedRoomConflict(
-  bookingId: string,
-  checkIn: string,
-  checkOut: string,
-): Promise<boolean> {
-  const conflicts = await prisma.$queryRaw<{ count: bigint }[]>`
-    select count(*) as count
-    from booking_rooms br
-    join bookings b on b.id = br.booking_id
-    where br.room_id in (select room_id from booking_rooms where booking_id = ${bookingId}::uuid)
-      and b.id <> ${bookingId}::uuid
-      and b.status not in (${Prisma.join(NON_BLOCKING_BOOKING_STATUSES)})
-      and (b.expires_at is null or b.expires_at > now())
-      and b.check_in < ${checkOut}::date
-      and b.check_out > ${checkIn}::date
-  `;
-  return Number(conflicts[0]?.count ?? 0) > 0;
-}
-
 async function selectionsFromStoredSpecialRequests(
   stored: SelectedSpecialRequest[],
   nights: number,
@@ -368,10 +349,6 @@ export async function updateBookingDates(
     throw new InvalidBookingTransitionError("The selected dates match the current booking");
   }
 
-  if (await hasAssignedRoomConflict(bookingId, input.checkIn, input.checkOut)) {
-    throw new AdminBookingRoomConflictError();
-  }
-
   const storedSpecialRequests = parseStoredSpecialRequests(booking.specialRequests);
   const specialRequestSelections = await selectionsFromStoredSpecialRequests(
     storedSpecialRequests,
@@ -395,17 +372,74 @@ export async function updateBookingDates(
     bookingStatus: status,
   });
 
-  await prisma.booking.update({
-    where: { id: bookingId },
-    data: {
-      checkIn: toDateOnly(input.checkIn),
-      checkOut: toDateOnly(input.checkOut),
-      specialRequests: pricing.selectedSpecialRequests,
-      addonsTotal: pricing.addonsTotal,
-      discountAmount: pricing.discountAmount,
-      totalAmount: pricing.totalAmount,
-      paymentStatus: nextPaymentStatus,
-    },
+  await prisma.$transaction(async (tx) => {
+    // Match booking creation's lock order: lock physical rooms first, then
+    // re-read and lock the booking. Concurrent creates/date changes must finish
+    // before this conflict check, so two requests cannot both observe "free".
+    const assignedRooms = await tx.$queryRaw<{ room_id: string }[]>`
+      select br.room_id
+      from booking_rooms br
+      join rooms r on r.id = br.room_id
+      where br.booking_id = ${bookingId}::uuid
+      for update of r
+    `;
+    if (assignedRooms.length === 0) {
+      throw new InvalidBookingTransitionError("This booking has no assigned rooms");
+    }
+
+    const currentRows = await tx.$queryRaw<{
+      status: string;
+      payment_status: string;
+      total_amount: number | string;
+      check_in: string;
+      check_out: string;
+    }[]>`
+      select status, payment_status, total_amount,
+             to_char(check_in, 'YYYY-MM-DD') as check_in,
+             to_char(check_out, 'YYYY-MM-DD') as check_out
+      from bookings
+      where id = ${bookingId}::uuid
+      for update
+    `;
+    const current = currentRows[0];
+    if (!current) throw new BookingNotFoundError();
+    if (
+      current.status !== booking.status ||
+      current.payment_status !== booking.paymentStatus ||
+      Number(current.total_amount) !== Number(booking.totalAmount) ||
+      current.check_in !== currentCheckIn ||
+      current.check_out !== currentCheckOut
+    ) {
+      throw new InvalidBookingTransitionError("This booking changed while it was being edited — reload and try again");
+    }
+
+    const conflicts = await tx.$queryRaw<{ count: bigint }[]>`
+      select count(*) as count
+      from booking_rooms br
+      join bookings b on b.id = br.booking_id
+      where br.room_id = any(array[${Prisma.join(assignedRooms.map((room) => room.room_id))}]::uuid[])
+        and b.id <> ${bookingId}::uuid
+        and b.status not in (${Prisma.join(NON_BLOCKING_BOOKING_STATUSES)})
+        and (b.expires_at is null or b.expires_at > now())
+        and b.check_in < ${input.checkOut}::date
+        and b.check_out > ${input.checkIn}::date
+    `;
+    if (Number(conflicts[0]?.count ?? 0) > 0) {
+      throw new AdminBookingRoomConflictError();
+    }
+
+    await tx.booking.update({
+      where: { id: bookingId },
+      data: {
+        checkIn: toDateOnly(input.checkIn),
+        checkOut: toDateOnly(input.checkOut),
+        specialRequests: pricing.selectedSpecialRequests,
+        addonsTotal: pricing.addonsTotal,
+        discountAmount: pricing.discountAmount,
+        totalAmount: pricing.totalAmount,
+        paymentStatus: nextPaymentStatus,
+      },
+    });
   });
 
   return {

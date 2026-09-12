@@ -3,91 +3,112 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 const mocks = vi.hoisted(() => ({
-  executeRaw: vi.fn(),
+  queryRaw: vi.fn(),
+  updateMany: vi.fn(),
+  transaction: vi.fn(),
+  sendConfirmation: vi.fn(),
 }));
 
 vi.mock("@/server/db", () => ({
   prisma: {
-    $executeRaw: mocks.executeRaw,
+    booking: { updateMany: mocks.updateMany },
+    $transaction: mocks.transaction,
   },
 }));
-
-vi.mock("@/server/db/supabase-admin", () => ({
-  supabaseAdmin: {},
+vi.mock("@/server/db/supabase-admin", () => ({ supabaseAdmin: {} }));
+vi.mock("@/server/services/booking-confirmation-email", () => ({
+  maybeSendGuestBookingConfirmationEmail: mocks.sendConfirmation,
 }));
 
 import { markBookingCashConfirmed, updateBookingPaymentStatus } from "@/server/queries/bookings.query";
 
 const BOOKING_ID = "11111111-1111-1111-1111-111111111111";
-
-// Prisma's tagged-template $executeRaw is invoked as fn(strings, ...values) —
-// `sqlText()` collapses the literal chunks back to one string so tests can
-// assert on hardcoded SQL fragments, and `values()` reads the interpolated
-// placeholders in source order.
-function sqlText() {
-  const [strings] = mocks.executeRaw.mock.calls[0] as [TemplateStringsArray];
-  return strings.join("?");
-}
-
-function values() {
-  const [, ...rest] = mocks.executeRaw.mock.calls[0] as [TemplateStringsArray, ...unknown[]];
-  return rest;
-}
+const ROOM_ID = "22222222-2222-2222-2222-222222222222";
 
 describe("markBookingCashConfirmed", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.executeRaw.mockResolvedValue(undefined);
+    mocks.transaction.mockImplementation(async (callback) => callback({
+      $queryRaw: mocks.queryRaw,
+      booking: { updateMany: mocks.updateMany },
+    }));
+    mocks.queryRaw
+      .mockResolvedValueOnce([{
+        status: "pending_payment",
+        payment_status: "pending",
+        check_in: "2026-12-01",
+        check_out: "2026-12-03",
+      }])
+      .mockResolvedValueOnce([{ room_id: ROOM_ID }])
+      .mockResolvedValueOnce([{ count: BigInt(0) }]);
+    mocks.updateMany.mockResolvedValue({ count: 1 });
   });
 
-  describe("Happy Path", () => {
-    it("sets payment_method to cash alongside status and payment_status", async () => {
-      await markBookingCashConfirmed(BOOKING_ID);
-
-      expect(mocks.executeRaw).toHaveBeenCalledOnce();
-      expect(sqlText()).toContain("payment_method = 'cash'");
-      expect(sqlText()).toContain("payment_status = 'pay_at_hotel'");
-      expect(sqlText()).toContain("status = 'confirmed'");
-      expect(sqlText()).toContain("expires_at = null");
-      expect(values()).toEqual([BOOKING_ID]);
+  it("confirms cash only after locking the booking and assigned inventory", async () => {
+    await expect(markBookingCashConfirmed(BOOKING_ID)).resolves.toBe(true);
+    expect(mocks.transaction).toHaveBeenCalledOnce();
+    expect(mocks.queryRaw).toHaveBeenCalledTimes(3);
+    expect(mocks.updateMany).toHaveBeenCalledWith({
+      where: { id: BOOKING_ID, status: "pending_payment", paymentStatus: "pending" },
+      data: {
+        paymentMethod: "cash",
+        paymentStatus: "pay_at_hotel",
+        status: "confirmed",
+        expiresAt: null,
+      },
     });
+    expect(mocks.sendConfirmation).toHaveBeenCalledWith(BOOKING_ID);
+  });
+
+  it("refuses confirmation when another active booking took the room", async () => {
+    mocks.queryRaw.mockReset()
+      .mockResolvedValueOnce([{
+        status: "pending_payment",
+        payment_status: "pending",
+        check_in: "2026-12-01",
+        check_out: "2026-12-03",
+      }])
+      .mockResolvedValueOnce([{ room_id: ROOM_ID }])
+      .mockResolvedValueOnce([{ count: BigInt(1) }]);
+    await expect(markBookingCashConfirmed(BOOKING_ID)).rejects.toThrow(
+      "This room type is no longer available",
+    );
+    expect(mocks.updateMany).not.toHaveBeenCalled();
   });
 });
 
 describe("updateBookingPaymentStatus", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.executeRaw.mockResolvedValue(undefined);
+    mocks.updateMany.mockResolvedValue({ count: 1 });
   });
 
-  describe("Happy Path", () => {
-    it("records the confirmed method when a card payment settles", async () => {
-      await updateBookingPaymentStatus(BOOKING_ID, "paid", "credit_card");
-
-      expect(sqlText()).toContain("coalesce(?, payment_method)");
-      expect(values()).toEqual(["credit_card", "paid", "confirmed", BOOKING_ID]);
+  it("records the settled payment through an atomic pending-to-confirmed transition", async () => {
+    await expect(updateBookingPaymentStatus(BOOKING_ID, "paid", "credit_card")).resolves.toBe(true);
+    expect(mocks.updateMany).toHaveBeenCalledWith({
+      where: { id: BOOKING_ID, status: "pending_payment", paymentStatus: "pending" },
+      data: {
+        paymentMethod: "credit_card",
+        paymentStatus: "paid",
+        status: "confirmed",
+        expiresAt: null,
+      },
     });
-
-    it("records the confirmed method when a PromptPay payment settles", async () => {
-      await updateBookingPaymentStatus(BOOKING_ID, "paid", "promptpay");
-
-      expect(values()).toEqual(["promptpay", "paid", "confirmed", BOOKING_ID]);
-    });
+    expect(mocks.sendConfirmation).toHaveBeenCalledOnce();
   });
 
-  describe("Error Case", () => {
-    it("marks the booking cancelled on a failed payment without touching payment_method", async () => {
-      await updateBookingPaymentStatus(BOOKING_ID, "failed");
-
-      // `coalesce(null, payment_method)` keeps whatever method was already
-      // stored — a failed/canceled intent never tells us a new one.
-      expect(values()).toEqual([null, "failed", "cancelled", BOOKING_ID]);
+  it("marks only a pending booking cancelled when payment fails", async () => {
+    await expect(updateBookingPaymentStatus(BOOKING_ID, "failed")).resolves.toBe(true);
+    expect(mocks.updateMany).toHaveBeenCalledWith({
+      where: { id: BOOKING_ID, status: "pending_payment", paymentStatus: "pending" },
+      data: { paymentStatus: "failed", status: "cancelled", expiresAt: null },
     });
+    expect(mocks.sendConfirmation).not.toHaveBeenCalled();
+  });
 
-    it("leaves payment_method untouched when no confirmed method is known", async () => {
-      await updateBookingPaymentStatus(BOOKING_ID, "paid");
-
-      expect(values()).toEqual([null, "paid", "confirmed", BOOKING_ID]);
-    });
+  it("ignores a delayed event after the booking has already transitioned", async () => {
+    mocks.updateMany.mockResolvedValue({ count: 0 });
+    await expect(updateBookingPaymentStatus(BOOKING_ID, "paid", "promptpay")).resolves.toBe(false);
+    expect(mocks.sendConfirmation).not.toHaveBeenCalled();
   });
 });

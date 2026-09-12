@@ -10,7 +10,6 @@ import {
   InvalidPromoError,
   RoomTypeNotFoundError,
   createPendingBooking,
-  markBookingCashConfirmed,
   updateBookingPaymentStatus,
 } from "@/server/queries/bookings.query";
 import { cancelPaymentIntent, createBookingPaymentIntent } from "@/server/payments/stripe";
@@ -110,9 +109,6 @@ export async function POST(request: Request) {
     }
 
     if (data.paymentMethod === "cash") {
-      await markBookingCashConfirmed(booking.id);
-      // Cash create inserts status=confirmed already, so markBookingCashConfirmed
-      // does not send mail — send once here for guest bookings.
       await maybeSendGuestBookingConfirmationEmail(booking.id);
       await linkLiveSupportBooking();
       return NextResponse.json(
