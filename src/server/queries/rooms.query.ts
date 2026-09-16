@@ -1,6 +1,4 @@
-import { HOTEL_LAYOUT } from "@/data/hotel-layout";
 import {
-  buildLayoutRoomSeeds,
   enrichRoomFromLayout,
   sortRoomsByLayout,
 } from "@/lib/rooms/layout-rooms";
@@ -23,38 +21,7 @@ function mapRoom(row: {
   };
 }
 
-async function syncLayoutRoomsIfNeeded(): Promise<void> {
-  const count = await prisma.room.count();
-  if (count >= HOTEL_LAYOUT.totalRooms) return;
-
-  const typeRows = await prisma.roomType.findMany({
-    select: { id: true, name: true },
-  });
-  const typeByName = new Map(typeRows.map((type) => [type.name, type.id]));
-  const seeds = buildLayoutRoomSeeds();
-
-  for (const room of seeds) {
-    await prisma.room.upsert({
-      where: { roomNo: room.roomNo },
-      create: {
-        roomNo: room.roomNo,
-        roomType: room.roomType,
-        bedType: room.bedType,
-        status: room.status,
-        roomTypeId: typeByName.get(room.roomType) ?? null,
-      },
-      update: {
-        roomType: room.roomType,
-        bedType: room.bedType,
-        roomTypeId: typeByName.get(room.roomType) ?? null,
-      },
-    });
-  }
-}
-
 export async function getRooms(): Promise<Room[]> {
-  await syncLayoutRoomsIfNeeded();
-
   const rows = await prisma.room.findMany();
 
   return sortRoomsByLayout(rows.map(mapRoom).map(enrichRoomFromLayout));

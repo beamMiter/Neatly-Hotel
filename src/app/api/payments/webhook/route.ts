@@ -39,6 +39,47 @@ async function isCurrentIntentForBooking(bookingId: string, intentId: string): P
   return latest === intentId;
 }
 
+async function updatePaymentAttempt(
+  intentId: string,
+  nextStatus: "succeeded" | "failed" | "canceled",
+  values: Record<string, string | null>,
+): Promise<boolean> {
+  const allowedCurrentStatuses =
+    nextStatus === "succeeded"
+      ? ["requires_payment_method", "requires_confirmation", "requires_action", "processing", "failed", "succeeded"]
+      : nextStatus === "failed"
+        ? ["requires_payment_method", "requires_confirmation", "requires_action", "processing", "failed"]
+        : ["requires_payment_method", "requires_confirmation", "requires_action", "processing", "failed", "canceled"];
+  const { data, error } = await supabaseAdmin
+    .from("payments")
+    .update(values)
+    .eq("stripe_payment_intent_id", intentId)
+    .in("status", allowedCurrentStatuses)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    console.error("[api/payments/webhook] could not update payment attempt:", error);
+    throw new Error("Could not update the payment attempt");
+  }
+  if (!data) {
+    const { data: existing, error: readError } = await supabaseAdmin
+      .from("payments")
+      .select("status")
+      .eq("stripe_payment_intent_id", intentId)
+      .maybeSingle();
+
+    if (readError || !existing) {
+      console.error("[api/payments/webhook] payment attempt is missing after a conditional update:", readError);
+      throw new Error("Could not find the payment attempt");
+    }
+  }
+  // A terminal success must never be downgraded by an older failed/canceled
+  // event. An existing row that did not match the allowed states means the
+  // transition was intentionally ignored; the booking must stay unchanged.
+  return Boolean(data);
+}
+
 // Signature verification below IS the auth for this route — Stripe calls
 // it directly, there is no session/user to check.
 export async function POST(request: Request) {
@@ -81,15 +122,13 @@ export async function POST(request: Request) {
             methodType === "card" ? "credit_card" : methodType === "promptpay" ? "promptpay" : undefined;
         }
 
-        await supabaseAdmin
-          .from("payments")
-          .update({
-            status: "succeeded",
-            card_brand: card?.brand ?? null,
-            card_last4: card?.last4 ?? null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("stripe_payment_intent_id", intent.id);
+        const recorded = await updatePaymentAttempt(intent.id, "succeeded", {
+          status: "succeeded",
+          card_brand: card?.brand ?? null,
+          card_last4: card?.last4 ?? null,
+          updated_at: new Date().toISOString(),
+        });
+        if (!recorded) break;
 
         if (bookingId && (await isCurrentIntentForBooking(bookingId, intent.id))) {
           if (intent.metadata.paymentKind === "top_up") {
@@ -105,14 +144,12 @@ export async function POST(request: Request) {
         const intent = event.data.object as Stripe.PaymentIntent;
         const bookingId = intent.metadata.bookingId;
 
-        await supabaseAdmin
-          .from("payments")
-          .update({
-            status: "failed",
-            failure_message: intent.last_payment_error?.message ?? null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("stripe_payment_intent_id", intent.id);
+        const recorded = await updatePaymentAttempt(intent.id, "failed", {
+          status: "failed",
+          failure_message: intent.last_payment_error?.message ?? null,
+          updated_at: new Date().toISOString(),
+        });
+        if (!recorded) break;
 
         if (bookingId && (await isCurrentIntentForBooking(bookingId, intent.id))) {
           if (intent.metadata.paymentKind === "top_up") {
@@ -128,10 +165,11 @@ export async function POST(request: Request) {
         const intent = event.data.object as Stripe.PaymentIntent;
         const bookingId = intent.metadata.bookingId;
 
-        await supabaseAdmin
-          .from("payments")
-          .update({ status: "canceled", updated_at: new Date().toISOString() })
-          .eq("stripe_payment_intent_id", intent.id);
+        const recorded = await updatePaymentAttempt(intent.id, "canceled", {
+          status: "canceled",
+          updated_at: new Date().toISOString(),
+        });
+        if (!recorded) break;
 
         // bookings.payment_status has no "canceled" value — a canceled
         // intent means the guest never completed payment, same outcome as

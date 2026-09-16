@@ -15,6 +15,7 @@ import {
   InvalidBookingTransitionError,
 } from "@/server/queries/customer-bookings.query";
 import {
+  AdminBookingPaymentTransitionError,
   AdminBookingUpgradeUnavailableError,
   PaymentMethodRequiredError,
   upgradeBookingRoom,
@@ -61,6 +62,9 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
     if (error instanceof AdminBookingUpgradeUnavailableError) {
       return NextResponse.json({ message: error.message }, { status: 409 });
+    }
+    if (error instanceof AdminBookingPaymentTransitionError) {
+      return NextResponse.json({ message: error.message }, { status: error.statusCode });
     }
     if (error instanceof PaymentMethodRequiredError) {
       return NextResponse.json({ message: error.message }, { status: 422 });

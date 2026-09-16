@@ -14,6 +14,8 @@ import {
   InvalidBookingTransitionError,
 } from "@/server/queries/customer-bookings.query";
 import {
+  AdminBookingPaymentTransitionError,
+  AdminBookingRoomConflictError,
   PaymentMethodRequiredError,
   updateBookingSpecialRequests,
 } from "@/server/queries/admin-booking-edit.query";
@@ -64,6 +66,12 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
     if (error instanceof PaymentMethodRequiredError) {
       return NextResponse.json({ message: error.message }, { status: 422 });
+    }
+    if (error instanceof AdminBookingRoomConflictError) {
+      return NextResponse.json({ message: error.message }, { status: 409 });
+    }
+    if (error instanceof AdminBookingPaymentTransitionError) {
+      return NextResponse.json({ message: error.message }, { status: error.statusCode });
     }
     if (error instanceof InvalidBookingTransitionError || error instanceof InvalidPromoError) {
       return NextResponse.json({ message: error.message }, { status: 422 });

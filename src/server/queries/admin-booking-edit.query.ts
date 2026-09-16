@@ -12,6 +12,7 @@ import {
 } from "@/lib/admin-booking-edit";
 import { formatUtcDateOnly } from "@/lib/local-date";
 import { prisma } from "@/server/db";
+import { cancelPaymentIntent } from "@/server/payments/stripe";
 import { validatePromotionCode } from "@/server/queries/promo.query";
 import {
   getSpecialRequestCatalog,
@@ -20,7 +21,9 @@ import {
 } from "@/server/queries/special-requests.query";
 import {
   AmountTooLowError,
+  getBookingPaymentBalance,
   InvalidPromoError,
+  resolvePriorIntentToCancel,
   RoomTypeNotFoundError,
 } from "@/server/queries/bookings.query";
 import {
@@ -37,6 +40,7 @@ import type {
   AdminUpgradeRoomInput,
 } from "@/types/admin-booking-edit";
 import type { BookingStatus, SelectedSpecialRequest, SpecialRequestSelection } from "@/types/booking";
+import { maybeSendGuestBookingConfirmationEmail } from "@/server/services/booking-confirmation-email";
 
 const MIN_CHARGE_THB = 10;
 const NON_BLOCKING_BOOKING_STATUSES = ["cancelled", "canceled", "completed", "refunded"];
@@ -59,6 +63,15 @@ export class AdminBookingRoomConflictError extends Error {
 export class AdminBookingUpgradeUnavailableError extends Error {
   constructor() {
     super("No rooms of this type are available for the selected dates");
+  }
+}
+
+export class AdminBookingPaymentTransitionError extends Error {
+  constructor(
+    message: string,
+    readonly statusCode: 409 | 502,
+  ) {
+    super(message);
   }
 }
 
@@ -103,25 +116,6 @@ function parseStoredSpecialRequests(value: unknown): SelectedSpecialRequest[] {
       );
     })
     .map((item) => ({ ...item, quantity: item.quantity ?? 1 }));
-}
-
-async function hasAssignedRoomConflict(
-  bookingId: string,
-  checkIn: string,
-  checkOut: string,
-): Promise<boolean> {
-  const conflicts = await prisma.$queryRaw<{ count: bigint }[]>`
-    select count(*) as count
-    from booking_rooms br
-    join bookings b on b.id = br.booking_id
-    where br.room_id in (select room_id from booking_rooms where booking_id = ${bookingId}::uuid)
-      and b.id <> ${bookingId}::uuid
-      and b.status not in (${Prisma.join(NON_BLOCKING_BOOKING_STATUSES)})
-      and (b.expires_at is null or b.expires_at > now())
-      and b.check_in < ${checkOut}::date
-      and b.check_out > ${checkIn}::date
-  `;
-  return Number(conflicts[0]?.count ?? 0) > 0;
 }
 
 async function selectionsFromStoredSpecialRequests(
@@ -203,7 +197,13 @@ function resolvePaymentDelta(params: {
 }): {
   pricingDelta: AdminBookingEditPricingDelta;
   paymentRequirement: AdminEditPaymentRequirement;
-  nextPaymentStatus: string;
+  bookingLifecycleUpdate: {
+    paymentStatus: string;
+    status?: "confirmed";
+    paymentMethod?: "cash";
+    expiresAt?: null;
+  };
+  convertsPendingBookingToCash: boolean;
 } {
   const difference = calculateEditPriceDifference(params.previousTotal, params.nextTotal);
 
@@ -237,12 +237,57 @@ function resolvePaymentDelta(params: {
   const nextPaymentStatus = paymentRequirement.requiresPayment
     ? paymentRequirement.paymentStatus
     : params.currentPaymentStatus;
+  const convertsPendingBookingToCash =
+    isUnpaidPendingPaymentBooking(params.bookingStatus) &&
+    paymentRequirement.requiresPayment &&
+    paymentRequirement.channel === "pay_at_hotel";
 
   return {
     pricingDelta: { previousTotal: params.previousTotal, nextTotal: params.nextTotal, difference },
     paymentRequirement,
-    nextPaymentStatus,
+    bookingLifecycleUpdate: convertsPendingBookingToCash
+      ? {
+          paymentStatus: "pay_at_hotel",
+          status: "confirmed",
+          paymentMethod: "cash",
+          expiresAt: null,
+        }
+      : { paymentStatus: nextPaymentStatus },
+    convertsPendingBookingToCash,
   };
+}
+
+async function preparePendingBookingCashConversion(bookingId: string): Promise<void> {
+  let balance;
+  try {
+    balance = await getBookingPaymentBalance(bookingId);
+  } catch (error) {
+    console.error("[admin-booking-edit] could not verify the existing payment balance:", error);
+    throw new AdminBookingPaymentTransitionError("Could not verify the existing payment", 502);
+  }
+
+  if (balance.paidAmount > 0) {
+    throw new AdminBookingPaymentTransitionError(
+      "A payment has already succeeded for this booking — reload before editing",
+      409,
+    );
+  }
+
+  const priorResolution = await resolvePriorIntentToCancel(bookingId);
+  if ("readError" in priorResolution) {
+    throw new AdminBookingPaymentTransitionError("Could not verify the existing payment attempt", 502);
+  }
+  if ("blocked" in priorResolution) {
+    throw new AdminBookingPaymentTransitionError(priorResolution.blocked, 409);
+  }
+  if (!priorResolution.priorIntentToCancel) return;
+
+  try {
+    await cancelPaymentIntent(priorResolution.priorIntentToCancel);
+  } catch (error) {
+    console.error("[admin-booking-edit] could not cancel the existing payment attempt:", error);
+    throw new AdminBookingPaymentTransitionError("Could not cancel the existing payment attempt", 502);
+  }
 }
 
 export async function updateBookingSpecialRequests(
@@ -297,7 +342,12 @@ export async function updateBookingSpecialRequests(
   });
 
   const previousTotal = Number(booking.totalAmount);
-  const { pricingDelta, paymentRequirement, nextPaymentStatus } = resolvePaymentDelta({
+  const {
+    pricingDelta,
+    paymentRequirement,
+    bookingLifecycleUpdate,
+    convertsPendingBookingToCash,
+  } = resolvePaymentDelta({
     previousTotal,
     nextTotal: pricing.totalAmount,
     paymentMethod: input.paymentMethod,
@@ -305,18 +355,83 @@ export async function updateBookingSpecialRequests(
     bookingStatus: status,
   });
 
-  await prisma.booking.update({
-    where: { id: bookingId },
-    data: {
-      standardRequests: input.standardRequests,
-      specialRequests: pricing.selectedSpecialRequests,
-      addonsTotal: pricing.addonsTotal,
-      additionalRequest: input.additionalRequest,
-      discountAmount: pricing.discountAmount,
-      totalAmount: pricing.totalAmount,
-      paymentStatus: nextPaymentStatus,
-    },
-  });
+  if (convertsPendingBookingToCash) {
+    await preparePendingBookingCashConversion(bookingId);
+  }
+
+  const updateData = {
+    standardRequests: input.standardRequests,
+    specialRequests: pricing.selectedSpecialRequests,
+    addonsTotal: pricing.addonsTotal,
+    additionalRequest: input.additionalRequest,
+    discountAmount: pricing.discountAmount,
+    totalAmount: pricing.totalAmount,
+    ...bookingLifecycleUpdate,
+  };
+
+  if (convertsPendingBookingToCash) {
+    await prisma.$transaction(async (tx) => {
+      const assignedRooms = await tx.$queryRaw<{ room_id: string }[]>`
+        select br.room_id
+        from booking_rooms br
+        join rooms r on r.id = br.room_id
+        where br.booking_id = ${bookingId}::uuid
+        for update of r
+      `;
+      if (assignedRooms.length === 0) {
+        throw new InvalidBookingTransitionError("This booking has no assigned rooms");
+      }
+
+      const currentRows = await tx.$queryRaw<{
+        status: string;
+        payment_status: string;
+        total_amount: number | string;
+        check_in: string;
+        check_out: string;
+      }[]>`
+        select status, payment_status, total_amount,
+               to_char(check_in, 'YYYY-MM-DD') as check_in,
+               to_char(check_out, 'YYYY-MM-DD') as check_out
+        from bookings
+        where id = ${bookingId}::uuid
+        for update
+      `;
+      const current = currentRows[0];
+      if (!current) throw new BookingNotFoundError();
+      if (
+        current.status !== booking.status ||
+        current.payment_status !== booking.paymentStatus ||
+        Number(current.total_amount) !== previousTotal ||
+        current.check_in !== checkIn ||
+        current.check_out !== checkOut
+      ) {
+        throw new InvalidBookingTransitionError("This booking changed while it was being edited — reload and try again");
+      }
+
+      const conflicts = await tx.$queryRaw<{ count: bigint }[]>`
+        select count(*) as count
+        from booking_rooms br
+        join bookings b on b.id = br.booking_id
+        where br.room_id = any(array[${Prisma.join(assignedRooms.map((room) => room.room_id))}]::uuid[])
+          and b.id <> ${bookingId}::uuid
+          and b.status not in (${Prisma.join(NON_BLOCKING_BOOKING_STATUSES)})
+          and (b.expires_at is null or b.expires_at > now())
+          and b.check_in < ${checkOut}::date
+          and b.check_out > ${checkIn}::date
+      `;
+      if (Number(conflicts[0]?.count ?? 0) > 0) {
+        throw new AdminBookingRoomConflictError();
+      }
+
+      await tx.booking.update({ where: { id: bookingId }, data: updateData });
+    });
+  } else {
+    await prisma.booking.update({ where: { id: bookingId }, data: updateData });
+  }
+
+  if (convertsPendingBookingToCash) {
+    await maybeSendGuestBookingConfirmationEmail(bookingId);
+  }
 
   return {
     pricingDelta,
@@ -368,14 +483,10 @@ export async function updateBookingDates(
     throw new InvalidBookingTransitionError("The selected dates match the current booking");
   }
 
-  if (await hasAssignedRoomConflict(bookingId, input.checkIn, input.checkOut)) {
-    throw new AdminBookingRoomConflictError();
-  }
-
   const storedSpecialRequests = parseStoredSpecialRequests(booking.specialRequests);
   const specialRequestSelections = await selectionsFromStoredSpecialRequests(
     storedSpecialRequests,
-    dateValidation.nextNights,
+    dateValidation.previousNights,
   );
   const pricePerNightSum = booking.rooms.reduce((sum, room) => sum + Number(room.pricePerNight), 0);
   const pricing = await computeEditedBookingPricing({
@@ -387,7 +498,12 @@ export async function updateBookingDates(
   });
 
   const previousTotal = Number(booking.totalAmount);
-  const { pricingDelta, paymentRequirement, nextPaymentStatus } = resolvePaymentDelta({
+  const {
+    pricingDelta,
+    paymentRequirement,
+    bookingLifecycleUpdate,
+    convertsPendingBookingToCash,
+  } = resolvePaymentDelta({
     previousTotal,
     nextTotal: pricing.totalAmount,
     paymentMethod: input.paymentMethod,
@@ -395,18 +511,83 @@ export async function updateBookingDates(
     bookingStatus: status,
   });
 
-  await prisma.booking.update({
-    where: { id: bookingId },
-    data: {
-      checkIn: toDateOnly(input.checkIn),
-      checkOut: toDateOnly(input.checkOut),
-      specialRequests: pricing.selectedSpecialRequests,
-      addonsTotal: pricing.addonsTotal,
-      discountAmount: pricing.discountAmount,
-      totalAmount: pricing.totalAmount,
-      paymentStatus: nextPaymentStatus,
-    },
+  if (convertsPendingBookingToCash) {
+    await preparePendingBookingCashConversion(bookingId);
+  }
+
+  await prisma.$transaction(async (tx) => {
+    // Match booking creation's lock order: lock physical rooms first, then
+    // re-read and lock the booking. Concurrent creates/date changes must finish
+    // before this conflict check, so two requests cannot both observe "free".
+    const assignedRooms = await tx.$queryRaw<{ room_id: string }[]>`
+      select br.room_id
+      from booking_rooms br
+      join rooms r on r.id = br.room_id
+      where br.booking_id = ${bookingId}::uuid
+      for update of r
+    `;
+    if (assignedRooms.length === 0) {
+      throw new InvalidBookingTransitionError("This booking has no assigned rooms");
+    }
+
+    const currentRows = await tx.$queryRaw<{
+      status: string;
+      payment_status: string;
+      total_amount: number | string;
+      check_in: string;
+      check_out: string;
+    }[]>`
+      select status, payment_status, total_amount,
+             to_char(check_in, 'YYYY-MM-DD') as check_in,
+             to_char(check_out, 'YYYY-MM-DD') as check_out
+      from bookings
+      where id = ${bookingId}::uuid
+      for update
+    `;
+    const current = currentRows[0];
+    if (!current) throw new BookingNotFoundError();
+    if (
+      current.status !== booking.status ||
+      current.payment_status !== booking.paymentStatus ||
+      Number(current.total_amount) !== Number(booking.totalAmount) ||
+      current.check_in !== currentCheckIn ||
+      current.check_out !== currentCheckOut
+    ) {
+      throw new InvalidBookingTransitionError("This booking changed while it was being edited — reload and try again");
+    }
+
+    const conflicts = await tx.$queryRaw<{ count: bigint }[]>`
+      select count(*) as count
+      from booking_rooms br
+      join bookings b on b.id = br.booking_id
+      where br.room_id = any(array[${Prisma.join(assignedRooms.map((room) => room.room_id))}]::uuid[])
+        and b.id <> ${bookingId}::uuid
+        and b.status not in (${Prisma.join(NON_BLOCKING_BOOKING_STATUSES)})
+        and (b.expires_at is null or b.expires_at > now())
+        and b.check_in < ${input.checkOut}::date
+        and b.check_out > ${input.checkIn}::date
+    `;
+    if (Number(conflicts[0]?.count ?? 0) > 0) {
+      throw new AdminBookingRoomConflictError();
+    }
+
+    await tx.booking.update({
+      where: { id: bookingId },
+      data: {
+        checkIn: toDateOnly(input.checkIn),
+        checkOut: toDateOnly(input.checkOut),
+        specialRequests: pricing.selectedSpecialRequests,
+        addonsTotal: pricing.addonsTotal,
+        discountAmount: pricing.discountAmount,
+        totalAmount: pricing.totalAmount,
+        ...bookingLifecycleUpdate,
+      },
+    });
   });
+
+  if (convertsPendingBookingToCash) {
+    await maybeSendGuestBookingConfirmationEmail(bookingId);
+  }
 
   return {
     pricingDelta,
@@ -604,13 +785,22 @@ export async function upgradeBookingRoom(
   });
 
   const previousTotal = Number(booking.totalAmount);
-  const { pricingDelta, paymentRequirement, nextPaymentStatus } = resolvePaymentDelta({
+  const {
+    pricingDelta,
+    paymentRequirement,
+    bookingLifecycleUpdate,
+    convertsPendingBookingToCash,
+  } = resolvePaymentDelta({
     previousTotal,
     nextTotal: pricing.totalAmount,
     paymentMethod: input.paymentMethod,
     currentPaymentStatus: booking.paymentStatus,
     bookingStatus: status,
   });
+
+  if (convertsPendingBookingToCash) {
+    await preparePendingBookingCashConversion(bookingId);
+  }
 
   const oldRoomIds = booking.rooms.map((room) => room.roomId);
   const isCheckedIn = status === "checked_in";
@@ -668,10 +858,14 @@ export async function upgradeBookingRoom(
         addonsTotal: pricing.addonsTotal,
         discountAmount: pricing.discountAmount,
         totalAmount: pricing.totalAmount,
-        paymentStatus: nextPaymentStatus,
+        ...bookingLifecycleUpdate,
       },
     });
   });
+
+  if (convertsPendingBookingToCash) {
+    await maybeSendGuestBookingConfirmationEmail(bookingId);
+  }
 
   return {
     pricingDelta,

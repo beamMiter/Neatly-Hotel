@@ -21,7 +21,11 @@ export default async function BookingFailedPage({ searchParams }: BookingFailedP
 
   return (
     <main className="flex-1 bg-[#F7F7FB]">
-      <BookingFailedView bookingId={bookingId} booking={booking} />
+      <BookingFailedView
+        bookingId={bookingId}
+        booking={booking}
+        requiresEmailVerification={!user}
+      />
     </main>
   );
 }

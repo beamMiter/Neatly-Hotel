@@ -43,7 +43,13 @@ function webhookRequest() {
 function stubPaymentsTable(latestIntentId: string | null) {
   mocks.from.mockImplementation(() => ({
     update: vi.fn(() => ({
-      eq: vi.fn().mockResolvedValue({ error: null }),
+      eq: vi.fn(() => ({
+        in: vi.fn(() => ({
+          select: vi.fn(() => ({
+            maybeSingle: vi.fn().mockResolvedValue({ data: { id: "payment-row" }, error: null }),
+          })),
+        })),
+      })),
     })),
     select: vi.fn(() => ({
       eq: vi.fn(() => ({
@@ -146,6 +152,81 @@ describe("POST /api/payments/webhook — payment_intent.succeeded", () => {
       );
 
       expect(response.status).toBe(400);
+      expect(mocks.updateBookingPaymentStatus).not.toHaveBeenCalled();
+    });
+
+    it("returns 500 so Stripe retries when the payment row cannot be recorded", async () => {
+      succeededEvent();
+      mocks.from.mockImplementation(() => ({
+        update: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            in: vi.fn(() => ({
+              select: vi.fn(() => ({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: null,
+                  error: { message: "write failed" },
+                }),
+              })),
+            })),
+          })),
+        })),
+      }));
+
+      const response = await POST(webhookRequest());
+
+      expect(response.status).toBe(500);
+      expect(mocks.updateBookingPaymentStatus).not.toHaveBeenCalled();
+    });
+
+    it("ignores an event when its payment state can no longer transition", async () => {
+      succeededEvent();
+      mocks.from.mockReturnValueOnce({
+        update: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            in: vi.fn(() => ({
+              select: vi.fn(() => ({
+                maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+              })),
+            })),
+          })),
+        })),
+      }).mockReturnValueOnce({
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            maybeSingle: vi.fn().mockResolvedValue({ data: { status: "refunded" }, error: null }),
+          })),
+        })),
+      });
+
+      const response = await POST(webhookRequest());
+
+      expect(response.status).toBe(200);
+      expect(mocks.updateBookingPaymentStatus).not.toHaveBeenCalled();
+    });
+
+    it("returns 500 when no payment row exists for the verified Stripe event", async () => {
+      succeededEvent();
+      mocks.from.mockReturnValueOnce({
+        update: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            in: vi.fn(() => ({
+              select: vi.fn(() => ({
+                maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+              })),
+            })),
+          })),
+        })),
+      }).mockReturnValueOnce({
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+          })),
+        })),
+      });
+
+      const response = await POST(webhookRequest());
+
+      expect(response.status).toBe(500);
       expect(mocks.updateBookingPaymentStatus).not.toHaveBeenCalled();
     });
   });

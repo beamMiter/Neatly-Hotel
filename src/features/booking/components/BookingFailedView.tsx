@@ -1,34 +1,64 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { CardNumberElement, Elements, useElements, useStripe } from "@stripe/react-stripe-js";
 import { stripePromise } from "@/features/booking/stripe-client";
 import { StripeCardFields } from "@/features/booking/components/StripeCardFields";
+import { EmailOtpVerification } from "@/features/booking/components/EmailOtpVerification";
+import {
+  BOOKING_EMAIL_VERIFICATION_HEADER,
+  bookingEmailVerificationStorageKey,
+} from "@/lib/booking-email-verification";
 import type { BookingRecord } from "@/types/booking";
+
+const subscribeToHydration = () => () => {};
 
 type BookingFailedViewProps = {
   bookingId: string;
   booking: BookingRecord;
+  requiresEmailVerification: boolean;
 };
 
 // Retry creates a NEW PaymentIntent (via POST /api/bookings/[id]/payment-intent)
 // rather than reusing the failed one — Stripe PaymentIntents that reached a
 // terminal failure state can't simply be re-confirmed.
-export function BookingFailedView({ bookingId, booking }: BookingFailedViewProps) {
+export function BookingFailedView({
+  bookingId,
+  booking,
+  requiresEmailVerification,
+}: BookingFailedViewProps) {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isStartingRetry, setIsStartingRetry] = useState(false);
+  const [verifiedEmailToken, setVerifiedEmailToken] = useState<string | null>(null);
+  const isHydrated = useSyncExternalStore(subscribeToHydration, () => true, () => false);
+  const emailVerificationToken = verifiedEmailToken ?? (
+    requiresEmailVerification && isHydrated
+      ? window.sessionStorage.getItem(bookingEmailVerificationStorageKey(bookingId))
+      : null
+  );
+  const retryAuthorized = !requiresEmailVerification || Boolean(emailVerificationToken);
 
   async function handleRetry() {
+    if (!retryAuthorized) return;
     setIsStartingRetry(true);
     setError(null);
     try {
-      const response = await fetch(`/api/bookings/${bookingId}/payment-intent`, { method: "POST" });
+      const response = await fetch(`/api/bookings/${bookingId}/payment-intent`, {
+        method: "POST",
+        headers: emailVerificationToken
+          ? { [BOOKING_EMAIL_VERIFICATION_HEADER]: emailVerificationToken }
+          : undefined,
+      });
       const data = await response.json();
       if (!response.ok) {
+        if (response.status === 403 && requiresEmailVerification) {
+          window.sessionStorage.removeItem(bookingEmailVerificationStorageKey(bookingId));
+          setVerifiedEmailToken(null);
+        }
         setError(data.message ?? "This booking can no longer be retried");
         return;
       }
@@ -58,12 +88,32 @@ export function BookingFailedView({ bookingId, booking }: BookingFailedViewProps
         {error && <p className="text-sm text-red-600">{error}</p>}
       </div>
 
+      {requiresEmailVerification && !isHydrated && (
+        <p className="px-6 text-center text-sm text-[#646D89]">Checking email verification...</p>
+      )}
+
+      {requiresEmailVerification && isHydrated && !emailVerificationToken && (
+        <div className="px-6">
+          <EmailOtpVerification
+            email={booking.guestInfo.email}
+            emailValid={/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(booking.guestInfo.email)}
+            verified={false}
+            onVerified={(token) => {
+              window.sessionStorage.setItem(bookingEmailVerificationStorageKey(bookingId), token);
+              setVerifiedEmailToken(token);
+              setError(null);
+            }}
+            onClearVerification={() => setVerifiedEmailToken(null)}
+          />
+        </div>
+      )}
+
       {/* Sibling of the orange card, not nested inside it — Figma's "button
           wrapper" frame sits on the plain page background below "head", with
           its own breathing room, not packed against the card. Mobile stacks
           primary (full-width) above the ghost button; desktop keeps them
           side by side. */}
-      {!clientSecret && (
+      {!clientSecret && retryAuthorized && (
         <div className="flex w-full flex-col items-center gap-6 px-6 lg:w-auto lg:flex-row lg:gap-10 lg:self-center lg:px-0">
           <button
             type="button"

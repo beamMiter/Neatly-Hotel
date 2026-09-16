@@ -25,6 +25,7 @@ import type {
   SpecialRequestOption,
 } from "@/types/booking";
 import { LIVE_SUPPORT_TOKEN_KEY } from "@/lib/support-booking-proposal";
+import { bookingEmailVerificationStorageKey } from "@/lib/booking-email-verification";
 
 type BookingWizardProps = {
   roomTypeId: string;
@@ -312,6 +313,13 @@ export function BookingWizard({
           message: detail ? `${data.message ?? "Validation failed"}: ${detail}` : (data.message ?? "Failed to create booking"),
           fieldErrors: data.fieldErrors,
         };
+      }
+
+      if (requiresEmailVerification && emailVerificationToken && data.bookingId) {
+        window.sessionStorage.setItem(
+          bookingEmailVerificationStorageKey(data.bookingId),
+          emailVerificationToken,
+        );
       }
 
       return {
