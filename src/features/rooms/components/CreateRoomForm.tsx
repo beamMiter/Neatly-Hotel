@@ -9,6 +9,11 @@ import { RoomImageUpload } from "@/features/rooms/components/RoomImageUpload";
 import { RoomGalleryUpload } from "@/features/rooms/components/RoomGalleryUpload";
 import { AmenitiesList } from "@/features/rooms/components/AmenitiesList";
 import { useDelayedFlag } from "@/lib/useDelayedFlag";
+import {
+  compressImage,
+  MAX_UPLOAD_TOTAL_BYTES,
+  totalFileSize,
+} from "@/lib/compress-image";
 import { CardSkeletonOverlay } from "@/components/shared/CardSkeletonOverlay";
 import { BED_TYPES } from "@/types/room-type";
 import {
@@ -93,34 +98,53 @@ export function CreateRoomForm() {
     event.preventDefault();
     setFormError(null);
 
-    const formData = buildFormData(
-      fields,
-      hasPromotion,
-      mainImage,
-      galleryFiles,
-      amenities,
-    );
-    const parsed = parseCreateRoomFormData(formData);
-
-    if (!parsed.success) {
-      setErrors(parsed.fieldErrors);
-      return;
-    }
-
-    setErrors({});
     setIsSubmitting(true);
 
     try {
+      const compressedMain = mainImage ? await compressImage(mainImage) : null;
+      const compressedGallery = await Promise.all(
+        galleryFiles.map(compressImage),
+      );
+
+      const formData = buildFormData(
+        fields,
+        hasPromotion,
+        compressedMain,
+        compressedGallery,
+        amenities,
+      );
+      const parsed = parseCreateRoomFormData(formData);
+
+      if (!parsed.success) {
+        setErrors(parsed.fieldErrors);
+        return;
+      }
+
+      const totalBytes = totalFileSize([
+        ...(compressedMain ? [compressedMain] : []),
+        ...compressedGallery,
+      ]);
+      if (totalBytes > MAX_UPLOAD_TOTAL_BYTES) {
+        setFormError(
+          "Images are too large in total (max 4MB after compression). Remove some images or use smaller ones.",
+        );
+        return;
+      }
+
+      setErrors({});
+
       const response = await fetch("/api/room-types", {
         method: "POST",
         body: formData,
       });
-      const data = await response.json();
+      const data = await response.json().catch(() => null);
 
       if (!response.ok) {
-        if (data.fieldErrors) setErrors(data.fieldErrors);
+        if (data?.fieldErrors) setErrors(data.fieldErrors);
         setFormError(
-          data.message ?? "Failed to create room. Please try again.",
+          response.status === 413
+            ? "Images are too large. Remove some images or use smaller ones."
+            : (data?.message ?? "Failed to create room. Please try again."),
         );
         return;
       }

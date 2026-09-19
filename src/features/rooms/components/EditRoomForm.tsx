@@ -14,6 +14,11 @@ import {
 import { AmenitiesList } from "@/features/rooms/components/AmenitiesList";
 import { DeleteRoomModal } from "@/features/rooms/components/DeleteRoomModal";
 import { useDelayedFlag } from "@/lib/useDelayedFlag";
+import {
+  compressImage,
+  MAX_UPLOAD_TOTAL_BYTES,
+  totalFileSize,
+} from "@/lib/compress-image";
 import { CardSkeletonOverlay } from "@/components/shared/CardSkeletonOverlay";
 import { BED_TYPES, type RoomTypeDetail } from "@/types/room-type";
 import {
@@ -183,8 +188,12 @@ export function EditRoomForm({ room }: { room: RoomTypeDetail }) {
       if (hasPromotion) formData.append("promotionPrice", fields.promotionPrice);
       formData.append("description", fields.description);
 
+      const uploadedFiles: File[] = [];
+
       if (mainImage?.kind === "new") {
-        formData.append("mainImage", mainImage.file);
+        const compressed = await compressImage(mainImage.file);
+        uploadedFiles.push(compressed);
+        formData.append("mainImage", compressed);
       } else if (mainImage?.kind === "existing") {
         formData.append("mainImageId", mainImage.id);
       }
@@ -196,9 +205,18 @@ export function EditRoomForm({ room }: { room: RoomTypeDetail }) {
           galleryOrder.push(`existing:${item.id}`);
         } else {
           galleryOrder.push(`new:${newFileIndex}`);
-          formData.append("galleryNewFile", item.file);
+          const compressed = await compressImage(item.file);
+          uploadedFiles.push(compressed);
+          formData.append("galleryNewFile", compressed);
           newFileIndex += 1;
         }
+      }
+
+      if (totalFileSize(uploadedFiles) > MAX_UPLOAD_TOTAL_BYTES) {
+        setFormError(
+          "New images are too large in total (max 4MB after compression). Add fewer images at a time, or use smaller ones.",
+        );
+        return;
       }
       formData.append("galleryOrder", JSON.stringify(galleryOrder));
 
@@ -209,12 +227,14 @@ export function EditRoomForm({ room }: { room: RoomTypeDetail }) {
         method: "PATCH",
         body: formData,
       });
-      const data = await response.json();
+      const data = await response.json().catch(() => null);
 
       if (!response.ok) {
-        if (data.fieldErrors) setErrors(data.fieldErrors);
+        if (data?.fieldErrors) setErrors(data.fieldErrors);
         setFormError(
-          data.message ?? "Failed to update room. Please try again.",
+          response.status === 413
+            ? "Images are too large. Add fewer images at a time, or use smaller ones."
+            : (data?.message ?? "Failed to update room. Please try again."),
         );
         return;
       }
