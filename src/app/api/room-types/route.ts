@@ -27,6 +27,12 @@ export async function POST(request: Request) {
 
   const result = await createRoomType(parsed);
   if (!result.success) {
+    if (result.duplicate) {
+      return NextResponse.json(
+        { message: result.message, fieldErrors: { roomType: result.message } },
+        { status: 409 },
+      );
+    }
     return NextResponse.json({ message: result.message }, { status: 500 });
   }
 

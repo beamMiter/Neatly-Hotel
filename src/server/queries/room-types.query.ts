@@ -106,7 +106,7 @@ type CreateRoomTypeParams = {
   amenities: string[];
 };
 
-type CreateRoomTypeResult = { success: true; id: string } | { success: false; message: string };
+type CreateRoomTypeResult = { success: true; id: string } | { success: false; message: string; duplicate?: boolean };
 
 function extensionOf(file: File) {
   const parts = file.name.split(".");
@@ -144,6 +144,9 @@ export async function createRoomType({
 
   if (insertError || !inserted) {
     console.error("[room_types] insert failed:", insertError);
+    if (insertError?.code === "23505") {
+      return { success: false, duplicate: true, message: "A room type with this name already exists" };
+    }
     return { success: false, message: "Failed to save the room" };
   }
 
