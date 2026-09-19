@@ -8,6 +8,12 @@ import { SelectField } from "@/components/ui/SelectField";
 import { RoomImageUpload } from "@/features/rooms/components/RoomImageUpload";
 import { RoomGalleryUpload } from "@/features/rooms/components/RoomGalleryUpload";
 import { AmenitiesList } from "@/features/rooms/components/AmenitiesList";
+import { RoomFormErrorDialog } from "@/features/rooms/components/RoomFormErrorDialog";
+import {
+  describeRoomFormFailure,
+  IMAGES_TOO_LARGE_FAILURE,
+  type RoomFormFailure,
+} from "@/lib/rooms/form-failure";
 import { useDelayedFlag } from "@/lib/useDelayedFlag";
 import {
   compressImage,
@@ -78,7 +84,7 @@ export function CreateRoomForm() {
   const [errors, setErrors] = useState<CreateRoomFieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const showSkeleton = useDelayedFlag(isSubmitting);
-  const [formError, setFormError] = useState<string | null>(null);
+  const [failure, setFailure] = useState<RoomFormFailure | null>(null);
 
   function handleFieldChange(
     event: React.ChangeEvent<
@@ -96,7 +102,7 @@ export function CreateRoomForm() {
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setFormError(null);
+    setFailure(null);
 
     setIsSubmitting(true);
 
@@ -125,9 +131,7 @@ export function CreateRoomForm() {
         ...compressedGallery,
       ]);
       if (totalBytes > MAX_UPLOAD_TOTAL_BYTES) {
-        setFormError(
-          "Images are too large in total (max 4MB after compression). Remove some images or use smaller ones.",
-        );
+        setFailure(IMAGES_TOO_LARGE_FAILURE);
         return;
       }
 
@@ -141,17 +145,13 @@ export function CreateRoomForm() {
 
       if (!response.ok) {
         if (data?.fieldErrors) setErrors(data.fieldErrors);
-        setFormError(
-          response.status === 413
-            ? "Images are too large. Remove some images or use smaller ones."
-            : (data?.message ?? "Failed to create room. Please try again."),
-        );
+        setFailure(describeRoomFormFailure("create", response, data));
         return;
       }
 
       router.push("/room-property");
     } catch {
-      setFormError("Something went wrong. Please try again.");
+      setFailure(describeRoomFormFailure("create", null, null));
     } finally {
       setIsSubmitting(false);
     }
@@ -190,12 +190,6 @@ export function CreateRoomForm() {
 
       <div className="min-h-0 flex-1 overflow-y-auto px-8 py-8">
         <div className="relative mx-auto flex max-w-3xl flex-col gap-8 rounded-lg border border-brand-border bg-white p-8">
-          {formError && (
-            <p className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">
-              {formError}
-            </p>
-          )}
-
           <section className="flex flex-col gap-5">
             <h2 className="text-sm font-medium text-brand-muted">
               Basic Information
@@ -402,6 +396,7 @@ export function CreateRoomForm() {
           <CardSkeletonOverlay show={showSkeleton} rows={6} />
         </div>
       </div>
+      <RoomFormErrorDialog failure={failure} onClose={() => setFailure(null)} />
     </form>
   );
 }
