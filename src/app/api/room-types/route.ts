@@ -5,6 +5,7 @@ import {
   authorizationErrorResponse,
   requireStaff,
 } from "@/server/services/authorization";
+import { roomTypeFailureResponse } from "@/server/services/room-type-errors";
 
 export async function POST(request: Request) {
   try {
@@ -26,15 +27,7 @@ export async function POST(request: Request) {
   }
 
   const result = await createRoomType(parsed);
-  if (!result.success) {
-    if (result.duplicate) {
-      return NextResponse.json(
-        { message: result.message, fieldErrors: { roomType: result.message } },
-        { status: 409 },
-      );
-    }
-    return NextResponse.json({ message: result.message }, { status: 500 });
-  }
+  if (!result.success) return roomTypeFailureResponse(result);
 
   return NextResponse.json({ message: "Room created", id: result.id }, { status: 201 });
 }
