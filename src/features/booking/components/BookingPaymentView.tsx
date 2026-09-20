@@ -39,7 +39,7 @@ export function BookingPaymentView({ bookingId, booking, amountDue = 0, requires
   );
 
   const isTopUp =
-    amountDue > 0 && booking.paymentStatus === "pending" && booking.status !== "pending_payment";
+    amountDue > 0 && booking.paymentStatus === "pending" && ["confirmed", "checked_in"].includes(booking.status);
   const isInitialPayment = booking.status === "pending_payment" && booking.paymentStatus === "pending";
   const canPay = isInitialPayment || isTopUp;
   const chargeAmount = isTopUp ? amountDue : booking.totalAmount;
@@ -170,6 +170,7 @@ export function BookingPaymentView({ bookingId, booking, amountDue = 0, requires
               <CardPaymentForm
                 clientSecret={clientSecret}
                 successPath={`/booking/success?bookingId=${bookingId}`}
+                onFailure={(message) => { setClientSecret(null); setError(message); }}
               />
             )}
           </Elements>
@@ -251,9 +252,11 @@ export function BookingPaymentView({ bookingId, booking, amountDue = 0, requires
 function CardPaymentForm({
   clientSecret,
   successPath,
+  onFailure,
 }: {
   clientSecret: string;
   successPath: string;
+  onFailure: (message: string) => void;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -277,7 +280,7 @@ function CardPaymentForm({
     setIsSubmitting(false);
 
     if (result.error) {
-      setError(result.error.message ?? "Payment failed. Please check your card details.");
+      onFailure(result.error.message ?? "Payment failed. Please check your card details.");
       return;
     }
     router.push(successPath);

@@ -80,13 +80,21 @@ describe("markBookingCashConfirmed", () => {
 describe("updateBookingPaymentStatus", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.queryRaw.mockReset()
+      .mockResolvedValueOnce([{ status: "pending_payment", payment_status: "pending", cancelled_at: null,
+        check_in: "2026-12-01", check_out: "2026-12-03" }])
+      .mockResolvedValueOnce([{ room_id: ROOM_ID, status: "Clean" }])
+      .mockResolvedValueOnce([{ count: BigInt(0) }]);
+    mocks.transaction.mockImplementation(async (callback) => callback({
+      $queryRaw: mocks.queryRaw, booking: { updateMany: mocks.updateMany },
+    }));
     mocks.updateMany.mockResolvedValue({ count: 1 });
   });
 
   it("records the settled payment through an atomic pending-to-confirmed transition", async () => {
     await expect(updateBookingPaymentStatus(BOOKING_ID, "paid", "credit_card")).resolves.toBe(true);
     expect(mocks.updateMany).toHaveBeenCalledWith({
-      where: { id: BOOKING_ID, status: "pending_payment", paymentStatus: "pending" },
+      where: { id: BOOKING_ID },
       data: {
         paymentMethod: "credit_card",
         paymentStatus: "paid",
@@ -107,7 +115,7 @@ describe("updateBookingPaymentStatus", () => {
   });
 
   it("ignores a delayed event after the booking has already transitioned", async () => {
-    mocks.updateMany.mockResolvedValue({ count: 0 });
+    mocks.queryRaw.mockReset().mockResolvedValue([{ status: "refunded", cancelled_at: new Date() }]);
     await expect(updateBookingPaymentStatus(BOOKING_ID, "paid", "promptpay")).resolves.toBe(false);
     expect(mocks.sendConfirmation).not.toHaveBeenCalled();
   });

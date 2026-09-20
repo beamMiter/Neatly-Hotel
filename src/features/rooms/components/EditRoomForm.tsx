@@ -19,6 +19,7 @@ import { BED_TYPES, type RoomTypeDetail } from "@/types/room-type";
 import {
   MIN_GALLERY_IMAGES,
   createRoomSchema,
+  parseUpdateRoomFormData,
   type CreateRoomFieldErrors,
 } from "@/features/rooms/validations";
 
@@ -204,6 +205,12 @@ export function EditRoomForm({ room }: { room: RoomTypeDetail }) {
 
       for (const amenity of trimmedAmenities)
         formData.append("amenities", amenity);
+
+      const validated = parseUpdateRoomFormData(formData);
+      if (!validated.success) {
+        setErrors(validated.fieldErrors);
+        return;
+      }
 
       const response = await fetch(`/api/room-types/${room.id}`, {
         method: "PATCH",
