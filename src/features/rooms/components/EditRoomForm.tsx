@@ -13,7 +13,18 @@ import {
 } from "@/features/rooms/components/EditRoomGallery";
 import { AmenitiesList } from "@/features/rooms/components/AmenitiesList";
 import { DeleteRoomModal } from "@/features/rooms/components/DeleteRoomModal";
+import { RoomFormErrorDialog } from "@/features/rooms/components/RoomFormErrorDialog";
+import {
+  describeRoomFormFailure,
+  IMAGES_TOO_LARGE_FAILURE,
+  type RoomFormFailure,
+} from "@/lib/rooms/form-failure";
 import { useDelayedFlag } from "@/lib/useDelayedFlag";
+import {
+  compressImage,
+  MAX_UPLOAD_TOTAL_BYTES,
+  totalFileSize,
+} from "@/lib/compress-image";
 import { CardSkeletonOverlay } from "@/components/shared/CardSkeletonOverlay";
 import { BED_TYPES, type RoomTypeDetail } from "@/types/room-type";
 import {
@@ -77,7 +88,7 @@ export function EditRoomForm({ room }: { room: RoomTypeDetail }) {
   const [errors, setErrors] = useState<CreateRoomFieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const showSkeleton = useDelayedFlag(isSubmitting);
-  const [formError, setFormError] = useState<string | null>(null);
+  const [failure, setFailure] = useState<RoomFormFailure | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -121,7 +132,7 @@ export function EditRoomForm({ room }: { room: RoomTypeDetail }) {
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setFormError(null);
+    setFailure(null);
 
     const record = {
       roomType: fields.roomType,
@@ -183,8 +194,12 @@ export function EditRoomForm({ room }: { room: RoomTypeDetail }) {
       if (hasPromotion) formData.append("promotionPrice", fields.promotionPrice);
       formData.append("description", fields.description);
 
+      const uploadedFiles: File[] = [];
+
       if (mainImage?.kind === "new") {
-        formData.append("mainImage", mainImage.file);
+        const compressed = await compressImage(mainImage.file);
+        uploadedFiles.push(compressed);
+        formData.append("mainImage", compressed);
       } else if (mainImage?.kind === "existing") {
         formData.append("mainImageId", mainImage.id);
       }
@@ -196,9 +211,16 @@ export function EditRoomForm({ room }: { room: RoomTypeDetail }) {
           galleryOrder.push(`existing:${item.id}`);
         } else {
           galleryOrder.push(`new:${newFileIndex}`);
-          formData.append("galleryNewFile", item.file);
+          const compressed = await compressImage(item.file);
+          uploadedFiles.push(compressed);
+          formData.append("galleryNewFile", compressed);
           newFileIndex += 1;
         }
+      }
+
+      if (totalFileSize(uploadedFiles) > MAX_UPLOAD_TOTAL_BYTES) {
+        setFailure(IMAGES_TOO_LARGE_FAILURE);
+        return;
       }
       formData.append("galleryOrder", JSON.stringify(galleryOrder));
 
@@ -209,19 +231,17 @@ export function EditRoomForm({ room }: { room: RoomTypeDetail }) {
         method: "PATCH",
         body: formData,
       });
-      const data = await response.json();
+      const data = await response.json().catch(() => null);
 
       if (!response.ok) {
-        if (data.fieldErrors) setErrors(data.fieldErrors);
-        setFormError(
-          data.message ?? "Failed to update room. Please try again.",
-        );
+        if (data?.fieldErrors) setErrors(data.fieldErrors);
+        setFailure(describeRoomFormFailure("update", response, data));
         return;
       }
 
       router.push("/room-property");
     } catch {
-      setFormError("Something went wrong. Please try again.");
+      setFailure(describeRoomFormFailure("update", null, null));
     } finally {
       setIsSubmitting(false);
     }
@@ -236,16 +256,14 @@ export function EditRoomForm({ room }: { room: RoomTypeDetail }) {
 
       if (!response.ok) {
         const data = await response.json().catch(() => null);
-        setFormError(
-          data?.message ?? "Failed to delete room. Please try again.",
-        );
+        setFailure(describeRoomFormFailure("delete", response, data));
         setIsDeleteModalOpen(false);
         return;
       }
 
       router.push("/room-property");
     } catch {
-      setFormError("Something went wrong. Please try again.");
+      setFailure(describeRoomFormFailure("delete", null, null));
       setIsDeleteModalOpen(false);
     } finally {
       setIsDeleting(false);
@@ -292,12 +310,6 @@ export function EditRoomForm({ room }: { room: RoomTypeDetail }) {
 
         <div className="min-h-0 flex-1 overflow-y-auto px-8 py-8">
           <div className="relative mx-auto flex max-w-3xl flex-col gap-8 rounded-lg border border-brand-border bg-white p-8">
-            {formError && (
-              <p className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">
-                {formError}
-              </p>
-            )}
-
             <section className="flex flex-col gap-5">
               <h2 className="text-sm font-medium text-brand-muted">
                 Basic Information
@@ -512,6 +524,8 @@ export function EditRoomForm({ room }: { room: RoomTypeDetail }) {
         onConfirm={handleDeleteConfirm}
         isDeleting={isDeleting}
       />
+
+      <RoomFormErrorDialog failure={failure} onClose={() => setFailure(null)} />
     </>
   );
 }

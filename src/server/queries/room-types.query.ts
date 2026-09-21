@@ -106,7 +106,12 @@ type CreateRoomTypeParams = {
   amenities: string[];
 };
 
-type CreateRoomTypeResult = { success: true; id: string } | { success: false; message: string };
+// `kind` lets the API route pick a status code and the UI explain the cause;
+// the messages are safe to show to the admin as-is.
+export type RoomTypeFailureKind = "duplicate" | "in-use" | "image-upload";
+type RoomTypeFailure = { success: false; message: string; kind?: RoomTypeFailureKind };
+
+type CreateRoomTypeResult = { success: true; id: string } | RoomTypeFailure;
 
 function extensionOf(file: File) {
   const parts = file.name.split(".");
@@ -144,12 +149,25 @@ export async function createRoomType({
 
   if (insertError || !inserted) {
     console.error("[room_types] insert failed:", insertError);
+    if (insertError?.code === "23505") {
+      return { success: false, kind: "duplicate", message: "A room type with this name already exists" };
+    }
     return { success: false, message: "Failed to save the room" };
   }
 
   const roomTypeId = inserted.id as string;
   const images = [mainImage, ...gallery];
   const imageRows: { room_type_id: string; storage_path: string; sort_order: number; is_cover: boolean }[] = [];
+  const uploadedPaths: string[] = [];
+
+  // The room row is already inserted at this point. If any image fails, undo
+  // everything so a retry doesn't hit "name already exists" on a half-created
+  // room that the admin can't see.
+  async function rollback() {
+    if (uploadedPaths.length > 0) await supabase.storage.from(IMAGE_BUCKET).remove(uploadedPaths);
+    await supabase.from("room_images").delete().eq("room_type_id", roomTypeId);
+    await supabase.from("room_types").delete().eq("id", roomTypeId);
+  }
 
   for (const [index, file] of images.entries()) {
     const path = `${roomTypeId}/${index}.${extensionOf(file)}`;
@@ -159,21 +177,23 @@ export async function createRoomType({
 
     if (uploadError) {
       console.error(`[room_images] upload failed (index ${index}):`, uploadError);
-      // The main image (index 0) is required; a failed gallery upload is skipped instead.
-      if (index === 0) {
-        return { success: false, message: "Failed to upload the main image" };
-      }
-      continue;
+      await rollback();
+      return {
+        success: false,
+        kind: "image-upload",
+        message: index === 0 ? "Failed to upload the main image" : `Failed to upload gallery image ${index}`,
+      };
     }
 
+    uploadedPaths.push(path);
     imageRows.push({ room_type_id: roomTypeId, storage_path: path, sort_order: index, is_cover: index === 0 });
   }
 
-  if (imageRows.length > 0) {
-    const { error: imagesError } = await supabase.from("room_images").insert(imageRows);
-    if (imagesError) {
-      console.error("[room_images] insert failed:", imagesError);
-    }
+  const { error: imagesError } = await supabase.from("room_images").insert(imageRows);
+  if (imagesError) {
+    console.error("[room_images] insert failed:", imagesError);
+    await rollback();
+    return { success: false, kind: "image-upload", message: "Failed to save the room images" };
   }
 
   return { success: true, id: roomTypeId };
@@ -243,7 +263,7 @@ type UpdateRoomTypeParams = {
   galleryNewFiles: File[];
 };
 
-type UpdateRoomTypeResult = { success: true } | { success: false; message: string };
+type UpdateRoomTypeResult = { success: true } | RoomTypeFailure;
 
 // Batches everything the edit form can change into one call: scalar fields,
 // which existing images are kept vs removed, newly uploaded images, and the
@@ -295,6 +315,9 @@ export async function updateRoomType({
 
   if (updateError) {
     console.error("[room_types] update failed:", updateError);
+    if (updateError.code === "23505") {
+      return { success: false, kind: "duplicate", message: "A room type with this name already exists" };
+    }
     return { success: false, message: "Failed to update the room" };
   }
 
@@ -322,7 +345,7 @@ export async function updateRoomType({
 
     if (uploadError) {
       console.error("[room_images] main image upload failed:", uploadError);
-      return { success: false, message: "Failed to upload the main image" };
+      return { success: false, kind: "image-upload", message: "Failed to upload the main image" };
     }
 
     const { data: inserted, error: insertError } = await supabase
@@ -385,7 +408,7 @@ export async function updateRoomType({
   return { success: true };
 }
 
-type DeleteRoomTypeResult = { success: true } | { success: false; message: string };
+type DeleteRoomTypeResult = { success: true } | RoomTypeFailure;
 
 export async function deleteRoomType(id: string): Promise<DeleteRoomTypeResult> {
   const supabase = supabaseAdmin;
@@ -395,6 +418,13 @@ export async function deleteRoomType(id: string): Promise<DeleteRoomTypeResult> 
   const { error } = await supabase.from("room_types").delete().eq("id", id);
   if (error) {
     console.error("[room_types] delete failed:", error);
+    if (error.code === "23503") {
+      return {
+        success: false,
+        kind: "in-use",
+        message: "This room type is still used by rooms or bookings, so it can't be deleted",
+      };
+    }
     return { success: false, message: "Failed to delete the room" };
   }
 

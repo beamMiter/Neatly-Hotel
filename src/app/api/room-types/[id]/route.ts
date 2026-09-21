@@ -5,6 +5,7 @@ import {
   authorizationErrorResponse,
   requireStaff,
 } from "@/server/services/authorization";
+import { roomTypeFailureResponse } from "@/server/services/room-type-errors";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -32,9 +33,7 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
 
   const result = await updateRoomType({ id, ...parsed });
-  if (!result.success) {
-    return NextResponse.json({ message: result.message }, { status: 500 });
-  }
+  if (!result.success) return roomTypeFailureResponse(result);
 
   return NextResponse.json({ message: "Room updated" }, { status: 200 });
 }
@@ -51,9 +50,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
   const { id } = await context.params;
 
   const result = await deleteRoomType(id);
-  if (!result.success) {
-    return NextResponse.json({ message: result.message }, { status: 500 });
-  }
+  if (!result.success) return roomTypeFailureResponse(result);
 
   return NextResponse.json({ message: "Room deleted" }, { status: 200 });
 }
