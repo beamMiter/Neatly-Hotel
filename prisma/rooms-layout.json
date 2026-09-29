@@ -1,0 +1,422 @@
+[
+  {
+    "roomNo": "201",
+    "roomType": "Standard Room",
+    "bedType": "Double Bed",
+    "status": "Vacant Clean"
+  },
+  {
+    "roomNo": "202",
+    "roomType": "Standard Room",
+    "bedType": "Double Bed",
+    "status": "Occupied"
+  },
+  {
+    "roomNo": "203",
+    "roomType": "Standard Room",
+    "bedType": "Double Bed",
+    "status": "Assign Clean"
+  },
+  {
+    "roomNo": "204",
+    "roomType": "Superior",
+    "bedType": "Double Bed",
+    "status": "Vacant Clean Inspected"
+  },
+  {
+    "roomNo": "205",
+    "roomType": "Superior",
+    "bedType": "Double Bed",
+    "status": "Occupied Dirty"
+  },
+  {
+    "roomNo": "206",
+    "roomType": "Superior Room",
+    "bedType": "Double Bed",
+    "status": "Vacant"
+  },
+  {
+    "roomNo": "301",
+    "roomType": "Standard Room",
+    "bedType": "Double Bed",
+    "status": "Occupied Clean"
+  },
+  {
+    "roomNo": "302",
+    "roomType": "Standard Room",
+    "bedType": "Double Bed",
+    "status": "Assign Dirty"
+  },
+  {
+    "roomNo": "303",
+    "roomType": "Superior",
+    "bedType": "Double Bed",
+    "status": "Vacant Clean Pick Up"
+  },
+  {
+    "roomNo": "304",
+    "roomType": "Superior",
+    "bedType": "Double Bed",
+    "status": "Out of Service"
+  },
+  {
+    "roomNo": "305",
+    "roomType": "Superior Room",
+    "bedType": "Double Bed",
+    "status": "Vacant Clean"
+  },
+  {
+    "roomNo": "306",
+    "roomType": "Superior Room",
+    "bedType": "Double Bed",
+    "status": "Occupied"
+  },
+  {
+    "roomNo": "401",
+    "roomType": "Superior Room",
+    "bedType": "Double Bed",
+    "status": "Assign Clean"
+  },
+  {
+    "roomNo": "402",
+    "roomType": "Superior Room",
+    "bedType": "Double Bed",
+    "status": "Vacant Clean Inspected"
+  },
+  {
+    "roomNo": "403",
+    "roomType": "Garden View Room",
+    "bedType": "Double Bed",
+    "status": "Occupied Dirty"
+  },
+  {
+    "roomNo": "404",
+    "roomType": "Garden View Room",
+    "bedType": "Double Bed",
+    "status": "Vacant"
+  },
+  {
+    "roomNo": "405",
+    "roomType": "Superior Garden View",
+    "bedType": "Double Bed",
+    "status": "Occupied Clean"
+  },
+  {
+    "roomNo": "406",
+    "roomType": "Superior Garden View",
+    "bedType": "Double Bed",
+    "status": "Assign Dirty"
+  },
+  {
+    "roomNo": "501",
+    "roomType": "Garden View Room",
+    "bedType": "Double Bed",
+    "status": "Vacant Clean Pick Up"
+  },
+  {
+    "roomNo": "502",
+    "roomType": "Garden View Room",
+    "bedType": "Double Bed",
+    "status": "Out of Service"
+  },
+  {
+    "roomNo": "503",
+    "roomType": "Garden View Room",
+    "bedType": "Double Bed",
+    "status": "Vacant Clean"
+  },
+  {
+    "roomNo": "504",
+    "roomType": "Superior Garden View",
+    "bedType": "Double Bed",
+    "status": "Occupied"
+  },
+  {
+    "roomNo": "505",
+    "roomType": "Superior Garden View",
+    "bedType": "Double Bed",
+    "status": "Assign Clean"
+  },
+  {
+    "roomNo": "506",
+    "roomType": "Superior Garden View",
+    "bedType": "Double Bed",
+    "status": "Vacant Clean Inspected"
+  },
+  {
+    "roomNo": "601",
+    "roomType": "Superior Garden View",
+    "bedType": "Double Bed",
+    "status": "Occupied Dirty"
+  },
+  {
+    "roomNo": "602",
+    "roomType": "Superior Garden View",
+    "bedType": "Double Bed",
+    "status": "Vacant"
+  },
+  {
+    "roomNo": "603",
+    "roomType": "Superior Garden View",
+    "bedType": "Double Bed",
+    "status": "Occupied Clean"
+  },
+  {
+    "roomNo": "604",
+    "roomType": "Garden View Room",
+    "bedType": "Double Bed",
+    "status": "Assign Dirty"
+  },
+  {
+    "roomNo": "605",
+    "roomType": "Deluxe",
+    "bedType": "King Bed",
+    "status": "Vacant Clean Pick Up"
+  },
+  {
+    "roomNo": "606",
+    "roomType": "Deluxe",
+    "bedType": "King Bed",
+    "status": "Out of Service"
+  },
+  {
+    "roomNo": "701",
+    "roomType": "Deluxe",
+    "bedType": "King Bed",
+    "status": "Vacant Clean"
+  },
+  {
+    "roomNo": "702",
+    "roomType": "Deluxe",
+    "bedType": "King Bed",
+    "status": "Occupied"
+  },
+  {
+    "roomNo": "703",
+    "roomType": "Deluxe Room",
+    "bedType": "King Bed",
+    "status": "Assign Clean"
+  },
+  {
+    "roomNo": "704",
+    "roomType": "Deluxe Room",
+    "bedType": "King Bed",
+    "status": "Vacant Clean Inspected"
+  },
+  {
+    "roomNo": "705",
+    "roomType": "Deluxe Twin Room",
+    "bedType": "Twin Beds",
+    "status": "Occupied Dirty"
+  },
+  {
+    "roomNo": "706",
+    "roomType": "Deluxe Twin Room",
+    "bedType": "Twin Beds",
+    "status": "Vacant"
+  },
+  {
+    "roomNo": "801",
+    "roomType": "Deluxe Room",
+    "bedType": "King Bed",
+    "status": "Occupied Clean"
+  },
+  {
+    "roomNo": "802",
+    "roomType": "Deluxe Room",
+    "bedType": "King Bed",
+    "status": "Assign Dirty"
+  },
+  {
+    "roomNo": "803",
+    "roomType": "Deluxe Twin Room",
+    "bedType": "Twin Beds",
+    "status": "Vacant Clean Pick Up"
+  },
+  {
+    "roomNo": "804",
+    "roomType": "Deluxe Twin Room",
+    "bedType": "Twin Beds",
+    "status": "Out of Service"
+  },
+  {
+    "roomNo": "805",
+    "roomType": "Premier Sea View",
+    "bedType": "Queen Bed",
+    "status": "Vacant Clean"
+  },
+  {
+    "roomNo": "806",
+    "roomType": "Premier Sea View",
+    "bedType": "Queen Bed",
+    "status": "Occupied"
+  },
+  {
+    "roomNo": "901",
+    "roomType": "Premier Sea View",
+    "bedType": "Queen Bed",
+    "status": "Assign Clean"
+  },
+  {
+    "roomNo": "902",
+    "roomType": "Premier Sea View",
+    "bedType": "Queen Bed",
+    "status": "Vacant Clean Inspected"
+  },
+  {
+    "roomNo": "903",
+    "roomType": "Premier Sea View",
+    "bedType": "Queen Bed",
+    "status": "Occupied Dirty"
+  },
+  {
+    "roomNo": "904",
+    "roomType": "Premier Sea View Room",
+    "bedType": "Queen Bed",
+    "status": "Vacant"
+  },
+  {
+    "roomNo": "905",
+    "roomType": "Premier Sea View Room",
+    "bedType": "Queen Bed",
+    "status": "Occupied Clean"
+  },
+  {
+    "roomNo": "906",
+    "roomType": "Premier Sea View Room",
+    "bedType": "Queen Bed",
+    "status": "Assign Dirty"
+  },
+  {
+    "roomNo": "1001",
+    "roomType": "Premier Sea View Room",
+    "bedType": "Queen Bed",
+    "status": "Vacant Clean Pick Up"
+  },
+  {
+    "roomNo": "1002",
+    "roomType": "Premier Sea View Room",
+    "bedType": "Queen Bed",
+    "status": "Out of Service"
+  },
+  {
+    "roomNo": "1003",
+    "roomType": "Premier Sea View Room",
+    "bedType": "Queen Bed",
+    "status": "Vacant Clean"
+  },
+  {
+    "roomNo": "1004",
+    "roomType": "Supreme",
+    "bedType": "King Bed",
+    "status": "Occupied"
+  },
+  {
+    "roomNo": "1005",
+    "roomType": "Supreme",
+    "bedType": "King Bed",
+    "status": "Assign Clean"
+  },
+  {
+    "roomNo": "1006",
+    "roomType": "Supreme",
+    "bedType": "King Bed",
+    "status": "Vacant Clean Inspected"
+  },
+  {
+    "roomNo": "1101",
+    "roomType": "Supreme",
+    "bedType": "King Bed",
+    "status": "Occupied Dirty"
+  },
+  {
+    "roomNo": "1102",
+    "roomType": "Suit",
+    "bedType": "King Bed",
+    "status": "Vacant"
+  },
+  {
+    "roomNo": "1103",
+    "roomType": "Suit",
+    "bedType": "King Bed",
+    "status": "Occupied Clean"
+  },
+  {
+    "roomNo": "1104",
+    "roomType": "Family Suite",
+    "bedType": "Queen Bed",
+    "status": "Assign Dirty"
+  },
+  {
+    "roomNo": "1105",
+    "roomType": "Family Suite",
+    "bedType": "Queen Bed",
+    "status": "Vacant Clean Pick Up"
+  },
+  {
+    "roomNo": "1106",
+    "roomType": "Executive Suite",
+    "bedType": "King Bed",
+    "status": "Out of Service"
+  },
+  {
+    "roomNo": "1201",
+    "roomType": "Executive Suite",
+    "bedType": "King Bed",
+    "status": "Vacant Clean"
+  },
+  {
+    "roomNo": "1202",
+    "roomType": "Suit",
+    "bedType": "King Bed",
+    "status": "Occupied"
+  },
+  {
+    "roomNo": "1203",
+    "roomType": "Family Suite",
+    "bedType": "Queen Bed",
+    "status": "Assign Clean"
+  },
+  {
+    "roomNo": "1204",
+    "roomType": "Family Suite",
+    "bedType": "Queen Bed",
+    "status": "Vacant Clean Inspected"
+  },
+  {
+    "roomNo": "1205",
+    "roomType": "Presidential Suite",
+    "bedType": "Super King Bed",
+    "status": "Occupied Dirty"
+  },
+  {
+    "roomNo": "1206",
+    "roomType": "Supreme",
+    "bedType": "King Bed",
+    "status": "Vacant"
+  },
+  {
+    "roomNo": "V101",
+    "roomType": "Honeymoon Pool Villa",
+    "bedType": "King Bed",
+    "status": "Occupied Clean"
+  },
+  {
+    "roomNo": "V102",
+    "roomType": "Honeymoon Pool Villa",
+    "bedType": "King Bed",
+    "status": "Assign Dirty"
+  },
+  {
+    "roomNo": "V103",
+    "roomType": "Honeymoon Pool Villa",
+    "bedType": "King Bed",
+    "status": "Vacant Clean Pick Up"
+  },
+  {
+    "roomNo": "V104",
+    "roomType": "Honeymoon Pool Villa",
+    "bedType": "King Bed",
+    "status": "Out of Service"
+  }
+]

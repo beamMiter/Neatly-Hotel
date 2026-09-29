@@ -29,9 +29,19 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+.dev-ui*.log
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+
+# prisma local db
+/prisma/dev.db
+/prisma/dev.db-journal
+
+# uploaded hotel assets
+/public/uploads/*
+!/public/uploads/.gitkeep
 
 # vercel
 .vercel
@@ -39,3 +49,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Ai Work Space
+.claude

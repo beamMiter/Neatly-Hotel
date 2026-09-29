@@ -1,0 +1,176 @@
+// Prisma mapped to existing Supabase public tables + hotel_information
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Room {
+  id         String   @id @default(uuid()) @db.Uuid
+  roomNo     String   @unique @map("room_no") @db.VarChar(16)
+  roomType   String   @map("room_type") @db.VarChar(100)
+  bedType    String   @map("bed_type") @db.VarChar(50)
+  status     String   @db.VarChar(50)
+  roomTypeId String?  @map("room_type_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  roomTypeRel RoomType?     @relation(fields: [roomTypeId], references: [id])
+  bookingRooms BookingRoom[]
+
+  @@index([status])
+  @@index([roomNo])
+  @@map("rooms")
+}
+
+model RoomType {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String
+  description String?
+  bedType     String?  @map("bed_type")
+  capacity    Int?
+  sizeSqm     Decimal? @map("size_sqm") @db.Decimal
+  basePrice   Decimal? @map("base_price") @db.Decimal
+  // Documentation-only sync (see AGENTS.md's known-gap list) — already a
+  // real column read directly via supabaseAdmin in room-types.query.ts /
+  // booking-search.query.ts; added here because bookings.query.ts's
+  // pricing computation runs inside the same Prisma transaction as the
+  // room-lock, so it can't switch to the Supabase client mid-transaction.
+  promotionPrice Decimal? @map("promotion_price") @db.Decimal
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  rooms  Room[]
+  images RoomImage[]
+
+  @@map("room_types")
+}
+
+model RoomImage {
+  id         String  @id @default(uuid()) @db.Uuid
+  roomTypeId String  @map("room_type_id") @db.Uuid
+  storagePath String @map("storage_path")
+  altText    String? @map("alt_text")
+  sortOrder  Int     @default(0) @map("sort_order")
+  isCover    Boolean @default(false) @map("is_cover")
+
+  roomType RoomType @relation(fields: [roomTypeId], references: [id])
+
+  @@map("room_images")
+}
+
+model Booking {
+  id          String   @id @default(uuid()) @db.Uuid
+  bookingCode String   @unique @map("booking_code")
+  // Nullable for guest checkout — logged-in bookings still set this to
+  // auth.users(id). Guest identity lives on guest_* columns instead.
+  customerId  String?  @map("customer_id") @db.Uuid
+  checkIn     DateTime @map("check_in") @db.Date
+  checkOut    DateTime @map("check_out") @db.Date
+  guests      Int
+  status      String
+  totalAmount Decimal  @map("total_amount") @db.Decimal
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Added by supabase/migrations/202608200001_booking_payment.sql — this
+  // is a documentation-only sync (not applied via `prisma migrate`, see
+  // AGENTS.md). guest_* mirrors profiles' shape but is booking-specific:
+  // a booking may be made on behalf of someone other than the account
+  // holder, so it must not read/write `profiles` directly.
+  guestFirstName    String?   @map("guest_first_name")
+  guestLastName     String?   @map("guest_last_name")
+  guestEmail        String?   @map("guest_email")
+  guestPhone        String?   @map("guest_phone")
+  guestDateOfBirth  DateTime? @map("guest_date_of_birth") @db.Date
+  guestCountry      String?   @map("guest_country")
+  standardRequests  Json      @default("[]") @map("standard_requests")
+  specialRequests   Json      @default("[]") @map("special_requests")
+  addonsTotal       Decimal   @default(0) @map("addons_total") @db.Decimal
+  additionalRequest String?   @map("additional_request")
+  promoCode         String?   @map("promo_code")
+  discountAmount    Decimal   @default(0) @map("discount_amount") @db.Decimal
+  paymentMethod     String    @default("credit_card") @map("payment_method")
+  paymentStatus     String    @default("pending") @map("payment_status")
+  expiresAt         DateTime? @map("expires_at") @db.Timestamptz(6)
+
+  // The moment staff actually performed check-in/check-out — distinct from
+  // checkIn/checkOut above, which are just the reserved dates. Null until
+  // it happens; existing bookings from before this column existed stay
+  // null forever (there's no timestamp to backfill from).
+  checkedInAt  DateTime? @map("checked_in_at") @db.Timestamptz(6)
+  checkedOutAt DateTime? @map("checked_out_at") @db.Timestamptz(6)
+
+  // Set when status transitions to cancelled or refunded (see cancelBooking
+  // in bookings.query.ts). Added by
+  // supabase/migrations/202609020001_add_bookings_cancelled_at.sql.
+  cancelledAt DateTime? @map("cancelled_at") @db.Timestamptz(6)
+
+  rooms BookingRoom[]
+
+  @@map("bookings")
+}
+
+model BookingRoom {
+  bookingId     String  @map("booking_id") @db.Uuid
+  roomId        String  @map("room_id") @db.Uuid
+  pricePerNight Decimal @map("price_per_night") @db.Decimal
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+  room    Room    @relation(fields: [roomId], references: [id])
+
+  @@id([bookingId, roomId])
+  @@map("booking_rooms")
+}
+
+model HotelInformation {
+  id           String   @id
+  name         String
+  description  String
+  logoUrl      String?  @map("logo_url")
+  checkInTime  String   @default("14:00") @map("check_in_time")
+  checkOutTime String   @default("12:00") @map("check_out_time")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("hotel_information")
+}
+
+// Minimal visitor/traffic log for the admin Analytics Dashboard, written by
+// src/proxy.ts on every real page navigation. Not RLS-relevant (see
+// AGENTS.md's critical-tables list) — read via Prisma like the rest of
+// analytics.query.ts.
+model PageView {
+  id        String   @id @default(uuid()) @db.Uuid
+  path      String
+  visitorId String   @map("visitor_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([createdAt])
+  @@index([visitorId])
+  @@map("page_views")
+}
+
+model PromotionCode {
+  id                    String    @id @default(uuid()) @db.Uuid
+  code                  String    @unique
+  discountType          String    @map("discount_type")
+  discountValue         Decimal   @map("discount_value") @db.Decimal
+  minSubtotal           Decimal?  @map("min_subtotal") @db.Decimal
+  validFrom             DateTime? @map("valid_from") @db.Date
+  validTo               DateTime? @map("valid_to") @db.Date
+  isActive              Boolean   @default(true) @map("is_active")
+  applicableRoomTypeIds String[]  @default([]) @map("applicable_room_type_ids") @db.Uuid
+  maxUses               Int?      @map("max_uses")
+  usedCount             Int       @default(0) @map("used_count")
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([code])
+  @@index([isActive])
+  @@map("promotion_codes")
+}

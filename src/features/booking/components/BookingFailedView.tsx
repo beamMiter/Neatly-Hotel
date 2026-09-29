@@ -1,0 +1,207 @@
+"use client";
+
+import { useState, useSyncExternalStore } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import Image from "next/image";
+import { CardNumberElement, Elements, useElements, useStripe } from "@stripe/react-stripe-js";
+import { stripePromise } from "@/features/booking/stripe-client";
+import { StripeCardFields } from "@/features/booking/components/StripeCardFields";
+import { EmailOtpVerification } from "@/features/booking/components/EmailOtpVerification";
+import {
+  BOOKING_EMAIL_VERIFICATION_HEADER,
+  bookingEmailVerificationStorageKey,
+} from "@/lib/booking-email-verification";
+import type { BookingRecord } from "@/types/booking";
+
+const subscribeToHydration = () => () => {};
+
+type BookingFailedViewProps = {
+  bookingId: string;
+  booking: BookingRecord;
+  requiresEmailVerification: boolean;
+};
+
+// Retry creates a NEW PaymentIntent (via POST /api/bookings/[id]/payment-intent)
+// rather than reusing the failed one — Stripe PaymentIntents that reached a
+// terminal failure state can't simply be re-confirmed.
+export function BookingFailedView({
+  bookingId,
+  booking,
+  requiresEmailVerification,
+}: BookingFailedViewProps) {
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isStartingRetry, setIsStartingRetry] = useState(false);
+  const [verifiedEmailToken, setVerifiedEmailToken] = useState<string | null>(null);
+  const isHydrated = useSyncExternalStore(subscribeToHydration, () => true, () => false);
+  const emailVerificationToken = verifiedEmailToken ?? (
+    requiresEmailVerification && isHydrated
+      ? window.sessionStorage.getItem(bookingEmailVerificationStorageKey(bookingId))
+      : null
+  );
+  const retryAuthorized = !requiresEmailVerification || Boolean(emailVerificationToken);
+
+  async function handleRetry() {
+    if (!retryAuthorized) return;
+    setIsStartingRetry(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/bookings/${bookingId}/payment-intent`, {
+        method: "POST",
+        headers: emailVerificationToken
+          ? { [BOOKING_EMAIL_VERIFICATION_HEADER]: emailVerificationToken }
+          : undefined,
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        if (response.status === 403 && requiresEmailVerification) {
+          window.sessionStorage.removeItem(bookingEmailVerificationStorageKey(bookingId));
+          setVerifiedEmailToken(null);
+        }
+        setError(data.message ?? "This booking can no longer be retried");
+        return;
+      }
+      setClientSecret(data.clientSecret);
+    } catch {
+      setError("Network error — please try again");
+    } finally {
+      setIsStartingRetry(false);
+    }
+  }
+
+  return (
+    <div className="mx-auto flex max-w-[738px] flex-col gap-10 pb-6 lg:px-4 lg:py-20">
+      <div className="flex w-full flex-col items-center gap-6 bg-[#FAEDE8] px-6 py-[88px] lg:rounded lg:pt-16 lg:pb-[88px]">
+        <Image src="/icons/icon/icon-error.svg" alt="" width={64} height={64} />
+
+        <div className="flex flex-col items-center gap-3">
+          <h1 className="[font-family:var(--font-noto-serif)] text-center text-[44px] leading-[125%] font-medium tracking-[-0.02em] text-[#C14817]">
+            Payment failed
+          </h1>
+          <p className="[font-family:var(--font-inter)] text-center text-sm leading-[150%] font-medium tracking-[-0.02em] text-[#E76B39]">
+            There seems to be an issue with your card. Please check your card details and try again later, or use a
+            different payment method.
+          </p>
+        </div>
+
+        {error && <p className="text-sm text-red-600">{error}</p>}
+      </div>
+
+      {requiresEmailVerification && !isHydrated && (
+        <p className="px-6 text-center text-sm text-[#646D89]">Checking email verification...</p>
+      )}
+
+      {requiresEmailVerification && isHydrated && !emailVerificationToken && (
+        <div className="px-6">
+          <EmailOtpVerification
+            email={booking.guestInfo.email}
+            emailValid={/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(booking.guestInfo.email)}
+            verified={false}
+            onVerified={(token) => {
+              window.sessionStorage.setItem(bookingEmailVerificationStorageKey(bookingId), token);
+              setVerifiedEmailToken(token);
+              setError(null);
+            }}
+            onClearVerification={() => setVerifiedEmailToken(null)}
+          />
+        </div>
+      )}
+
+      {/* Sibling of the orange card, not nested inside it — Figma's "button
+          wrapper" frame sits on the plain page background below "head", with
+          its own breathing room, not packed against the card. Mobile stacks
+          primary (full-width) above the ghost button; desktop keeps them
+          side by side. */}
+      {!clientSecret && retryAuthorized && (
+        <div className="flex w-full flex-col items-center gap-6 px-6 lg:w-auto lg:flex-row lg:gap-10 lg:self-center lg:px-0">
+          <button
+            type="button"
+            onClick={handleRetry}
+            disabled={isStartingRetry}
+            className="flex h-12 w-full items-center justify-center rounded bg-[#C14817] px-8 py-4 [font-family:var(--font-open-sans)] text-base leading-none font-semibold text-white transition-[background-color,transform] duration-150 hover:bg-[#A93F13] active:scale-95 disabled:opacity-60 disabled:active:scale-100 lg:order-2 lg:w-[250px]"
+          >
+            {isStartingRetry ? "Starting..." : "Try Again"}
+          </button>
+          <Link
+            href="/"
+            className="cursor-pointer px-2 py-1 [font-family:var(--font-open-sans)] text-base leading-none font-semibold text-[#E76B39] transition-[color,transform] duration-150 hover:text-[#C14817] active:scale-95 lg:order-1"
+          >
+            Back to Home
+          </Link>
+        </div>
+      )}
+
+      {clientSecret && (
+        <div className="flex w-full flex-col gap-10 rounded border border-[#E4E6ED] bg-white p-10">
+          <Elements stripe={stripePromise}>
+            <RetryPaymentForm bookingId={bookingId} bookingCode={booking.bookingCode} clientSecret={clientSecret} />
+          </Elements>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RetryPaymentForm({
+  bookingId,
+  bookingCode,
+  clientSecret,
+}: {
+  bookingId: string;
+  bookingCode: string;
+  clientSecret: string;
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const router = useRouter();
+  const [cardOwner, setCardOwner] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleConfirm() {
+    const cardNumberElement = elements?.getElement(CardNumberElement);
+    if (!stripe || !elements || !cardNumberElement) return;
+    setIsSubmitting(true);
+    setError(null);
+
+    const { error: confirmError } = await stripe.confirmCardPayment(clientSecret, {
+      payment_method: {
+        card: cardNumberElement,
+        billing_details: { name: cardOwner || undefined },
+      },
+    });
+
+    setIsSubmitting(false);
+
+    if (confirmError) {
+      setError(confirmError.message ?? "Payment failed again — please check your card details");
+      return;
+    }
+
+    router.push(`/booking/success?bookingId=${bookingId}`);
+  }
+
+  return (
+    <div className="flex w-full flex-col gap-10">
+      <h2 className="[font-family:var(--font-inter)] text-xl leading-[150%] font-semibold tracking-[-0.02em] text-[#424C6B]">
+        Retry payment for {bookingCode}
+      </h2>
+
+      <StripeCardFields cardOwner={cardOwner} onCardOwnerChange={setCardOwner} />
+
+      {error && <p className="text-sm text-red-600">{error}</p>}
+
+      <div className="flex h-12 w-full items-center justify-end">
+        <button
+          type="button"
+          onClick={handleConfirm}
+          disabled={isSubmitting || !stripe || !elements}
+          className="flex h-12 w-[194px] items-center justify-center rounded bg-[#C14817] px-8 py-4 [font-family:var(--font-open-sans)] text-base leading-none font-semibold text-white transition-[background-color,transform] duration-150 hover:bg-[#A93F13] active:scale-95 disabled:opacity-60 disabled:active:scale-100"
+        >
+          {isSubmitting ? "Confirming..." : "Confirm Payment"}
+        </button>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,91 @@
+import { cache } from "react";
+import { hasDatabaseUrl, prisma } from "@/server/db";
+import {
+  DEFAULT_HOTEL_ID,
+  DEFAULT_HOTEL_INFORMATION,
+  type HotelInformation,
+} from "@/types/hotel";
+
+function mapHotel(row: {
+  id: string;
+  name: string;
+  description: string;
+  logoUrl: string | null;
+  checkInTime: string;
+  checkOutTime: string;
+}): HotelInformation {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    logoUrl: row.logoUrl,
+    checkInTime: row.checkInTime,
+    checkOutTime: row.checkOutTime,
+  };
+}
+
+export async function getHotelInformation(): Promise<HotelInformation> {
+  const existing = await prisma.hotelInformation.findUnique({
+    where: { id: DEFAULT_HOTEL_ID },
+  });
+
+  if (existing) {
+    if (existing.logoUrl === "/images/logo-neatly.png") {
+      const updated = await prisma.hotelInformation.update({
+        where: { id: DEFAULT_HOTEL_ID },
+        data: { logoUrl: DEFAULT_HOTEL_INFORMATION.logoUrl },
+      });
+      return mapHotel(updated);
+    }
+
+    return mapHotel(existing);
+  }
+
+  const created = await prisma.hotelInformation.create({
+    data: DEFAULT_HOTEL_INFORMATION,
+  });
+
+  return mapHotel(created);
+}
+
+export async function updateHotelInformation(input: {
+  name: string;
+  description: string;
+  logoUrl: string | null;
+  checkInTime: string;
+  checkOutTime: string;
+}): Promise<HotelInformation> {
+  const row = await prisma.hotelInformation.upsert({
+    where: { id: DEFAULT_HOTEL_ID },
+    create: {
+      id: DEFAULT_HOTEL_ID,
+      name: input.name,
+      description: input.description,
+      logoUrl: input.logoUrl,
+      checkInTime: input.checkInTime,
+      checkOutTime: input.checkOutTime,
+    },
+    update: {
+      name: input.name,
+      description: input.description,
+      logoUrl: input.logoUrl,
+      checkInTime: input.checkInTime,
+      checkOutTime: input.checkOutTime,
+    },
+  });
+
+  return mapHotel(row);
+}
+
+export const loadHotelInformation = cache(async (): Promise<HotelInformation> => {
+  if (!hasDatabaseUrl()) {
+    return DEFAULT_HOTEL_INFORMATION;
+  }
+
+  try {
+    return await getHotelInformation();
+  } catch (error) {
+    console.error("[hotel] Failed to load hotel information:", error);
+    return DEFAULT_HOTEL_INFORMATION;
+  }
+});
