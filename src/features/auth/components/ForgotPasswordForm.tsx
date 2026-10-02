@@ -1,12 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { forgotPassword } from "@/features/auth/actions";
+import { useToast } from "@/components/shared/Toast";
 import { inter, openSans } from "@/lib/fonts";
 
 export function ForgotPasswordForm({ linkExpired = false }: { linkExpired?: boolean }) {
   const [state, action, pending] = useActionState(forgotPassword, undefined);
+  const toast = useToast();
+
+  useEffect(() => {
+    if (!state?.message) return;
+    toast(state.message, state.sent ? "success" : "error");
+  }, [state, toast]);
 
   return (
     <form action={action} className="flex w-full max-w-113 flex-col gap-10">
@@ -32,10 +39,6 @@ export function ForgotPasswordForm({ linkExpired = false }: { linkExpired?: bool
         />
         {state?.fieldErrors?.email && <p className="text-xs text-red-600">{state.fieldErrors.email}</p>}
       </div>
-
-      {state?.message && (
-        <p className={`text-sm ${state.sent ? "text-[#2F3E35]" : "text-red-600"}`}>{state.message}</p>
-      )}
 
       <div className="flex flex-col gap-4">
         <button

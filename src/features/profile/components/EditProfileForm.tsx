@@ -10,6 +10,7 @@ import { PhotoUpload } from "@/features/auth/components/PhotoUpload";
 import { COUNTRIES } from "@/lib/countries";
 import { useDelayedFlag } from "@/lib/useDelayedFlag";
 import { CardSkeletonOverlay } from "@/components/shared/CardSkeletonOverlay";
+import { useToast } from "@/components/shared/Toast";
 import {
   profileUpdateSchema,
   type ProfileUpdateFieldErrors,
@@ -48,10 +49,7 @@ export function EditProfileForm({
   const [errors, setErrors] = useState<ProfileUpdateFieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const showSkeleton = useDelayedFlag(isSubmitting);
-  const [status, setStatus] = useState<{
-    type: "error" | "success";
-    message: string;
-  } | null>(null);
+  const toast = useToast();
 
   function clearError(name: string) {
     setErrors((prev) =>
@@ -86,7 +84,6 @@ export function EditProfileForm({
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setStatus(null);
 
     const result = profileUpdateSchema.safeParse({ ...fields, dateOfBirth });
     if (!result.success) {
@@ -115,11 +112,10 @@ export function EditProfileForm({
 
       if (!response.ok) {
         if (data.fieldErrors) setErrors(data.fieldErrors);
-        setStatus({
-          type: "error",
-          message:
-            data.message ?? "Failed to update profile. Please try again.",
-        });
+        toast(
+          data.message ?? "Failed to update profile. Please try again.",
+          "error",
+        );
         return;
       }
 
@@ -128,13 +124,10 @@ export function EditProfileForm({
         setPhoto(null);
       }
       setAvatarRemoved(false);
-      setStatus({ type: "success", message: "Profile updated." });
+      toast("Profile updated.");
       router.refresh();
     } catch {
-      setStatus({
-        type: "error",
-        message: "Something went wrong. Please try again.",
-      });
+      toast("Something went wrong. Please try again.", "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -168,19 +161,6 @@ export function EditProfileForm({
           )}
         </button>
       </div>
-
-      {status && (
-        <p
-          role="status"
-          className={`w-full rounded-md px-4 py-3 text-sm ${
-            status.type === "error"
-              ? "bg-red-50 text-red-700"
-              : "bg-green-50 text-green-700"
-          }`}
-        >
-          {status.message}
-        </p>
-      )}
 
       <div className="relative flex w-full flex-col gap-10">
         <div className="flex w-full flex-col gap-6 lg:gap-10">

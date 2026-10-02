@@ -1,16 +1,37 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useRouter } from "next/navigation";
+import { useActionState, useEffect, useRef } from "react";
 import { login } from "@/features/auth/actions";
+import { useToast } from "@/components/shared/Toast";
 import { inter, openSans } from "@/lib/fonts";
 
 type LoginFormProps = {
   redirectTo?: string;
+  justResetPassword?: boolean;
 };
 
-export function LoginForm({ redirectTo }: LoginFormProps) {
+export function LoginForm({ redirectTo, justResetPassword }: LoginFormProps) {
   const [state, action, pending] = useActionState(login, undefined);
+  const router = useRouter();
+  const toast = useToast();
+
+  // Runs once per mount, not once per render — the ref guards against
+  // double-firing from React's dev-mode double-invoke of effects, which
+  // would otherwise show this toast twice.
+  const hasShownResetToast = useRef(false);
+  useEffect(() => {
+    if (!justResetPassword || hasShownResetToast.current) return;
+    hasShownResetToast.current = true;
+    toast("Password updated — please log in.");
+    // Drop the query param so refreshing this page doesn't re-show it.
+    router.replace("/login" + (redirectTo ? `?redirectTo=${encodeURIComponent(redirectTo)}` : ""));
+  }, [justResetPassword, redirectTo, router, toast]);
+
+  useEffect(() => {
+    if (state?.message) toast(state.message, "error");
+  }, [state, toast]);
 
   return (
     <form action={action} className="flex w-full max-w-113 flex-col gap-10">
@@ -51,8 +72,6 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
         />
         {state?.fieldErrors?.password && <p className="text-xs text-red-600">{state.fieldErrors.password}</p>}
       </div>
-
-      {state?.message && <p className="text-sm text-red-600">{state.message}</p>}
 
       <div className="flex flex-col gap-4">
         <button

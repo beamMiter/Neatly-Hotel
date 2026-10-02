@@ -1,11 +1,17 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { resetPassword } from "@/features/auth/actions";
+import { useToast } from "@/components/shared/Toast";
 import { inter, openSans } from "@/lib/fonts";
 
 export function NewPasswordForm() {
   const [state, action, pending] = useActionState(resetPassword, undefined);
+  const toast = useToast();
+
+  useEffect(() => {
+    if (state?.message) toast(state.message, "error");
+  }, [state, toast]);
 
   return (
     <form action={action} className="flex w-full max-w-113 flex-col gap-10">
@@ -42,8 +48,6 @@ export function NewPasswordForm() {
           <p className="text-xs text-red-600">{state.fieldErrors.confirmPassword}</p>
         )}
       </div>
-
-      {state?.message && <p className="text-sm text-red-600">{state.message}</p>}
 
       <button
         type="submit"

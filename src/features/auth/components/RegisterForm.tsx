@@ -7,6 +7,7 @@ import { TextField } from "@/components/ui/TextField";
 import { SelectField } from "@/components/ui/SelectField";
 import { DateOfBirthField } from "@/components/ui/DateOfBirthField";
 import { PhotoUpload } from "./PhotoUpload";
+import { useToast } from "@/components/shared/Toast";
 import { COUNTRIES } from "@/lib/countries";
 import {
   registerSchema,
@@ -44,7 +45,7 @@ export function RegisterForm() {
   const [errors, setErrors] = useState<RegisterFieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
-  const [formStatus, setFormStatus] = useState<{ type: "error"; message: string } | null>(null);
+  const toast = useToast();
 
   function clearError(name: string) {
     setErrors((prev) => (prev[name as keyof RegisterFieldErrors] ? { ...prev, [name]: undefined } : prev));
@@ -63,7 +64,6 @@ export function RegisterForm() {
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setFormStatus(null);
 
     const result = registerSchema.safeParse({ ...fields, dateOfBirth });
     const fieldErrors: RegisterFieldErrors = {};
@@ -99,7 +99,7 @@ export function RegisterForm() {
 
       if (!response.ok) {
         if (data.fieldErrors) setErrors(data.fieldErrors);
-        setFormStatus({ type: "error", message: data.message ?? "Registration failed. Please try again." });
+        toast(data.message ?? "Registration failed. Please try again.", "error");
         return;
       }
 
@@ -108,7 +108,7 @@ export function RegisterForm() {
       router.push("/login");
       return;
     } catch {
-      setFormStatus({ type: "error", message: "Something went wrong. Please try again." });
+      toast("Something went wrong. Please try again.", "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -116,12 +116,6 @@ export function RegisterForm() {
 
   return (
     <form className="flex flex-col gap-8" noValidate onSubmit={handleSubmit}>
-      {formStatus && (
-        <p role="status" className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">
-          {formStatus.message}
-        </p>
-      )}
-
       {isRedirecting && (
         <p role="status" className="flex items-center gap-2 rounded-md bg-green-50 px-4 py-3 text-sm text-green-700">
           <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent" />
