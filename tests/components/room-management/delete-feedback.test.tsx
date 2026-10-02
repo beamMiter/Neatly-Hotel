@@ -25,6 +25,7 @@ vi.mock("@/server/db/supabase-browser", () => {
 });
 
 import { RoomManagementView } from "@/features/room-management/components/room-management-view";
+import { ToastProvider } from "@/components/shared/Toast";
 
 const rooms: Room[] = [
   {
@@ -58,7 +59,11 @@ describe("RoomManagementView delete feedback", () => {
       vi.fn().mockResolvedValue(new Response(null, { status: 200 })),
     );
 
-    render(<RoomManagementView rooms={rooms} />);
+    render(
+      <ToastProvider>
+        <RoomManagementView rooms={rooms} />
+      </ToastProvider>,
+    );
     await confirmDelete();
 
     await waitFor(() => {
@@ -74,7 +79,11 @@ describe("RoomManagementView delete feedback", () => {
       vi.fn().mockResolvedValue(new Response(null, { status: 404 })),
     );
 
-    render(<RoomManagementView rooms={rooms} />);
+    render(
+      <ToastProvider>
+        <RoomManagementView rooms={rooms} />
+      </ToastProvider>,
+    );
     await confirmDelete();
 
     await waitFor(() => {

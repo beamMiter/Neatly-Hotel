@@ -1,11 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { CheckIcon } from "@/components/icons/CheckIcon";
+import { useState } from "react";
+import { useToast } from "@/components/shared/Toast";
 import type { BookingPaymentStatus } from "@/types/booking";
 import type { CustomerBookingDetail } from "@/types/customer-booking";
-
-const TOAST_DURATION_MS = 3000;
 
 function formatAmount(amount: number) {
   return amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -37,10 +35,10 @@ type BookingPaymentBreakdownProps = {
 
 export function BookingPaymentBreakdown({ booking }: BookingPaymentBreakdownProps) {
   const [copied, setCopied] = useState(false);
-  const [showToast, setShowToast] = useState(false);
   const [isCreatingLink, setIsCreatingLink] = useState(false);
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
   const [linkError, setLinkError] = useState<string | null>(null);
+  const toast = useToast();
 
   const showPaid = booking.paidAmount > 0;
   const showOutstanding = booking.amountDue > 0;
@@ -53,12 +51,6 @@ export function BookingPaymentBreakdown({ booking }: BookingPaymentBreakdownProp
     (showOutstanding && booking.paymentStatus === "pending" && booking.status !== "pending_payment") ||
     isInitialPendingPayment;
 
-  useEffect(() => {
-    if (!showToast) return;
-    const timer = window.setTimeout(() => setShowToast(false), TOAST_DURATION_MS);
-    return () => window.clearTimeout(timer);
-  }, [showToast]);
-
   async function copyPaymentLink() {
     setIsCreatingLink(true);
     setLinkError(null);
@@ -69,7 +61,7 @@ export function BookingPaymentBreakdown({ booking }: BookingPaymentBreakdownProp
         setPaymentUrl(url);
         await navigator.clipboard.writeText(url);
         setCopied(true);
-        setShowToast(true);
+        toast("Payment link copied");
         window.setTimeout(() => setCopied(false), 2000);
         return;
       }
@@ -86,7 +78,7 @@ export function BookingPaymentBreakdown({ booking }: BookingPaymentBreakdownProp
       setPaymentUrl(url);
       await navigator.clipboard.writeText(url);
       setCopied(true);
-      setShowToast(true);
+      toast("Payment link copied");
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
       setLinkError("Unable to copy payment link — please try again");
@@ -96,7 +88,6 @@ export function BookingPaymentBreakdown({ booking }: BookingPaymentBreakdownProp
   }
 
   return (
-    <>
       <div className="flex flex-col gap-2 rounded-md bg-brand-surface px-5 py-4 text-sm text-brand-body">
       <div className="flex items-center justify-between pb-2 text-xs text-brand-muted">
         <span>Payment {booking.paymentStatus.replaceAll("_", " ")} via</span>
@@ -178,15 +169,5 @@ export function BookingPaymentBreakdown({ booking }: BookingPaymentBreakdownProp
         <p className="border-t border-brand-border pt-2 text-xs text-emerald-700">Fully paid</p>
       )}
       </div>
-
-      {showToast && (
-        <div className="fixed right-6 top-6 z-50 flex items-center gap-2 rounded-lg border border-brand-border bg-white px-4 py-3 text-sm font-medium text-brand-body shadow-lg animate-[fade-slide_0.2s_ease-out]">
-          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
-            <CheckIcon className="h-3 w-3" />
-          </span>
-          Payment link copied
-        </div>
-      )}
-    </>
   );
 }
