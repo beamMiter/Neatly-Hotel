@@ -30,7 +30,7 @@ export function BookingTrendsCard({ initialData }: { initialData: BookingTrendDa
       setData(json.data);
     } catch (err) {
       console.error("[booking-trends] failed to refetch:", err);
-      toast("Something went wrong, unable to provide details", "error");
+      toast("Something went wrong, unable to provide details", { variant: "error" });
     } finally {
       setIsLoading(false);
     }

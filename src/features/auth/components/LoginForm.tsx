@@ -30,7 +30,7 @@ export function LoginForm({ redirectTo, justResetPassword }: LoginFormProps) {
   }, [justResetPassword, redirectTo, router, toast]);
 
   useEffect(() => {
-    if (state?.message) toast(state.message, "error");
+    if (state?.message) toast(state.message, { variant: "error" });
   }, [state, toast]);
 
   return (

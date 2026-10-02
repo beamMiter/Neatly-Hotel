@@ -48,9 +48,9 @@ describe("NewPasswordForm", () => {
       fireEvent.submit(container.querySelector("form")!);
 
       await waitFor(() => {
-        expect(screen.getByRole("status").textContent).toContain(
-          "This reset link has expired. Request a new one and try again.",
-        );
+        const status = screen.getByRole("status").textContent;
+        expect(status).toContain("Reset link expired");
+        expect(status).toContain("Request a new one and try again.");
       });
     });
 

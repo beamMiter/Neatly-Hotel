@@ -24,7 +24,7 @@ export function ExportButton({ href, fileName }: { href: string; fileName: strin
       toast("File downloaded successfully");
     } catch (err) {
       console.error("[export] failed to download CSV:", err);
-      toast("Something went wrong, unable to provide details", "error");
+      toast("Something went wrong, unable to provide details", { variant: "error" });
     } finally {
       setIsDownloading(false);
     }

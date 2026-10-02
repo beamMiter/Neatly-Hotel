@@ -56,7 +56,9 @@ describe("ForgotPasswordForm", () => {
       fireEvent.submit(container.querySelector("form")!);
 
       await waitFor(() => {
-        expect(screen.getByRole("status").textContent).toContain(
+        const status = screen.getByRole("status").textContent;
+        expect(status).toContain("Reset link sent");
+        expect(status).toContain(
           "If an account exists for that email, a reset link is on its way.",
         );
       });

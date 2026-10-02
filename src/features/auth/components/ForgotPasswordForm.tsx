@@ -11,8 +11,14 @@ export function ForgotPasswordForm({ linkExpired = false }: { linkExpired?: bool
   const toast = useToast();
 
   useEffect(() => {
-    if (!state?.message) return;
-    toast(state.message, state.sent ? "success" : "error");
+    // forgotPassword() only ever returns a top-level message on the "sent"
+    // path (errors here are fieldErrors only, shown inline) — always this
+    // exact string, so split as a hardcoded title/description.
+    if (state?.sent) {
+      toast("Reset link sent", {
+        description: "If an account exists for that email, a reset link is on its way.",
+      });
+    }
   }, [state, toast]);
 
   return (

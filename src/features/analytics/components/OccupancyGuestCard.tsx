@@ -95,7 +95,7 @@ export function OccupancyGuestCard({ initialData, initialFrom, initialTo }: { in
       setData(await response.json());
     } catch (err) {
       console.error("[occupancy] failed to refetch:", err);
-      toast("Something went wrong, unable to provide details", "error");
+      toast("Something went wrong, unable to provide details", { variant: "error" });
     } finally {
       setIsLoading(false);
     }

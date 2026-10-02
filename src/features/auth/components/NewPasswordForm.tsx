@@ -10,7 +10,15 @@ export function NewPasswordForm() {
   const toast = useToast();
 
   useEffect(() => {
-    if (state?.message) toast(state.message, "error");
+    // The action only ever returns one message here — "This reset link has
+    // expired. Request a new one and try again." — split as a hardcoded
+    // title/description rather than parsed, since it's the only case.
+    if (state?.message) {
+      toast("Reset link expired", {
+        variant: "error",
+        description: "Request a new one and try again.",
+      });
+    }
   }, [state, toast]);
 
   return (

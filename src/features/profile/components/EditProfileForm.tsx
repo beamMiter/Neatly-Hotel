@@ -112,10 +112,9 @@ export function EditProfileForm({
 
       if (!response.ok) {
         if (data.fieldErrors) setErrors(data.fieldErrors);
-        toast(
-          data.message ?? "Failed to update profile. Please try again.",
-          "error",
-        );
+        toast(data.message ?? "Failed to update profile. Please try again.", {
+          variant: "error",
+        });
         return;
       }
 
@@ -127,7 +126,7 @@ export function EditProfileForm({
       toast("Profile updated.");
       router.refresh();
     } catch {
-      toast("Something went wrong. Please try again.", "error");
+      toast("Something went wrong. Please try again.", { variant: "error" });
     } finally {
       setIsSubmitting(false);
     }

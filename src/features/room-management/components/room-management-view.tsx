@@ -158,7 +158,7 @@ export function RoomManagementView({
     } catch (error) {
       console.error("[room-management] Failed to delete room:", error);
       setRooms(previousRooms);
-      toast("Unable to delete the room. Please try again.", "error");
+      toast("Unable to delete the room. Please try again.", { variant: "error" });
     } finally {
       setDeletingRoomId(null);
     }

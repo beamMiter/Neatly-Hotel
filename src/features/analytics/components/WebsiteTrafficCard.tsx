@@ -38,7 +38,7 @@ export function WebsiteTrafficCard({
       setData(json.data);
     } catch (err) {
       console.error("[website-traffic] failed to refetch:", err);
-      toast("Something went wrong, unable to provide details", "error");
+      toast("Something went wrong, unable to provide details", { variant: "error" });
     } finally {
       setIsLoading(false);
     }

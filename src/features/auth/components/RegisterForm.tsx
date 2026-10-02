@@ -99,7 +99,7 @@ export function RegisterForm() {
 
       if (!response.ok) {
         if (data.fieldErrors) setErrors(data.fieldErrors);
-        toast(data.message ?? "Registration failed. Please try again.", "error");
+        toast(data.message ?? "Registration failed. Please try again.", { variant: "error" });
         return;
       }
 
@@ -108,7 +108,7 @@ export function RegisterForm() {
       router.push("/login");
       return;
     } catch {
-      toast("Something went wrong. Please try again.", "error");
+      toast("Something went wrong. Please try again.", { variant: "error" });
     } finally {
       setIsSubmitting(false);
     }
