@@ -60,23 +60,6 @@ const RootLayout = ({ children }: LayoutProps<'/'>) => {
 					richColors
 					closeButton
 					duration={2500}
-					// The navbar (src/components/layout/Navbar.tsx) is h-12 on
-					// mobile / lg:h-25 (100px) on desktop and isn't fixed/sticky, so
-					// it doesn't push page content down for a *fixed*-position toast
-					// — the default top offset (~24px) sat inside the navbar's own
-					// height, overlapping its avatar. Confirmed by measuring both
-					// elements' rects in a real browser.
-					//
-					// offset.top is the toast's BOTTOM edge, not its top — sonner
-					// anchors a front/single toast's bottom to this value and grows
-					// upward, confirmed by reading the actual computed rect. Sized
-					// to clear navbar height + a normal single-line toast (~57px) —
-					// the only two call sites that add a description (2-line) are
-					// ForgotPasswordForm/NewPasswordForm, both on the logged-out
-					// auth shell where the navbar's right side is empty anyway, so
-					// there's nothing there for a taller toast to overlap.
-					offset={{ top: 100 + 57 + 16 }}
-					mobileOffset={{ top: 48 + 57 + 12 }}
 					// Sonner hardcodes toasts to a fixed 356px / 13px font regardless
 					// of content — both too small. toastOptions.style sets each
 					// toast's own inline style (higher specificity than the
@@ -89,10 +72,20 @@ const RootLayout = ({ children }: LayoutProps<'/'>) => {
 					// (lower-specificity) rule — and that collapsed toasts to ~65px,
 					// wrapping text into a narrow column. Verified both versions in
 					// a real browser, not just reasoned about.
+					//
+					// No custom offset — stays at sonner's own near-top default
+					// (~24px), matching the navbar-free toast's original position.
+					// The navbar (src/components/layout/Navbar.tsx) isn't
+					// fixed/sticky, so the toast's default top offset sits inside
+					// its height band, but the only real collision was a ~10px
+					// horizontal sliver against the avatar icon on the right —
+					// minWidth capped below the avatar's distance from the right
+					// edge (measured in a real browser) keeps the toast's left
+					// edge clear of it instead of pushing the whole toast down.
 					toastOptions={{
 						style: {
 							width: 'fit-content',
-							minWidth: '300px',
+							minWidth: '260px',
 							maxWidth: 'min(460px, calc(100vw - 32px))',
 							fontSize: '15px',
 							padding: '16px 20px',
