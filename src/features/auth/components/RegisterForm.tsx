@@ -7,7 +7,7 @@ import { TextField } from "@/components/ui/TextField";
 import { SelectField } from "@/components/ui/SelectField";
 import { DateOfBirthField } from "@/components/ui/DateOfBirthField";
 import { PhotoUpload } from "./PhotoUpload";
-import { useToast } from "@/components/shared/Toast";
+import { toast } from "sonner";
 import { COUNTRIES } from "@/lib/countries";
 import {
   registerSchema,
@@ -45,7 +45,6 @@ export function RegisterForm() {
   const [errors, setErrors] = useState<RegisterFieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
-  const toast = useToast();
 
   function clearError(name: string) {
     setErrors((prev) => (prev[name as keyof RegisterFieldErrors] ? { ...prev, [name]: undefined } : prev));
@@ -99,7 +98,7 @@ export function RegisterForm() {
 
       if (!response.ok) {
         if (data.fieldErrors) setErrors(data.fieldErrors);
-        toast(data.message ?? "Registration failed. Please try again.", { variant: "error" });
+        toast.error(data.message ?? "Registration failed. Please try again.");
         return;
       }
 
@@ -108,7 +107,7 @@ export function RegisterForm() {
       router.push("/login");
       return;
     } catch {
-      toast("Something went wrong. Please try again.", { variant: "error" });
+      toast.error("Something went wrong. Please try again.");
     } finally {
       setIsSubmitting(false);
     }

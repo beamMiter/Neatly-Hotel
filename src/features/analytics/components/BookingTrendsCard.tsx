@@ -4,7 +4,7 @@ import { useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from "recharts";
 import type { BookingTrendDay } from "@/types/analytics";
 import { PeriodDropdown } from "@/features/analytics/components/PeriodDropdown";
-import { useToast } from "@/components/shared/Toast";
+import { toast } from "sonner";
 
 type BookingTrendsPeriodKey = "month" | "last_month" | "last_2_months";
 
@@ -18,7 +18,6 @@ export function BookingTrendsCard({ initialData }: { initialData: BookingTrendDa
   const [period, setPeriod] = useState<BookingTrendsPeriodKey>("month");
   const [data, setData] = useState(initialData);
   const [isLoading, setIsLoading] = useState(false);
-  const toast = useToast();
 
   async function handlePeriodChange(nextPeriod: BookingTrendsPeriodKey) {
     setPeriod(nextPeriod);
@@ -30,7 +29,7 @@ export function BookingTrendsCard({ initialData }: { initialData: BookingTrendDa
       setData(json.data);
     } catch (err) {
       console.error("[booking-trends] failed to refetch:", err);
-      toast("Something went wrong, unable to provide details", { variant: "error" });
+      toast.error("Something went wrong, unable to provide details");
     } finally {
       setIsLoading(false);
     }

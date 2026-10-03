@@ -3,23 +3,22 @@
 import Link from "next/link";
 import { useActionState, useEffect } from "react";
 import { forgotPassword } from "@/features/auth/actions";
-import { useToast } from "@/components/shared/Toast";
+import { toast } from "sonner";
 import { inter, openSans } from "@/lib/fonts";
 
 export function ForgotPasswordForm({ linkExpired = false }: { linkExpired?: boolean }) {
   const [state, action, pending] = useActionState(forgotPassword, undefined);
-  const toast = useToast();
 
   useEffect(() => {
     // forgotPassword() only ever returns a top-level message on the "sent"
     // path (errors here are fieldErrors only, shown inline) — always this
     // exact string, so split as a hardcoded title/description.
     if (state?.sent) {
-      toast("Reset link sent", {
+      toast.success("Reset link sent", {
         description: "If an account exists for that email, a reset link is on its way.",
       });
     }
-  }, [state, toast]);
+  }, [state]);
 
   return (
     <form action={action} className="flex w-full max-w-113 flex-col gap-10">

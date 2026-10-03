@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useToast } from "@/components/shared/Toast";
+import { toast } from "sonner";
 import type { BookingPaymentStatus } from "@/types/booking";
 import type { CustomerBookingDetail } from "@/types/customer-booking";
 
@@ -38,7 +38,6 @@ export function BookingPaymentBreakdown({ booking }: BookingPaymentBreakdownProp
   const [isCreatingLink, setIsCreatingLink] = useState(false);
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
   const [linkError, setLinkError] = useState<string | null>(null);
-  const toast = useToast();
 
   const showPaid = booking.paidAmount > 0;
   const showOutstanding = booking.amountDue > 0;
@@ -61,7 +60,7 @@ export function BookingPaymentBreakdown({ booking }: BookingPaymentBreakdownProp
         setPaymentUrl(url);
         await navigator.clipboard.writeText(url);
         setCopied(true);
-        toast("Payment link copied");
+        toast.success("Payment link copied");
         window.setTimeout(() => setCopied(false), 2000);
         return;
       }
@@ -78,7 +77,7 @@ export function BookingPaymentBreakdown({ booking }: BookingPaymentBreakdownProp
       setPaymentUrl(url);
       await navigator.clipboard.writeText(url);
       setCopied(true);
-      toast("Payment link copied");
+      toast.success("Payment link copied");
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
       setLinkError("Unable to copy payment link — please try again");

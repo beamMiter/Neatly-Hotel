@@ -4,7 +4,7 @@ import { useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import type { RoomAvailabilityBreakdown } from "@/types/analytics";
 import { PeriodDropdown } from "@/features/analytics/components/PeriodDropdown";
-import { useToast } from "@/components/shared/Toast";
+import { toast } from "sonner";
 
 const COLORS = {
   occupied: "#bd5b28",
@@ -24,7 +24,6 @@ export function RoomAvailabilityCard({ initialData }: { initialData: RoomAvailab
   const [period, setPeriod] = useState<OverviewPeriodKey>("month");
   const [data, setData] = useState(initialData);
   const [isLoading, setIsLoading] = useState(false);
-  const toast = useToast();
 
   async function handlePeriodChange(nextPeriod: OverviewPeriodKey) {
     setPeriod(nextPeriod);
@@ -36,7 +35,7 @@ export function RoomAvailabilityCard({ initialData }: { initialData: RoomAvailab
       setData(json.data);
     } catch (err) {
       console.error("[room-availability] failed to refetch:", err);
-      toast("Something went wrong, unable to provide details", { variant: "error" });
+      toast.error("Something went wrong, unable to provide details");
     } finally {
       setIsLoading(false);
     }

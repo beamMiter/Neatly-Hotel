@@ -1,15 +1,12 @@
 // @vitest-environment jsdom
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 
-const mocks = vi.hoisted(() => ({ resetPassword: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  resetPassword: vi.fn(),
+  toastError: vi.fn(),
+}));
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }) }));
 vi.mock("@/features/auth/actions", () => ({
@@ -19,16 +16,14 @@ vi.mock("@/lib/fonts", () => ({
   inter: { className: "" },
   openSans: { className: "" },
 }));
+vi.mock("sonner", () => ({
+  toast: { success: vi.fn(), error: mocks.toastError },
+}));
 
 import { NewPasswordForm } from "@/features/auth/components/NewPasswordForm";
-import { ToastProvider } from "@/components/shared/Toast";
 
 function renderForm() {
-  return render(
-    <ToastProvider>
-      <NewPasswordForm />
-    </ToastProvider>,
-  );
+  return render(<NewPasswordForm />);
 }
 
 describe("NewPasswordForm", () => {
@@ -38,26 +33,25 @@ describe("NewPasswordForm", () => {
   });
 
   describe("Error Case", () => {
-    it("shows an error toast when the reset link has expired", async () => {
+    it("shows an error toast with a title and description when the reset link has expired", async () => {
       mocks.resetPassword.mockResolvedValue({
-        message:
-          "This reset link has expired. Request a new one and try again.",
+        message: "This reset link has expired. Request a new one and try again.",
       });
       const { container } = renderForm();
 
       fireEvent.submit(container.querySelector("form")!);
 
       await waitFor(() => {
-        const status = screen.getByRole("status").textContent;
-        expect(status).toContain("Reset link expired");
-        expect(status).toContain("Request a new one and try again.");
+        expect(mocks.toastError).toHaveBeenCalledWith("Reset link expired", {
+          description: "Request a new one and try again.",
+        });
       });
     });
 
     it("does not show a toast for field-level validation errors alone", () => {
       renderForm();
 
-      expect(screen.queryByRole("status")).toBeNull();
+      expect(mocks.toastError).not.toHaveBeenCalled();
     });
   });
 });

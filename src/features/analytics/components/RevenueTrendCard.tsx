@@ -6,7 +6,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tool
 import type { RevenuePoint } from "@/types/analytics";
 import { DateField } from "@/features/analytics/components/DateField";
 import { ExportButton } from "@/features/analytics/components/ExportButton";
-import { useToast } from "@/components/shared/Toast";
+import { toast } from "sonner";
 import { TouchTooltipChart } from "@/features/analytics/components/TouchTooltipChart";
 
 function formatThb(amount: number) {
@@ -22,7 +22,6 @@ export function RevenueTrendCard({ initialData, initialFrom, initialTo }: { init
   const [from, setFrom] = useState(initialFrom);
   const [to, setTo] = useState(initialTo);
   const [isLoading, setIsLoading] = useState(false);
-  const toast = useToast();
 
   async function refetch(nextFrom: Date, nextTo: Date) {
     setIsLoading(true);
@@ -35,7 +34,7 @@ export function RevenueTrendCard({ initialData, initialFrom, initialTo }: { init
       setData(json.data);
     } catch (err) {
       console.error("[revenue-trend] failed to refetch:", err);
-      toast("Something went wrong, unable to provide details", { variant: "error" });
+      toast.error("Something went wrong, unable to provide details");
     } finally {
       setIsLoading(false);
     }

@@ -2,24 +2,22 @@
 
 import { useActionState, useEffect } from "react";
 import { resetPassword } from "@/features/auth/actions";
-import { useToast } from "@/components/shared/Toast";
+import { toast } from "sonner";
 import { inter, openSans } from "@/lib/fonts";
 
 export function NewPasswordForm() {
   const [state, action, pending] = useActionState(resetPassword, undefined);
-  const toast = useToast();
 
   useEffect(() => {
     // The action only ever returns one message here — "This reset link has
     // expired. Request a new one and try again." — split as a hardcoded
     // title/description rather than parsed, since it's the only case.
     if (state?.message) {
-      toast("Reset link expired", {
-        variant: "error",
+      toast.error("Reset link expired", {
         description: "Request a new one and try again.",
       });
     }
-  }, [state, toast]);
+  }, [state]);
 
   return (
     <form action={action} className="flex w-full max-w-113 flex-col gap-10">

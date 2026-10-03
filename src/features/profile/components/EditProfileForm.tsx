@@ -10,7 +10,7 @@ import { PhotoUpload } from "@/features/auth/components/PhotoUpload";
 import { COUNTRIES } from "@/lib/countries";
 import { useDelayedFlag } from "@/lib/useDelayedFlag";
 import { CardSkeletonOverlay } from "@/components/shared/CardSkeletonOverlay";
-import { useToast } from "@/components/shared/Toast";
+import { toast } from "sonner";
 import {
   profileUpdateSchema,
   type ProfileUpdateFieldErrors,
@@ -49,7 +49,6 @@ export function EditProfileForm({
   const [errors, setErrors] = useState<ProfileUpdateFieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const showSkeleton = useDelayedFlag(isSubmitting);
-  const toast = useToast();
 
   function clearError(name: string) {
     setErrors((prev) =>
@@ -112,9 +111,7 @@ export function EditProfileForm({
 
       if (!response.ok) {
         if (data.fieldErrors) setErrors(data.fieldErrors);
-        toast(data.message ?? "Failed to update profile. Please try again.", {
-          variant: "error",
-        });
+        toast.error(data.message ?? "Failed to update profile. Please try again.");
         return;
       }
 
@@ -123,10 +120,10 @@ export function EditProfileForm({
         setPhoto(null);
       }
       setAvatarRemoved(false);
-      toast("Profile updated.");
+      toast.success("Profile updated.");
       router.refresh();
     } catch {
-      toast("Something went wrong. Please try again.", { variant: "error" });
+      toast.error("Something went wrong. Please try again.");
     } finally {
       setIsSubmitting(false);
     }

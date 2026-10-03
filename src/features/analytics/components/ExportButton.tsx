@@ -1,11 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useToast } from "@/components/shared/Toast";
+import { toast } from "sonner";
 
 export function ExportButton({ href, fileName }: { href: string; fileName: string }) {
   const [isDownloading, setIsDownloading] = useState(false);
-  const toast = useToast();
 
   async function handleExport() {
     setIsDownloading(true);
@@ -21,10 +20,10 @@ export function ExportButton({ href, fileName }: { href: string; fileName: strin
       link.click();
       link.remove();
       URL.revokeObjectURL(objectUrl);
-      toast("File downloaded successfully");
+      toast.success("File downloaded successfully");
     } catch (err) {
       console.error("[export] failed to download CSV:", err);
-      toast("Something went wrong, unable to provide details", { variant: "error" });
+      toast.error("Something went wrong, unable to provide details");
     } finally {
       setIsDownloading(false);
     }

@@ -7,7 +7,7 @@ import { PlusIcon } from "@/components/icons/PlusIcon";
 import { RoomDeleteDialog } from "@/features/room-management/components/room-delete-dialog";
 import { RoomStatusSelect } from "@/features/room-management/components/room-status-select";
 import { formatRoomLocation } from "@/lib/rooms/layout-rooms";
-import { useToast } from "@/components/shared/Toast";
+import { toast } from "sonner";
 import type { Room, RoomStatus } from "@/types/rooms";
 
 const PAGE_SIZE = 9;
@@ -25,7 +25,6 @@ export function RoomManagementView({
   const [updatingRoomId, setUpdatingRoomId] = useState<string | null>(null);
   const [roomToDelete, setRoomToDelete] = useState<Room | null>(null);
   const [deletingRoomId, setDeletingRoomId] = useState<string | null>(null);
-  const toast = useToast();
   const refreshRequestId = useRef(0);
 
   const refreshRooms = useCallback(async () => {
@@ -154,11 +153,11 @@ export function RoomManagementView({
       }
 
       setRoomToDelete(null);
-      toast(`Room ${roomToDelete.roomNo} deleted successfully.`);
+      toast.success(`Room ${roomToDelete.roomNo} deleted successfully.`);
     } catch (error) {
       console.error("[room-management] Failed to delete room:", error);
       setRooms(previousRooms);
-      toast("Unable to delete the room. Please try again.", { variant: "error" });
+      toast.error("Unable to delete the room. Please try again.");
     } finally {
       setDeletingRoomId(null);
     }

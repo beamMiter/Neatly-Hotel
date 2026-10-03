@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useRef } from "react";
 import { login } from "@/features/auth/actions";
-import { useToast } from "@/components/shared/Toast";
+import { toast } from "sonner";
 import { inter, openSans } from "@/lib/fonts";
 
 type LoginFormProps = {
@@ -15,7 +15,6 @@ type LoginFormProps = {
 export function LoginForm({ redirectTo, justResetPassword }: LoginFormProps) {
   const [state, action, pending] = useActionState(login, undefined);
   const router = useRouter();
-  const toast = useToast();
 
   // Runs once per mount, not once per render — the ref guards against
   // double-firing from React's dev-mode double-invoke of effects, which
@@ -24,14 +23,14 @@ export function LoginForm({ redirectTo, justResetPassword }: LoginFormProps) {
   useEffect(() => {
     if (!justResetPassword || hasShownResetToast.current) return;
     hasShownResetToast.current = true;
-    toast("Password updated — please log in.");
+    toast.success("Password updated — please log in.");
     // Drop the query param so refreshing this page doesn't re-show it.
     router.replace("/login" + (redirectTo ? `?redirectTo=${encodeURIComponent(redirectTo)}` : ""));
-  }, [justResetPassword, redirectTo, router, toast]);
+  }, [justResetPassword, redirectTo, router]);
 
   useEffect(() => {
-    if (state?.message) toast(state.message, { variant: "error" });
-  }, [state, toast]);
+    if (state?.message) toast.error(state.message);
+  }, [state]);
 
   return (
     <form action={action} className="flex w-full max-w-113 flex-col gap-10">

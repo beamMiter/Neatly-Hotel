@@ -5,7 +5,7 @@
 
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono, Noto_Serif_Display, Inter, Open_Sans, IBM_Plex_Sans_Thai } from 'next/font/google';
-import { ToastProvider } from '@/components/shared/Toast';
+import { Toaster } from 'sonner';
 import './globals.css';
 
 const geistSans = Geist({
@@ -54,7 +54,8 @@ const RootLayout = ({ children }: LayoutProps<'/'>) => {
 			className={`${geistSans.variable} ${geistMono.variable} ${notoSerif.variable} ${inter.variable} ${openSans.variable} ${ibmPlexSansThai.variable} h-full scroll-smooth antialiased`}
 		>
 			<body className="min-h-full flex flex-col">
-				<ToastProvider>{children}</ToastProvider>
+				{children}
+				<Toaster position="top-right" richColors closeButton />
 			</body>
 		</html>
 	);
