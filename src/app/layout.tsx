@@ -55,7 +55,17 @@ const RootLayout = ({ children }: LayoutProps<'/'>) => {
 		>
 			<body className="min-h-full flex flex-col">
 				{children}
-				<Toaster position="top-right" richColors closeButton />
+				<Toaster
+					position="top-right"
+					richColors
+					closeButton
+					// Sonner hardcodes --width to 356px regardless of content — a
+					// short "Profile updated." sat in the same box as a two-line
+					// description. fit-content lets it shrink to the message,
+					// toastOptions.style caps how wide/narrow that's allowed to go.
+					style={{ '--width': 'fit-content' } as React.CSSProperties}
+					toastOptions={{ style: { minWidth: '280px', maxWidth: '420px' } }}
+				/>
 			</body>
 		</html>
 	);
