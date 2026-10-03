@@ -60,17 +60,16 @@ const RootLayout = ({ children }: LayoutProps<'/'>) => {
 					richColors
 					closeButton
 					// Sonner hardcodes --width to 356px regardless of content.
-					// max-content sizes the box to the message instead of a fixed
-					// box (fit-content was tried first but collapses to ~65px,
-					// wrapping text into a narrow column — it fights sonner's own
-					// flex layout; verified in a real browser, not just docs).
-					// min/max-width match the standard size settled on earlier
-					// (src/components/shared/Toast.tsx, kept on disk for
-					// reference): 320–384px, so short messages still read as a
-					// deliberate, consistent size instead of shrink-wrapping to
-					// almost nothing.
+					// max-content sizes the box to the message instead — a short
+					// title and a two-line title+description each get a box that
+					// matches their own length (fit-content was tried first but
+					// collapses to ~65px, wrapping text into a narrow column — it
+					// fights sonner's own flex layout; verified in a real browser,
+					// not just docs). max-width only stops a long description from
+					// becoming one unreadable full-width line; no min-width —
+					// forcing short messages wider than their content was wrong.
 					style={{ '--width': 'max-content' } as React.CSSProperties}
-					toastOptions={{ style: { minWidth: '320px', maxWidth: '384px' } }}
+					toastOptions={{ style: { maxWidth: '384px' } }}
 				/>
 			</body>
 		</html>
