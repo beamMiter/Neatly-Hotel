@@ -59,17 +59,28 @@ const RootLayout = ({ children }: LayoutProps<'/'>) => {
 					position="top-right"
 					richColors
 					closeButton
-					// Sonner hardcodes --width to 356px regardless of content.
-					// max-content sizes the box to the message instead — a short
-					// title and a two-line title+description each get a box that
-					// matches their own length (fit-content was tried first but
-					// collapses to ~65px, wrapping text into a narrow column — it
-					// fights sonner's own flex layout; verified in a real browser,
-					// not just docs). max-width only stops a long description from
-					// becoming one unreadable full-width line; no min-width —
-					// forcing short messages wider than their content was wrong.
-					style={{ '--width': 'max-content' } as React.CSSProperties}
-					toastOptions={{ style: { maxWidth: '384px' } }}
+					duration={2500}
+					// Sonner hardcodes toasts to a fixed 356px / 13px font regardless
+					// of content — both too small. toastOptions.style sets each
+					// toast's own inline style (higher specificity than the
+					// library's stylesheet, so it reliably wins over width:var(--width)):
+					// fit-content lets the box hug short messages and grow for
+					// longer ones, min/max-width keep it from going below a
+					// deliberate size or past a readable line length. An earlier
+					// attempt set fit-content via a --width CSS *variable* instead —
+					// same value, but only reachable through the stylesheet's own
+					// (lower-specificity) rule — and that collapsed toasts to ~65px,
+					// wrapping text into a narrow column. Verified both versions in
+					// a real browser, not just reasoned about.
+					toastOptions={{
+						style: {
+							width: 'fit-content',
+							minWidth: '300px',
+							maxWidth: 'min(460px, calc(100vw - 32px))',
+							fontSize: '15px',
+							padding: '16px 20px',
+						},
+					}}
 				/>
 			</body>
 		</html>
