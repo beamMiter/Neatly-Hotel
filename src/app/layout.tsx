@@ -69,14 +69,14 @@ const RootLayout = ({ children }: LayoutProps<'/'>) => {
 					//
 					// offset.top is the toast's BOTTOM edge, not its top — sonner
 					// anchors a front/single toast's bottom to this value and grows
-					// upward, confirmed by reading the actual computed rect (not
-					// assumed) for both a 1-line and a 2-line toast. So this has to
-					// clear navbar height + the tallest toast this app ever shows
-					// (a 2-line title+description, ~95-100px), not just navbar
-					// height — otherwise a *longer* message would climb back up
-					// into the navbar even though a short one looked fine.
-					offset={{ top: 100 + 100 + 20 }}
-					mobileOffset={{ top: 48 + 110 + 16 }}
+					// upward, confirmed by reading the actual computed rect. Sized
+					// to clear navbar height + a normal single-line toast (~57px) —
+					// the only two call sites that add a description (2-line) are
+					// ForgotPasswordForm/NewPasswordForm, both on the logged-out
+					// auth shell where the navbar's right side is empty anyway, so
+					// there's nothing there for a taller toast to overlap.
+					offset={{ top: 100 + 57 + 16 }}
+					mobileOffset={{ top: 48 + 57 + 12 }}
 					// Sonner hardcodes toasts to a fixed 356px / 13px font regardless
 					// of content — both too small. toastOptions.style sets each
 					// toast's own inline style (higher specificity than the
@@ -96,6 +96,7 @@ const RootLayout = ({ children }: LayoutProps<'/'>) => {
 							maxWidth: 'min(460px, calc(100vw - 32px))',
 							fontSize: '15px',
 							padding: '16px 20px',
+							boxShadow: 'none',
 						},
 					}}
 				/>
