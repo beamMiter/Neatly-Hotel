@@ -60,6 +60,23 @@ const RootLayout = ({ children }: LayoutProps<'/'>) => {
 					richColors
 					closeButton
 					duration={2500}
+					// The navbar (src/components/layout/Navbar.tsx) is h-12 on
+					// mobile / lg:h-25 (100px) on desktop and isn't fixed/sticky, so
+					// it doesn't push page content down for a *fixed*-position toast
+					// — the default top offset (~24px) sat inside the navbar's own
+					// height, overlapping its avatar. Confirmed by measuring both
+					// elements' rects in a real browser.
+					//
+					// offset.top is the toast's BOTTOM edge, not its top — sonner
+					// anchors a front/single toast's bottom to this value and grows
+					// upward, confirmed by reading the actual computed rect (not
+					// assumed) for both a 1-line and a 2-line toast. So this has to
+					// clear navbar height + the tallest toast this app ever shows
+					// (a 2-line title+description, ~95-100px), not just navbar
+					// height — otherwise a *longer* message would climb back up
+					// into the navbar even though a short one looked fine.
+					offset={{ top: 100 + 100 + 20 }}
+					mobileOffset={{ top: 48 + 110 + 16 }}
 					// Sonner hardcodes toasts to a fixed 356px / 13px font regardless
 					// of content — both too small. toastOptions.style sets each
 					// toast's own inline style (higher specificity than the
