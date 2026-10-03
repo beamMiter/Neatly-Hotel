@@ -61,10 +61,14 @@ const RootLayout = ({ children }: LayoutProps<'/'>) => {
 					closeButton
 					// Sonner hardcodes --width to 356px regardless of content — a
 					// short "Profile updated." sat in the same box as a two-line
-					// description. fit-content lets it shrink to the message,
-					// toastOptions.style caps how wide/narrow that's allowed to go.
-					style={{ '--width': 'fit-content' } as React.CSSProperties}
-					toastOptions={{ style: { minWidth: '280px', maxWidth: '420px' } }}
+					// description. max-content sizes it to the message instead;
+					// fit-content was tried first but collapses toasts to ~65px
+					// (wrapping the text into a narrow column) once it interacts
+					// with sonner's own flex layout — verified in a real browser,
+					// not just read from docs. toastOptions caps the top end so a
+					// long description still wraps instead of going edge-to-edge.
+					style={{ '--width': 'max-content' } as React.CSSProperties}
+					toastOptions={{ style: { maxWidth: '420px' } }}
 				/>
 			</body>
 		</html>
