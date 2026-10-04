@@ -73,6 +73,20 @@ const RootLayout = ({ children }: LayoutProps<'/'>) => {
 					// wrapping text into a narrow column. Verified both versions in
 					// a real browser, not just reasoned about.
 					//
+					// The *toaster* container (sonner's own <ol>) also hardcodes
+					// width:var(--width) = 356px, and since the toast is positioned
+					// absolute with no left/right of its own, that 356px becomes its
+					// containing block — i.e. the real ceiling fit-content sizing
+					// grows against, regardless of the toast's own max-width above.
+					// Confirmed by testing a range of real message lengths: short
+					// ones scaled correctly (260→283px), but anything needing more
+					// than ~356px got force-wrapped instead of growing further, and
+					// several different long messages all landed at exactly 356px
+					// — the giveaway that a hidden ceiling, not actual content
+					// width, was driving it. Overriding --width here on the
+					// toaster itself (not just toastOptions.style on the toast) is
+					// what actually raises that ceiling to match.
+					//
 					// No custom offset — stays at sonner's own near-top default
 					// (~24px), matching the navbar-free toast's original position.
 					// The navbar (src/components/layout/Navbar.tsx) isn't
@@ -80,8 +94,15 @@ const RootLayout = ({ children }: LayoutProps<'/'>) => {
 					// its height band, but the only real collision was a ~10px
 					// horizontal sliver against the avatar icon on the right —
 					// minWidth capped below the avatar's distance from the right
-					// edge (measured in a real browser) keeps the toast's left
-					// edge clear of it instead of pushing the whole toast down.
+					// edge (measured in a real browser) keeps the *common* (short)
+					// case clear of it without pushing the whole toast down. Once
+					// a message is long enough to grow past ~290px it can still
+					// reach the avatar again — that's a real tradeoff of sizing by
+					// content instead of by position, not re-verified against every
+					// message in the app.
+					style={{
+						'--width': 'min(460px, calc(100vw - 32px))',
+					} as React.CSSProperties}
 					toastOptions={{
 						style: {
 							width: 'fit-content',
