@@ -44,7 +44,6 @@ export function RegisterForm() {
   const [photo, setPhoto] = useState<File | null>(null);
   const [errors, setErrors] = useState<RegisterFieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isRedirecting, setIsRedirecting] = useState(false);
 
   function clearError(name: string) {
     setErrors((prev) => (prev[name as keyof RegisterFieldErrors] ? { ...prev, [name]: undefined } : prev));
@@ -102,8 +101,7 @@ export function RegisterForm() {
         return;
       }
 
-      setIsRedirecting(true);
-      await new Promise((resolve) => setTimeout(resolve, 3000));
+      toast.success("Account created!", { description: "Please log in to continue." });
       router.push("/login");
       return;
     } catch {
@@ -115,13 +113,6 @@ export function RegisterForm() {
 
   return (
     <form className="flex flex-col gap-8" noValidate onSubmit={handleSubmit}>
-      {isRedirecting && (
-        <p role="status" className="flex items-center gap-2 rounded-md bg-green-50 px-4 py-3 text-sm text-green-700">
-          <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent" />
-          Account created! Taking you to the login page...
-        </p>
-      )}
-
       <section className="flex flex-col gap-5">
         <h2 className="text-sm font-medium text-brand-muted">Basic Information</h2>
 
@@ -233,10 +224,10 @@ export function RegisterForm() {
 
       <button
         type="submit"
-        disabled={isSubmitting || isRedirecting}
+        disabled={isSubmitting}
         className="h-12 w-full cursor-pointer rounded-md bg-brand-primary text-sm font-semibold text-white transition-colors hover:bg-brand-primary-hover disabled:cursor-not-allowed disabled:opacity-70"
       >
-        {isRedirecting ? "Redirecting..." : isSubmitting ? "Registering..." : "Register"}
+        {isSubmitting ? "Registering..." : "Register"}
       </button>
     </form>
   );
