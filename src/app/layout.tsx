@@ -62,11 +62,20 @@ const RootLayout = ({ children }: LayoutProps<'/'>) => {
 					duration={2500}
 					// Sonner hardcodes every toast to a fixed 356px box / 13px font —
 					// width:fit-content here lets it hug short messages and grow
-					// for longer ones instead. No minWidth: a floor here means
-					// visible dead space past the text for anything short (verified
-					// — "Profile updated." naturally sizes to ~177px; a 260px floor
-					// was adding ~83px nobody asked for). Padding alone keeps a
-					// one-word toast from looking cramped.
+					// for longer ones instead. minWidth:300px matches the reference
+					// project's own Vue source exactly, and a screenshot of it
+					// running confirms it: "Signed out successfully!" renders at
+					// ~290px, well past that message's own natural fit-content
+					// width — i.e. the reference isn't pure fit-content either, it
+					// has the same deliberate floor. A short toast with no floor at
+					// all technically "follows the text" but reads as too small to
+					// register as a toast at a glance (confirmed against a
+					// screenshot of this app's own ~177px "Profile updated." next
+					// to the reference's ~290px version — same idea, visibly
+					// different presence). An earlier round dropped this floor
+					// entirely chasing a literal "size to the text" requirement;
+					// matching the reference's actual rendered size takes priority
+					// over that literal reading.
 					//
 					// Two non-obvious ceilings both had to be raised for growth to
 					// actually reach maxWidth on longer messages, or this silently
@@ -99,6 +108,7 @@ const RootLayout = ({ children }: LayoutProps<'/'>) => {
 					toastOptions={{
 						style: {
 							width: 'fit-content',
+							minWidth: '300px',
 							maxWidth: 'min(460px, calc(100vw - 32px))',
 							fontSize: '15px',
 							padding: '16px 20px',
