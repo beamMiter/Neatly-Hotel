@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { toast } from "sonner";
 import { TextField } from "@/components/ui/TextField";
 import { SelectField } from "@/components/ui/SelectField";
 import { ArrowLeftIcon } from "@/components/icons/ArrowLeftIcon";
@@ -239,6 +240,7 @@ export function EditRoomForm({ room }: { room: RoomTypeDetail }) {
         return;
       }
 
+      toast.success("Room type updated.");
       router.push("/room-property");
     } catch {
       setFailure(describeRoomFormFailure("update", null, null));
@@ -261,6 +263,7 @@ export function EditRoomForm({ room }: { room: RoomTypeDetail }) {
         return;
       }
 
+      toast.success("Room type deleted.");
       router.push("/room-property");
     } catch {
       setFailure(describeRoomFormFailure("delete", null, null));

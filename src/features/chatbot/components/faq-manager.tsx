@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { toast } from "sonner";
 import type { ChatbotSettings, ChatbotSuggestion, ChatbotSuggestionTranslation } from "@/types/chatbot";
 import {
   createChatbotSuggestion,
@@ -155,6 +156,7 @@ export default function FaqManager({ initialSettings, initialSuggestions, roomTy
     const topic = { id: `topic-${crypto.randomUUID()}`, format: newReplyFormat, rooms: newReplyFormat === "Room type" ? selectedRooms : [], translations } satisfies PresetTopic;
     try { await createChatbotSuggestion(toSuggestion(topic, presetTopics.length) as Omit<ChatbotSuggestion, "created_at" | "updated_at">); } catch (error) { setSaveError(error instanceof Error ? error.message : "Unable to save suggestion"); return; }
     setSaveError("");
+    toast.success("FAQ suggestion created.");
     setPresetTopics((current) => [...current, topic]);
     setIsAddingTopic(false);
     setNewTopic("");
@@ -222,6 +224,7 @@ export default function FaqManager({ initialSettings, initialSuggestions, roomTy
     const sortOrder = presetTopics.findIndex((topic) => topic.id === updated.id);
     try { await updateChatbotSuggestion(updated.id, toSuggestion(updated, sortOrder)); } catch (error) { setSaveError(error instanceof Error ? error.message : "Unable to save suggestion"); return; }
     setSaveError("");
+    toast.success("FAQ suggestion updated.");
     setPresetTopics((current) => current.map((topic) => topic.id === updated.id ? updated : topic));
     setEditingTopic(null);
     setIsEditingRoomDropdownOpen(false);
@@ -257,6 +260,7 @@ export default function FaqManager({ initialSettings, initialSuggestions, roomTy
     if (!deletingTopic) return;
     try { await deleteChatbotSuggestion(deletingTopic.id); } catch (error) { setSaveError(error instanceof Error ? error.message : "Unable to delete suggestion"); return; }
     setSaveError("");
+    toast.success("FAQ suggestion deleted.");
     setPresetTopics((current) => current.filter((topic) => topic.id !== deletingTopic.id));
     setDeletingTopic(null);
   }
@@ -270,7 +274,7 @@ export default function FaqManager({ initialSettings, initialSuggestions, roomTy
       const [movedTopic] = reordered.splice(sourceIndex, 1);
       reordered.splice(targetIndex, 0, movedTopic);
     setPresetTopics(reordered);
-    try { await Promise.all(reordered.map((topic, index) => updateChatbotSuggestion(topic.id, { sort_order: index }))); setSaveError(""); } catch (error) { setSaveError(error instanceof Error ? error.message : "Unable to reorder suggestions"); }
+    try { await Promise.all(reordered.map((topic, index) => updateChatbotSuggestion(topic.id, { sort_order: index }))); setSaveError(""); toast.success("FAQ order updated."); } catch (error) { setSaveError(error instanceof Error ? error.message : "Unable to reorder suggestions"); }
     setDraggedTopicId(null);
   }
 

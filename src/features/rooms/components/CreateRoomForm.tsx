@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { toast } from "sonner";
 import { TextField } from "@/components/ui/TextField";
 import { SelectField } from "@/components/ui/SelectField";
 import { RoomImageUpload } from "@/features/rooms/components/RoomImageUpload";
@@ -149,6 +150,7 @@ export function CreateRoomForm() {
         return;
       }
 
+      toast.success("Room type created.");
       router.push("/room-property");
     } catch {
       setFailure(describeRoomFormFailure("create", null, null));
