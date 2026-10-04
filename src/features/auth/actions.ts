@@ -5,6 +5,7 @@ import { headers, cookies } from "next/headers";
 import { createClient } from "@/server/db/supabase-server";
 import { supabaseAdmin } from "@/server/db/supabase-admin";
 import { RECOVERY_COOKIE_NAME } from "./recovery-session";
+import { FLASH_TOAST_COOKIE_NAME, type FlashToastKey } from "./flash-toast";
 import {
   loginSchema,
   forgotPasswordSchema,
@@ -18,6 +19,13 @@ import { getStaffRole } from "@/server/queries/staff-members.query";
 
 type LoginError = { fieldErrors?: LoginFieldErrors; message?: string };
 export type LoginState = LoginError | undefined;
+
+// Must run before the redirect() that follows it — redirect() throws, so
+// nothing after it executes.
+async function setFlashToast(key: FlashToastKey) {
+  const cookieStore = await cookies();
+  cookieStore.set(FLASH_TOAST_COOKIE_NAME, key, { maxAge: 10, path: "/" });
+}
 
 // profiles has no email column (it lives in auth.users), so a username login
 // needs an extra admin-privileged hop: username -> profile id -> user email.
@@ -64,6 +72,8 @@ export async function login(_prevState: LoginState, formData: FormData): Promise
   if (!("userId" in result)) {
     return result;
   }
+
+  await setFlashToast("signed-in");
 
   const redirectTo = formData.get("redirectTo");
   if (typeof redirectTo === "string" && redirectTo.startsWith("/") && !redirectTo.startsWith("//")) {
@@ -175,5 +185,6 @@ export async function logout() {
   // revokes every session the account has — signing out on one laptop would
   // drop the same user's phone mid-booking.
   await supabase.auth.signOut({ scope: "local" });
+  await setFlashToast("signed-out");
   redirect("/login");
 }
