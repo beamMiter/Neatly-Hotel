@@ -60,53 +60,39 @@ const RootLayout = ({ children }: LayoutProps<'/'>) => {
 					richColors
 					closeButton
 					duration={2500}
-					// Sonner hardcodes toasts to a fixed 356px / 13px font regardless
-					// of content — both too small. toastOptions.style sets each
-					// toast's own inline style (higher specificity than the
-					// library's stylesheet, so it reliably wins over width:var(--width)):
-					// fit-content lets the box hug short messages and grow for
-					// longer ones, min/max-width keep it from going below a
-					// deliberate size or past a readable line length. An earlier
-					// attempt set fit-content via a --width CSS *variable* instead —
-					// same value, but only reachable through the stylesheet's own
-					// (lower-specificity) rule — and that collapsed toasts to ~65px,
-					// wrapping text into a narrow column. Verified both versions in
-					// a real browser, not just reasoned about.
+					// Sonner hardcodes every toast to a fixed 356px box / 13px font —
+					// width:fit-content here lets it hug short messages and grow
+					// for longer ones instead. No minWidth: a floor here means
+					// visible dead space past the text for anything short (verified
+					// — "Profile updated." naturally sizes to ~177px; a 260px floor
+					// was adding ~83px nobody asked for). Padding alone keeps a
+					// one-word toast from looking cramped.
 					//
-					// The *toaster* container (sonner's own <ol>) also hardcodes
-					// width:var(--width) = 356px, and since the toast is positioned
-					// absolute with no left/right of its own, that 356px becomes its
-					// containing block — i.e. the real ceiling fit-content sizing
-					// grows against, regardless of the toast's own max-width above.
-					// Confirmed by testing a range of real message lengths: short
-					// ones scaled correctly (260→283px), but anything needing more
-					// than ~356px got force-wrapped instead of growing further, and
-					// several different long messages all landed at exactly 356px
-					// — the giveaway that a hidden ceiling, not actual content
-					// width, was driving it. Overriding --width here on the
-					// toaster itself (not just toastOptions.style on the toast) is
-					// what actually raises that ceiling to match.
+					// Two non-obvious ceilings both had to be raised for growth to
+					// actually reach maxWidth on longer messages, or this silently
+					// regresses back to a fixed-feeling box:
+					// 1. toastOptions.style only reaches the toast's OWN style.
+					//    The *toaster* <ol> separately hardcodes width:var(--width)
+					//    = 356px, and since the toast is position:absolute with no
+					//    left/right of its own, that becomes its containing block —
+					//    the real ceiling fit-content grows against. The `style`
+					//    prop below overrides it on the toaster itself.
+					// 2. toastOptions.style is plain React style — a manual
+					//    `el.style.x = y` DOM mutation for testing gets silently
+					//    reverted by sonner's own re-render; only changing this
+					//    prop (and reloading) actually sticks.
 					//
-					// No custom offset — stays at sonner's own near-top default
-					// (~24px), matching the navbar-free toast's original position.
-					// The navbar (src/components/layout/Navbar.tsx) isn't
-					// fixed/sticky, so the toast's default top offset sits inside
-					// its height band, but the only real collision was a ~10px
-					// horizontal sliver against the avatar icon on the right —
-					// minWidth capped below the avatar's distance from the right
-					// edge (measured in a real browser) keeps the *common* (short)
-					// case clear of it without pushing the whole toast down. Once
-					// a message is long enough to grow past ~290px it can still
-					// reach the avatar again — that's a real tradeoff of sizing by
-					// content instead of by position, not re-verified against every
-					// message in the app.
+					// Tradeoff, not yet solved: the navbar's avatar
+					// (src/components/layout/Navbar.tsx) sits close enough to the
+					// right edge that a toast wide enough (~290px+) can still reach
+					// it — sizing purely by content means it's no longer reliably
+					// clear of fixed navbar elements the way a fixed width was.
 					style={{
 						'--width': 'min(460px, calc(100vw - 32px))',
 					} as React.CSSProperties}
 					toastOptions={{
 						style: {
 							width: 'fit-content',
-							minWidth: '260px',
 							maxWidth: 'min(460px, calc(100vw - 32px))',
 							fontSize: '15px',
 							padding: '16px 20px',
