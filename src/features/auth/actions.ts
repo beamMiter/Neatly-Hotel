@@ -185,6 +185,9 @@ export async function logout() {
   // revokes every session the account has — signing out on one laptop would
   // drop the same user's phone mid-booking.
   await supabase.auth.signOut({ scope: "local" });
-  await setFlashToast("signed-out");
-  redirect("/login");
+  // No redirect() here, unlike login()/resetPassword() — this is called via a
+  // direct startTransition(() => logout()) from a client onClick, not a form
+  // action, and a cookie set here wasn't reliably landing before the
+  // redirect's navigation for that invocation shape. Caller shows the toast
+  // and navigates client-side instead (see Navbar.tsx / admin-sidebar.tsx).
 }
