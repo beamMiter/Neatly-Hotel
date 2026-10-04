@@ -9,9 +9,8 @@ import Image from 'next/image';
 import Link, { useLinkStatus } from 'next/link';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
-import { toast } from 'sonner';
 import { logout } from '@/features/auth/actions';
-import { FLASH_TOAST_MESSAGES } from '@/features/auth/flash-toast';
+import { queueFlashToast } from '@/features/auth/flash-toast';
 import { UserIcon } from '@/components/icons/UserIcon';
 import type { AccountSummary } from '@/types/account';
 import type { NotificationItem } from '@/types/notifications';
@@ -213,7 +212,7 @@ const AccountMenu = ({ account, isAdmin }: { account: AccountSummary; isAdmin: b
 								onClick={() =>
 									startTransition(async () => {
 										await logout();
-										toast.success(FLASH_TOAST_MESSAGES['signed-out']);
+										queueFlashToast('signed-out');
 										router.push('/login');
 									})
 								}
@@ -373,7 +372,7 @@ const Navbar = ({ hideLogin = false, logoUrl, hotelName = 'Neatly Hotel', accoun
 											setIsMenuOpen(false);
 											startMobileLogout(async () => {
 												await logout();
-												toast.success(FLASH_TOAST_MESSAGES['signed-out']);
+												queueFlashToast('signed-out');
 												router.push('/login');
 											});
 										}}

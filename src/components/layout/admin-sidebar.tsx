@@ -4,9 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
-import { toast } from "sonner";
 import { logout } from "@/features/auth/actions";
-import { FLASH_TOAST_MESSAGES } from "@/features/auth/flash-toast";
+import { queueFlashToast } from "@/features/auth/flash-toast";
 import { MenuIcon } from "@/components/icons/MenuIcon";
 import { CloseIcon } from "@/components/icons/CloseIcon";
 
@@ -139,7 +138,7 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
           onClick={() =>
             startTransition(async () => {
               await logout();
-              toast.success(FLASH_TOAST_MESSAGES["signed-out"]);
+              queueFlashToast("signed-out");
               router.push("/login");
             })
           }

@@ -8,6 +8,7 @@ import { SelectField } from "@/components/ui/SelectField";
 import { DateOfBirthField } from "@/components/ui/DateOfBirthField";
 import { PhotoUpload } from "./PhotoUpload";
 import { toast } from "sonner";
+import { queueFlashToast } from "@/features/auth/flash-toast";
 import { COUNTRIES } from "@/lib/countries";
 import {
   registerSchema,
@@ -101,7 +102,7 @@ export function RegisterForm() {
         return;
       }
 
-      toast.success("Account created!", { description: "Please log in to continue." });
+      queueFlashToast("account-created");
       router.push("/login");
       return;
     } catch {

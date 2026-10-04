@@ -3,9 +3,8 @@
 import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
 import { createClient } from "@/server/db/supabase-browser";
-import { FLASH_TOAST_MESSAGES } from "@/features/auth/flash-toast";
+import { queueFlashToast } from "@/features/auth/flash-toast";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -26,7 +25,7 @@ export default function AdminLoginPage() {
       setIsLoading(false);
       return;
     }
-    toast.success(FLASH_TOAST_MESSAGES["signed-in"]);
+    queueFlashToast("signed-in");
     router.replace("/chatbot-setup");
     router.refresh();
   }

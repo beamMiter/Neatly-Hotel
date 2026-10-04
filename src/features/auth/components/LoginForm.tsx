@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useRef } from "react";
 import { login } from "@/features/auth/actions";
 import { toast } from "sonner";
-import { FLASH_TOAST_MESSAGES } from "@/features/auth/flash-toast";
+import { queueFlashToast } from "@/features/auth/flash-toast";
 import { inter, openSans } from "@/lib/fonts";
 
 type LoginFormProps = {
@@ -36,11 +36,13 @@ export function LoginForm({ redirectTo, justResetPassword }: LoginFormProps) {
 
   // login() returns a destination instead of calling redirect() itself —
   // redirect() inside the action didn't reliably show a toast queued just
-  // before it, so the navigation (and the toast) happen here instead, same
-  // as logout() in Navbar.tsx / admin-sidebar.tsx.
+  // before it, so the navigation happens here instead, same as logout() in
+  // Navbar.tsx / admin-sidebar.tsx. queueFlashToast (not toast.success
+  // directly) so the toast appears once the destination page has mounted,
+  // not as a flash on this page a moment before router.push takes over.
   useEffect(() => {
     if (state && "redirectTo" in state) {
-      toast.success(FLASH_TOAST_MESSAGES["signed-in"]);
+      queueFlashToast("signed-in");
       router.push(state.redirectTo);
     }
   }, [state, router]);
