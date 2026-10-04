@@ -5,9 +5,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/server/db/supabase-browser";
 import { PlusIcon } from "@/components/icons/PlusIcon";
 import { RoomDeleteDialog } from "@/features/room-management/components/room-delete-dialog";
-import { RoomActionToast } from "@/features/room-management/components/room-action-toast";
 import { RoomStatusSelect } from "@/features/room-management/components/room-status-select";
 import { formatRoomLocation } from "@/lib/rooms/layout-rooms";
+import { toast } from "sonner";
 import type { Room, RoomStatus } from "@/types/rooms";
 
 const PAGE_SIZE = 9;
@@ -15,10 +15,6 @@ const PAGE_SIZE = 9;
 type RoomManagementViewProps = {
   rooms: Room[];
 };
-
-type DeleteFeedback =
-  | { type: "success"; message: string }
-  | { type: "error"; message: string };
 
 export function RoomManagementView({
   rooms: initialRooms,
@@ -29,7 +25,6 @@ export function RoomManagementView({
   const [updatingRoomId, setUpdatingRoomId] = useState<string | null>(null);
   const [roomToDelete, setRoomToDelete] = useState<Room | null>(null);
   const [deletingRoomId, setDeletingRoomId] = useState<string | null>(null);
-  const [deleteFeedback, setDeleteFeedback] = useState<DeleteFeedback | null>(null);
   const refreshRequestId = useRef(0);
 
   const refreshRooms = useCallback(async () => {
@@ -126,9 +121,11 @@ export function RoomManagementView({
           ),
         );
       }
+      toast.success(`Room status updated to ${status}.`);
     } catch (error) {
       console.error("[room-management] Failed to update status:", error);
       setRooms(previousRooms);
+      toast.error("Unable to update the room status. Please try again.");
     } finally {
       setUpdatingRoomId(null);
     }
@@ -158,17 +155,11 @@ export function RoomManagementView({
       }
 
       setRoomToDelete(null);
-      setDeleteFeedback({
-        type: "success",
-        message: `Room ${roomToDelete.roomNo} deleted successfully.`,
-      });
+      toast.success(`Room ${roomToDelete.roomNo} deleted successfully.`);
     } catch (error) {
       console.error("[room-management] Failed to delete room:", error);
       setRooms(previousRooms);
-      setDeleteFeedback({
-        type: "error",
-        message: "Unable to delete the room. Please try again.",
-      });
+      toast.error("Unable to delete the room. Please try again.");
     } finally {
       setDeletingRoomId(null);
     }
@@ -315,10 +306,6 @@ export function RoomManagementView({
           setRoomToDelete(null);
         }}
         onConfirm={handleConfirmDelete}
-      />
-      <RoomActionToast
-        feedback={deleteFeedback}
-        onDismiss={() => setDeleteFeedback(null)}
       />
     </div>
   );

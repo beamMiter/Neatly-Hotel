@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
 import type { CustomerBookingDetail } from "@/types/customer-booking";
 
 type BookingStayActionsProps = {
@@ -38,6 +39,7 @@ export function BookingStayActions({ booking }: BookingStayActionsProps) {
         return;
       }
 
+      toast.success(action === "check-in" ? "Guest checked in." : "Guest checked out.");
       router.refresh();
     } catch {
       setError(`Failed to ${action.replace("-", " ")}`);

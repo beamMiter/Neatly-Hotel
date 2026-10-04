@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { CloseIcon } from "@/components/icons/CloseIcon";
 import {
   getAdminEditPaymentAmount,
@@ -79,6 +80,7 @@ function UpgradeRoomModal({
         return;
       }
 
+      toast.success("Room upgraded.");
       onClose();
       router.refresh();
     } catch {

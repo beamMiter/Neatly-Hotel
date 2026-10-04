@@ -4,6 +4,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { Room } from "@/types/rooms";
 
+const mocks = vi.hoisted(() => ({
+  toastSuccess: vi.fn(),
+  toastError: vi.fn(),
+}));
+
+vi.mock("sonner", () => ({
+  toast: { success: mocks.toastSuccess, error: mocks.toastError },
+}));
+
 vi.mock("next/link", () => ({
   default: ({ children, ...props }: React.ComponentProps<"a">) => (
     <a {...props}>{children}</a>
@@ -62,9 +71,7 @@ describe("RoomManagementView delete feedback", () => {
     await confirmDelete();
 
     await waitFor(() => {
-      expect(screen.getByRole("status").textContent).toContain(
-        "Room 101 deleted successfully.",
-      );
+      expect(mocks.toastSuccess).toHaveBeenCalledWith("Room 101 deleted successfully.");
     });
   });
 
@@ -78,9 +85,7 @@ describe("RoomManagementView delete feedback", () => {
     await confirmDelete();
 
     await waitFor(() => {
-      expect(screen.getByRole("status").textContent).toContain(
-        "Unable to delete the room. Please try again.",
-      );
+      expect(mocks.toastError).toHaveBeenCalledWith("Unable to delete the room. Please try again.");
     });
   });
 });

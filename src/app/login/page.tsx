@@ -10,10 +10,11 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = await searchParams;
   const rawRedirect = params.redirectTo;
   const redirectTo = typeof rawRedirect === "string" && isSafeRedirectPath(rawRedirect) ? rawRedirect : undefined;
+  const justResetPassword = params.reset === "success";
 
   return (
     <AuthPageShell title="Log In">
-      <LoginForm redirectTo={redirectTo} />
+      <LoginForm redirectTo={redirectTo} justResetPassword={justResetPassword} />
     </AuthPageShell>
   );
 }

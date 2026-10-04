@@ -166,7 +166,7 @@ export async function resetPassword(_prevState: NewPasswordState, formData: Form
   cookieStore.delete(RECOVERY_COOKIE_NAME);
   await supabase.auth.signOut();
 
-  redirect("/login");
+  redirect("/login?reset=success");
 }
 
 export async function logout() {
