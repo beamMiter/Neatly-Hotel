@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { ChevronDownIcon } from "@/components/icons/ChevronDownIcon";
 import { CardSkeletonOverlay } from "@/components/shared/CardSkeletonOverlay";
 import { useDelayedFlag } from "@/lib/useDelayedFlag";
@@ -103,6 +104,7 @@ export function CreateRoomForm({ roomTypes }: CreateRoomFormProps) {
         throw new Error(payload.error ?? "Failed to create room");
       }
 
+      toast.success("Room created.");
       router.push("/room-management");
       router.refresh();
     } catch (error) {

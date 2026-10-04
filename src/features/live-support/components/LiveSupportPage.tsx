@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import type { SupportBooking, SupportBookingProposal, SupportConversation, SupportConversationStatus, SupportMessage } from "@/types/live-support";
 import { useLiveSupportAdmin } from "@/features/live-support/components/useLiveSupportAdmin";
 import { decodeSupportBookingProposal } from "@/lib/support-booking-proposal";
@@ -861,6 +862,7 @@ function CreateBookingDialog({ conversation, onClose, onCreated }: {
       if (!response.ok) {
         throw new Error(data.error ?? data.message ?? "Unable to send booking proposal");
       }
+      toast.success("Booking proposal sent.");
       onCreated(data.supportMessage);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to send booking proposal");
@@ -939,6 +941,7 @@ function ConversationBookingCard({
       const data = await readBookingApiResponse<{ error?: string; message?: string }>(response);
       if (!response.ok) throw new Error(data.error ?? data.message ?? "Unable to cancel booking");
       setIsConfirmingCancellation(false);
+      toast.success("Booking cancelled.");
       onCancelled();
     } catch (error) {
       setCancelError(error instanceof Error ? error.message : "Unable to cancel booking");

@@ -1,11 +1,23 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { resetPassword } from "@/features/auth/actions";
+import { toast } from "sonner";
 import { inter, openSans } from "@/lib/fonts";
 
 export function NewPasswordForm() {
   const [state, action, pending] = useActionState(resetPassword, undefined);
+
+  useEffect(() => {
+    // The action only ever returns one message here — "This reset link has
+    // expired. Request a new one and try again." — split as a hardcoded
+    // title/description rather than parsed, since it's the only case.
+    if (state?.message) {
+      toast.error("Reset link expired", {
+        description: "Request a new one and try again.",
+      });
+    }
+  }, [state]);
 
   return (
     <form action={action} className="flex w-full max-w-113 flex-col gap-10">
@@ -42,8 +54,6 @@ export function NewPasswordForm() {
           <p className="text-xs text-red-600">{state.fieldErrors.confirmPassword}</p>
         )}
       </div>
-
-      {state?.message && <p className="text-sm text-red-600">{state.message}</p>}
 
       <button
         type="submit"

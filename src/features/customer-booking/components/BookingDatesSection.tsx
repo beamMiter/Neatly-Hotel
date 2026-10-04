@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
+import { toast } from "sonner";
 import { CloseIcon } from "@/components/icons/CloseIcon";
 import { CardSkeletonOverlay } from "@/components/shared/CardSkeletonOverlay";
 import { useDelayedFlag } from "@/lib/useDelayedFlag";
@@ -144,6 +145,7 @@ function EditDatesModal({
         return;
       }
 
+      toast.success("Booking dates updated.");
       onClose();
       router.refresh();
     } catch {

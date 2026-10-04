@@ -4,7 +4,7 @@ import { useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from "recharts";
 import type { BookingTrendDay } from "@/types/analytics";
 import { PeriodDropdown } from "@/features/analytics/components/PeriodDropdown";
-import { ErrorToast, useErrorMessage } from "@/features/analytics/components/ErrorToast";
+import { toast } from "sonner";
 
 type BookingTrendsPeriodKey = "month" | "last_month" | "last_2_months";
 
@@ -18,7 +18,6 @@ export function BookingTrendsCard({ initialData }: { initialData: BookingTrendDa
   const [period, setPeriod] = useState<BookingTrendsPeriodKey>("month");
   const [data, setData] = useState(initialData);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError, isErrorLeaving] = useErrorMessage();
 
   async function handlePeriodChange(nextPeriod: BookingTrendsPeriodKey) {
     setPeriod(nextPeriod);
@@ -30,7 +29,7 @@ export function BookingTrendsCard({ initialData }: { initialData: BookingTrendDa
       setData(json.data);
     } catch (err) {
       console.error("[booking-trends] failed to refetch:", err);
-      setError("Something went wrong, unable to provide details");
+      toast.error("Something went wrong, unable to provide details");
     } finally {
       setIsLoading(false);
     }
@@ -38,8 +37,6 @@ export function BookingTrendsCard({ initialData }: { initialData: BookingTrendDa
 
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-brand-border bg-white p-5">
-      {error && <ErrorToast message={error} isLeaving={isErrorLeaving} />}
-
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-brand-primary">Booking Trends by Day</h2>
         <PeriodDropdown value={period} options={PERIOD_OPTIONS} onChange={handlePeriodChange} />

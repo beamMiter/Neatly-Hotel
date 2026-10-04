@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import { CloseIcon } from "@/components/icons/CloseIcon";
 import { PlusIcon } from "@/components/icons/PlusIcon";
 import { CardSkeletonOverlay } from "@/components/shared/CardSkeletonOverlay";
@@ -24,7 +25,6 @@ export function HotelInformationView({ hotel }: HotelInformationViewProps) {
   const [saving, setSaving] = useState(false);
   const showSkeleton = useDelayedFlag(saving);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
 
   const previewUrl = useMemo(() => {
     if (logoFile) return URL.createObjectURL(logoFile);
@@ -51,7 +51,6 @@ export function HotelInformationView({ hotel }: HotelInformationViewProps) {
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
-    setSuccess(false);
 
     if (!name.trim() || !description.trim()) {
       setError("Hotel name and description are required.");
@@ -96,7 +95,7 @@ export function HotelInformationView({ hotel }: HotelInformationViewProps) {
         setRemoveLogo(false);
       }
 
-      setSuccess(true);
+      toast.success("Hotel information updated.");
     } catch (submitError) {
       console.error("[hotel-information] Update failed:", submitError);
       setError("Could not update hotel information. Please try again.");
@@ -218,11 +217,6 @@ export function HotelInformationView({ hotel }: HotelInformationViewProps) {
 
             {error ? (
               <p className="text-[13px] text-[#C83B3B]">{error}</p>
-            ) : null}
-            {success ? (
-              <p className="text-[13px] text-[#2F9B6A]">
-                Hotel information updated.
-              </p>
             ) : null}
           </div>
 

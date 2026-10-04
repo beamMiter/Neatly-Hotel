@@ -7,7 +7,7 @@ import type { OccupancyPoint, OccupancyByRoomTypeSeries, GuestVisitBreakdown, Pa
 import { DateField } from "@/features/analytics/components/DateField";
 import { PeriodDropdown } from "@/features/analytics/components/PeriodDropdown";
 import { ExportButton } from "@/features/analytics/components/ExportButton";
-import { ErrorToast, useErrorMessage } from "@/features/analytics/components/ErrorToast";
+import { toast } from "sonner";
 import { TouchTooltipChart } from "@/features/analytics/components/TouchTooltipChart";
 import { CreditCardIcon } from "@/components/icons/CreditCardIcon";
 import { CashIcon } from "@/components/icons/CashIcon";
@@ -83,7 +83,6 @@ export function OccupancyGuestCard({ initialData, initialFrom, initialTo }: { in
   const [to, setTo] = useState(initialTo);
   const [viewBy, setViewBy] = useState<ViewByKey>("overall");
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError, isErrorLeaving] = useErrorMessage();
 
   async function refetch(nextFrom: Date, nextTo: Date) {
     setIsLoading(true);
@@ -95,7 +94,7 @@ export function OccupancyGuestCard({ initialData, initialFrom, initialTo }: { in
       setData(await response.json());
     } catch (err) {
       console.error("[occupancy] failed to refetch:", err);
-      setError("Something went wrong, unable to provide details");
+      toast.error("Something went wrong, unable to provide details");
     } finally {
       setIsLoading(false);
     }
@@ -107,8 +106,6 @@ export function OccupancyGuestCard({ initialData, initialFrom, initialTo }: { in
 
   return (
     <div className="flex flex-col gap-5 rounded-lg border border-brand-border bg-white p-5">
-      {error && <ErrorToast message={error} isLeaving={isErrorLeaving} />}
-
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-brand-primary">Occupancy & Guest</h2>
 

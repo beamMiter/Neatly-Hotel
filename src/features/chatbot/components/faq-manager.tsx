@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { toast } from "sonner";
 import type { ChatbotSettings, ChatbotSuggestion, ChatbotSuggestionTranslation } from "@/types/chatbot";
 import {
   createChatbotSuggestion,
@@ -100,7 +101,6 @@ export default function FaqManager({ initialSettings, initialSuggestions, roomTy
   const [isSaving, setIsSaving] = useState(false);
   const [presetTopics, setPresetTopics] = useState(initialSuggestions.length ? initialSuggestions.map(fromSuggestion) : defaultTopics.map((topic) => fromSuggestion({ ...topic, format: topic.format as PresetTopic["format"], rooms: topic.format === "Room type" ? [...selectableRoomTypes] : [], options: topic.options ?? [], button_name: topic.buttonName ?? null, is_active: true, sort_order: 0 })));
   const [saveError, setSaveError] = useState("");
-  const [saveSuccess, setSaveSuccess] = useState("");
   const [isAddingTopic, setIsAddingTopic] = useState(false);
   const [newTopic, setNewTopic] = useState("");
   const [newReplyFormat, setNewReplyFormat] = useState<PresetTopic["format"] | "">("");
@@ -155,6 +155,7 @@ export default function FaqManager({ initialSettings, initialSuggestions, roomTy
     const topic = { id: `topic-${crypto.randomUUID()}`, format: newReplyFormat, rooms: newReplyFormat === "Room type" ? selectedRooms : [], translations } satisfies PresetTopic;
     try { await createChatbotSuggestion(toSuggestion(topic, presetTopics.length) as Omit<ChatbotSuggestion, "created_at" | "updated_at">); } catch (error) { setSaveError(error instanceof Error ? error.message : "Unable to save suggestion"); return; }
     setSaveError("");
+    toast.success("FAQ suggestion created.");
     setPresetTopics((current) => [...current, topic]);
     setIsAddingTopic(false);
     setNewTopic("");
@@ -222,6 +223,7 @@ export default function FaqManager({ initialSettings, initialSuggestions, roomTy
     const sortOrder = presetTopics.findIndex((topic) => topic.id === updated.id);
     try { await updateChatbotSuggestion(updated.id, toSuggestion(updated, sortOrder)); } catch (error) { setSaveError(error instanceof Error ? error.message : "Unable to save suggestion"); return; }
     setSaveError("");
+    toast.success("FAQ suggestion updated.");
     setPresetTopics((current) => current.map((topic) => topic.id === updated.id ? updated : topic));
     setEditingTopic(null);
     setIsEditingRoomDropdownOpen(false);
@@ -257,6 +259,7 @@ export default function FaqManager({ initialSettings, initialSuggestions, roomTy
     if (!deletingTopic) return;
     try { await deleteChatbotSuggestion(deletingTopic.id); } catch (error) { setSaveError(error instanceof Error ? error.message : "Unable to delete suggestion"); return; }
     setSaveError("");
+    toast.success("FAQ suggestion deleted.");
     setPresetTopics((current) => current.filter((topic) => topic.id !== deletingTopic.id));
     setDeletingTopic(null);
   }
@@ -270,14 +273,13 @@ export default function FaqManager({ initialSettings, initialSuggestions, roomTy
       const [movedTopic] = reordered.splice(sourceIndex, 1);
       reordered.splice(targetIndex, 0, movedTopic);
     setPresetTopics(reordered);
-    try { await Promise.all(reordered.map((topic, index) => updateChatbotSuggestion(topic.id, { sort_order: index }))); setSaveError(""); } catch (error) { setSaveError(error instanceof Error ? error.message : "Unable to reorder suggestions"); }
+    try { await Promise.all(reordered.map((topic, index) => updateChatbotSuggestion(topic.id, { sort_order: index }))); setSaveError(""); toast.success("FAQ order updated."); } catch (error) { setSaveError(error instanceof Error ? error.message : "Unable to reorder suggestions"); }
     setDraggedTopicId(null);
   }
 
   async function saveSettings(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsSaving(true);
-    setSaveSuccess("");
     try {
       const result = await saveChatbotSettings({
         greeting_message: settings.greeting_message.trim(),
@@ -290,7 +292,7 @@ export default function FaqManager({ initialSettings, initialSuggestions, roomTy
       });
       setSettings(result.settings);
       setSaveError("");
-      setSaveSuccess("บันทึกข้อความเรียบร้อยแล้ว");
+      toast.success("Chatbot settings saved.");
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "Unable to save settings");
     }
@@ -339,14 +341,14 @@ export default function FaqManager({ initialSettings, initialSuggestions, roomTy
                 </div>
               </div>
               {messageLocale === "th" ? (
-                <label className="grid w-full gap-1 text-base leading-6 text-[#2A2E3F]">Greeting message (ไทย) *<textarea className="h-24 w-full resize-none rounded-sm border border-[#D6D9E4] bg-white px-3 pt-3 pr-4 text-base leading-6 text-black outline-none focus:border-[#729280]" required value={settings.greeting_message_th} onChange={(event) => { setSettings({ ...settings, greeting_message_th: event.target.value }); setSaveSuccess(""); }} /></label>
+                <label className="grid w-full gap-1 text-base leading-6 text-[#2A2E3F]">Greeting message (ไทย) *<textarea className="h-24 w-full resize-none rounded-sm border border-[#D6D9E4] bg-white px-3 pt-3 pr-4 text-base leading-6 text-black outline-none focus:border-[#729280]" required value={settings.greeting_message_th} onChange={(event) => setSettings({ ...settings, greeting_message_th: event.target.value })} /></label>
               ) : (
-                <label className="grid w-full gap-1 text-base leading-6 text-[#2A2E3F]">Greeting message (English) *<textarea className="h-24 w-full resize-none rounded-sm border border-[#D6D9E4] bg-white px-3 pt-3 pr-4 text-base leading-6 text-black outline-none focus:border-[#729280]" required value={settings.greeting_message_en} onChange={(event) => { setSettings({ ...settings, greeting_message_en: event.target.value }); setSaveSuccess(""); }} /></label>
+                <label className="grid w-full gap-1 text-base leading-6 text-[#2A2E3F]">Greeting message (English) *<textarea className="h-24 w-full resize-none rounded-sm border border-[#D6D9E4] bg-white px-3 pt-3 pr-4 text-base leading-6 text-black outline-none focus:border-[#729280]" required value={settings.greeting_message_en} onChange={(event) => setSettings({ ...settings, greeting_message_en: event.target.value })} /></label>
               )}
               {messageLocale === "th" ? (
-                <label className="grid w-full gap-1 text-base leading-6 text-[#2A2E3F]">ข้อความเมื่อไม่พบคำตอบ *<textarea className="h-24 w-full resize-none rounded-sm border border-[#D6D9E4] bg-white px-3 pt-3 pr-4 text-base leading-6 text-black outline-none focus:border-[#729280]" required value={settings.auto_reply_message_th} onChange={(event) => { setSettings({ ...settings, auto_reply_message_th: event.target.value }); setSaveSuccess(""); }} /><span className="text-xs leading-5 text-[#646D89]">ระบบจะแสดงข้อความนี้เมื่อไม่สามารถตอบคำถามได้ พร้อมปุ่มถามใหม่และคุยกับเจ้าหน้าที่</span></label>
+                <label className="grid w-full gap-1 text-base leading-6 text-[#2A2E3F]">ข้อความเมื่อไม่พบคำตอบ *<textarea className="h-24 w-full resize-none rounded-sm border border-[#D6D9E4] bg-white px-3 pt-3 pr-4 text-base leading-6 text-black outline-none focus:border-[#729280]" required value={settings.auto_reply_message_th} onChange={(event) => setSettings({ ...settings, auto_reply_message_th: event.target.value })} /><span className="text-xs leading-5 text-[#646D89]">ระบบจะแสดงข้อความนี้เมื่อไม่สามารถตอบคำถามได้ พร้อมปุ่มถามใหม่และคุยกับเจ้าหน้าที่</span></label>
               ) : (
-                <label className="grid w-full gap-1 text-base leading-6 text-[#2A2E3F]">Fallback message *<textarea className="h-24 w-full resize-none rounded-sm border border-[#D6D9E4] bg-white px-3 pt-3 pr-4 text-base leading-6 text-black outline-none focus:border-[#729280]" required value={settings.auto_reply_message_en} onChange={(event) => { setSettings({ ...settings, auto_reply_message_en: event.target.value }); setSaveSuccess(""); }} /><span className="text-xs leading-5 text-[#646D89]">This message appears when the chatbot cannot answer a question.</span></label>
+                <label className="grid w-full gap-1 text-base leading-6 text-[#2A2E3F]">Fallback message *<textarea className="h-24 w-full resize-none rounded-sm border border-[#D6D9E4] bg-white px-3 pt-3 pr-4 text-base leading-6 text-black outline-none focus:border-[#729280]" required value={settings.auto_reply_message_en} onChange={(event) => setSettings({ ...settings, auto_reply_message_en: event.target.value })} /><span className="text-xs leading-5 text-[#646D89]">This message appears when the chatbot cannot answer a question.</span></label>
               )}
               <div className="flex flex-wrap items-center gap-4">
                 <button className="flex h-12 w-fit cursor-pointer items-center justify-center rounded-sm bg-[#C14817] px-8 text-base font-semibold text-white disabled:cursor-wait disabled:opacity-50" type="submit" disabled={isSaving}>
@@ -359,7 +361,6 @@ export default function FaqManager({ initialSettings, initialSuggestions, roomTy
                     "Save Messages"
                   )}
                 </button>
-                {saveSuccess && <p className="m-0 text-sm font-medium text-[#527865]" role="status">{saveSuccess}</p>}
               </div>
             </form>
 
