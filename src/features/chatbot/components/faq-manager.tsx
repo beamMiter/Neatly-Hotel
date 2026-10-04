@@ -101,7 +101,6 @@ export default function FaqManager({ initialSettings, initialSuggestions, roomTy
   const [isSaving, setIsSaving] = useState(false);
   const [presetTopics, setPresetTopics] = useState(initialSuggestions.length ? initialSuggestions.map(fromSuggestion) : defaultTopics.map((topic) => fromSuggestion({ ...topic, format: topic.format as PresetTopic["format"], rooms: topic.format === "Room type" ? [...selectableRoomTypes] : [], options: topic.options ?? [], button_name: topic.buttonName ?? null, is_active: true, sort_order: 0 })));
   const [saveError, setSaveError] = useState("");
-  const [saveSuccess, setSaveSuccess] = useState("");
   const [isAddingTopic, setIsAddingTopic] = useState(false);
   const [newTopic, setNewTopic] = useState("");
   const [newReplyFormat, setNewReplyFormat] = useState<PresetTopic["format"] | "">("");
@@ -281,7 +280,6 @@ export default function FaqManager({ initialSettings, initialSuggestions, roomTy
   async function saveSettings(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsSaving(true);
-    setSaveSuccess("");
     try {
       const result = await saveChatbotSettings({
         greeting_message: settings.greeting_message.trim(),
@@ -294,7 +292,7 @@ export default function FaqManager({ initialSettings, initialSuggestions, roomTy
       });
       setSettings(result.settings);
       setSaveError("");
-      setSaveSuccess("บันทึกข้อความเรียบร้อยแล้ว");
+      toast.success("Chatbot settings saved.");
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "Unable to save settings");
     }
@@ -343,14 +341,14 @@ export default function FaqManager({ initialSettings, initialSuggestions, roomTy
                 </div>
               </div>
               {messageLocale === "th" ? (
-                <label className="grid w-full gap-1 text-base leading-6 text-[#2A2E3F]">Greeting message (ไทย) *<textarea className="h-24 w-full resize-none rounded-sm border border-[#D6D9E4] bg-white px-3 pt-3 pr-4 text-base leading-6 text-black outline-none focus:border-[#729280]" required value={settings.greeting_message_th} onChange={(event) => { setSettings({ ...settings, greeting_message_th: event.target.value }); setSaveSuccess(""); }} /></label>
+                <label className="grid w-full gap-1 text-base leading-6 text-[#2A2E3F]">Greeting message (ไทย) *<textarea className="h-24 w-full resize-none rounded-sm border border-[#D6D9E4] bg-white px-3 pt-3 pr-4 text-base leading-6 text-black outline-none focus:border-[#729280]" required value={settings.greeting_message_th} onChange={(event) => setSettings({ ...settings, greeting_message_th: event.target.value })} /></label>
               ) : (
-                <label className="grid w-full gap-1 text-base leading-6 text-[#2A2E3F]">Greeting message (English) *<textarea className="h-24 w-full resize-none rounded-sm border border-[#D6D9E4] bg-white px-3 pt-3 pr-4 text-base leading-6 text-black outline-none focus:border-[#729280]" required value={settings.greeting_message_en} onChange={(event) => { setSettings({ ...settings, greeting_message_en: event.target.value }); setSaveSuccess(""); }} /></label>
+                <label className="grid w-full gap-1 text-base leading-6 text-[#2A2E3F]">Greeting message (English) *<textarea className="h-24 w-full resize-none rounded-sm border border-[#D6D9E4] bg-white px-3 pt-3 pr-4 text-base leading-6 text-black outline-none focus:border-[#729280]" required value={settings.greeting_message_en} onChange={(event) => setSettings({ ...settings, greeting_message_en: event.target.value })} /></label>
               )}
               {messageLocale === "th" ? (
-                <label className="grid w-full gap-1 text-base leading-6 text-[#2A2E3F]">ข้อความเมื่อไม่พบคำตอบ *<textarea className="h-24 w-full resize-none rounded-sm border border-[#D6D9E4] bg-white px-3 pt-3 pr-4 text-base leading-6 text-black outline-none focus:border-[#729280]" required value={settings.auto_reply_message_th} onChange={(event) => { setSettings({ ...settings, auto_reply_message_th: event.target.value }); setSaveSuccess(""); }} /><span className="text-xs leading-5 text-[#646D89]">ระบบจะแสดงข้อความนี้เมื่อไม่สามารถตอบคำถามได้ พร้อมปุ่มถามใหม่และคุยกับเจ้าหน้าที่</span></label>
+                <label className="grid w-full gap-1 text-base leading-6 text-[#2A2E3F]">ข้อความเมื่อไม่พบคำตอบ *<textarea className="h-24 w-full resize-none rounded-sm border border-[#D6D9E4] bg-white px-3 pt-3 pr-4 text-base leading-6 text-black outline-none focus:border-[#729280]" required value={settings.auto_reply_message_th} onChange={(event) => setSettings({ ...settings, auto_reply_message_th: event.target.value })} /><span className="text-xs leading-5 text-[#646D89]">ระบบจะแสดงข้อความนี้เมื่อไม่สามารถตอบคำถามได้ พร้อมปุ่มถามใหม่และคุยกับเจ้าหน้าที่</span></label>
               ) : (
-                <label className="grid w-full gap-1 text-base leading-6 text-[#2A2E3F]">Fallback message *<textarea className="h-24 w-full resize-none rounded-sm border border-[#D6D9E4] bg-white px-3 pt-3 pr-4 text-base leading-6 text-black outline-none focus:border-[#729280]" required value={settings.auto_reply_message_en} onChange={(event) => { setSettings({ ...settings, auto_reply_message_en: event.target.value }); setSaveSuccess(""); }} /><span className="text-xs leading-5 text-[#646D89]">This message appears when the chatbot cannot answer a question.</span></label>
+                <label className="grid w-full gap-1 text-base leading-6 text-[#2A2E3F]">Fallback message *<textarea className="h-24 w-full resize-none rounded-sm border border-[#D6D9E4] bg-white px-3 pt-3 pr-4 text-base leading-6 text-black outline-none focus:border-[#729280]" required value={settings.auto_reply_message_en} onChange={(event) => setSettings({ ...settings, auto_reply_message_en: event.target.value })} /><span className="text-xs leading-5 text-[#646D89]">This message appears when the chatbot cannot answer a question.</span></label>
               )}
               <div className="flex flex-wrap items-center gap-4">
                 <button className="flex h-12 w-fit cursor-pointer items-center justify-center rounded-sm bg-[#C14817] px-8 text-base font-semibold text-white disabled:cursor-wait disabled:opacity-50" type="submit" disabled={isSaving}>
@@ -363,7 +361,6 @@ export default function FaqManager({ initialSettings, initialSuggestions, roomTy
                     "Save Messages"
                   )}
                 </button>
-                {saveSuccess && <p className="m-0 text-sm font-medium text-[#527865]" role="status">{saveSuccess}</p>}
               </div>
             </form>
 

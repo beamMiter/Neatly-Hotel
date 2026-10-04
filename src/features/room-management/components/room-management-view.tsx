@@ -121,9 +121,11 @@ export function RoomManagementView({
           ),
         );
       }
+      toast.success(`Room status updated to ${status}.`);
     } catch (error) {
       console.error("[room-management] Failed to update status:", error);
       setRooms(previousRooms);
+      toast.error("Unable to update the room status. Please try again.");
     } finally {
       setUpdatingRoomId(null);
     }
