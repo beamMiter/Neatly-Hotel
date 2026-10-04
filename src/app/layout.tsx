@@ -82,11 +82,17 @@ const RootLayout = ({ children }: LayoutProps<'/'>) => {
 					//    reverted by sonner's own re-render; only changing this
 					//    prop (and reloading) actually sticks.
 					//
-					// Tradeoff, not yet solved: the navbar's avatar
-					// (src/components/layout/Navbar.tsx) sits close enough to the
-					// right edge that a toast wide enough (~290px+) can still reach
-					// it — sizing purely by content means it's no longer reliably
-					// clear of fixed navbar elements the way a fixed width was.
+					// Sits below the navbar (src/components/layout/Navbar.tsx,
+					// h-12 mobile / lg:h-25=100px desktop, not fixed/sticky so it
+					// never pushes a fixed-position toast down on its own) instead
+					// of overlapping it — matches the reference project's own
+					// positioning (its toast sits in the same below-the-navbar gap,
+					// confirmed by a screenshot of it running). This also makes
+					// the earlier width-vs-avatar tradeoff moot: once the toast's
+					// vertical band no longer overlaps the navbar's, no width is
+					// wide enough to reach anything in it.
+					offset={{ top: 100 + 16 }}
+					mobileOffset={{ top: 48 + 16 }}
 					style={{
 						'--width': 'min(460px, calc(100vw - 32px))',
 					} as React.CSSProperties}
