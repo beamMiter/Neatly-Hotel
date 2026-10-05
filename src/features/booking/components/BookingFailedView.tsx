@@ -135,7 +135,8 @@ export function BookingFailedView({
       {clientSecret && (
         <div className="flex w-full flex-col gap-10 rounded border border-[#E4E6ED] bg-white p-10">
           <Elements stripe={stripePromise}>
-            <RetryPaymentForm bookingId={bookingId} bookingCode={booking.bookingCode} clientSecret={clientSecret} />
+            <RetryPaymentForm bookingId={bookingId} bookingCode={booking.bookingCode} clientSecret={clientSecret}
+              onFailure={(message) => { setClientSecret(null); setError(message); }} />
           </Elements>
         </div>
       )}
@@ -147,10 +148,12 @@ function RetryPaymentForm({
   bookingId,
   bookingCode,
   clientSecret,
+  onFailure,
 }: {
   bookingId: string;
   bookingCode: string;
   clientSecret: string;
+  onFailure: (message: string) => void;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -175,7 +178,7 @@ function RetryPaymentForm({
     setIsSubmitting(false);
 
     if (confirmError) {
-      setError(confirmError.message ?? "Payment failed again — please check your card details");
+      onFailure(confirmError.message ?? "Payment failed again — please check your card details");
       return;
     }
 

@@ -87,8 +87,21 @@ export async function refundPayment(
   paymentIntentId: string,
   idempotencyKey?: string,
 ): Promise<Stripe.Refund> {
-  return getStripe().refunds.create(
+  // Idempotency keys expire at Stripe. Check the actual charge too so a
+  // delayed webhook or a cancellation retried days later remains harmless.
+  const intent = await getStripe().paymentIntents.retrieve(paymentIntentId, { expand: ["latest_charge"] });
+  const charge = intent.latest_charge;
+  if (charge && typeof charge !== "string" && charge.refunded) {
+    const refunds = await getStripe().refunds.list({ payment_intent: paymentIntentId, limit: 100 });
+    const existing = refunds.data.find((refund) => refund.status === "succeeded");
+    if (existing) return existing;
+  }
+  const refund = await getStripe().refunds.create(
     { payment_intent: paymentIntentId },
     idempotencyKey ? { idempotencyKey } : undefined,
   );
+  if (refund.status === "failed" || refund.status === "canceled") {
+    throw new Error("The payment refund did not succeed");
+  }
+  return refund;
 }

@@ -1,0 +1,94 @@
+// Audit reproduction: copy to tests/server/audit-regressions.test.ts to run.
+import { beforeEach, expect, it, vi } from "vitest";
+
+vi.mock("server-only", () => ({}));
+const mocks = vi.hoisted(() => ({
+  queryRaw: vi.fn(), updateMany: vi.fn(), from: vi.fn(),
+  refund: vi.fn(), cancelIntent: vi.fn(), notify: vi.fn(),
+}));
+vi.mock("@/server/db", () => ({ prisma: {
+  $queryRaw: mocks.queryRaw, booking: { updateMany: mocks.updateMany },
+} }));
+vi.mock("@/server/db/supabase-admin", () => ({ supabaseAdmin: { from: mocks.from } }));
+vi.mock("@/server/payments/stripe", () => ({
+  refundPayment: mocks.refund, cancelPaymentIntent: mocks.cancelIntent,
+  createBookingPaymentIntent: vi.fn(), retrieveChargeWithCard: vi.fn(), retrievePaymentIntent: vi.fn(),
+}));
+vi.mock("@/server/queries/notifications.query", () => ({ createNotification: mocks.notify }));
+vi.mock("@/server/services/booking-confirmation-email", () => ({ maybeSendGuestBookingConfirmationEmail: vi.fn() }));
+
+import { cancelBooking, getBookingPaymentBalance, isTopUpPaymentEligible, updateBookingPaymentStatus } from "@/server/queries/bookings.query";
+import type { BookingRecord } from "@/types/booking";
+
+const id = "11111111-1111-1111-1111-111111111111";
+function row(overrides: Record<string, unknown> = {}) {
+  return {
+    id, booking_code: "AUDIT", customer_id: null, status: "confirmed",
+    payment_status: "paid", payment_method: "credit_card", total_amount: 1500,
+    check_in: "2026-12-01", check_out: "2026-12-03", guests: 2,
+    room_type_id: id, room_type_name: "Test", rooms_count: 1,
+    guest_first_name: "Test", guest_last_name: "Guest", guest_email: "guest@example.com",
+    guest_phone: "0812345678", guest_date_of_birth: "1990-01-01", guest_country: "Thailand",
+    standard_requests: [], special_requests: [], additional_request: null,
+    promo_code: null, discount_amount: 0, created_at: new Date().toISOString(),
+    cancelled_at: null, card_brand: null, card_last4: null, ...overrides,
+  };
+}
+
+beforeEach(() => {
+  vi.resetAllMocks();
+  mocks.updateMany.mockResolvedValue({ count: 1 });
+  mocks.refund.mockResolvedValue({});
+  const chain = { select: vi.fn(), eq: vi.fn(), order: vi.fn() };
+  chain.select.mockReturnValue(chain);
+  chain.eq.mockReturnValue(chain);
+  chain.order.mockResolvedValue({ data: [{ stripe_payment_intent_id: "pi_initial", status: "succeeded", amount: 1000 }], error: null });
+  mocks.from.mockReturnValue(chain);
+});
+
+it("baseline: fully paid cancellation refunds the captured payment", async () => {
+  mocks.queryRaw.mockResolvedValueOnce([row()]).mockResolvedValueOnce([row({ status: "refunded" })]);
+  expect((await cancelBooking(id, null)).refunded).toBe(true);
+  expect(mocks.refund).toHaveBeenCalledWith("pi_initial", `refund_${id}_pi_initial`);
+});
+
+it("refunds the original captured payment while an admin top-up is still pending", async () => {
+  mocks.queryRaw.mockResolvedValueOnce([row({ payment_status: "pending" })])
+    .mockResolvedValueOnce([row({ status: "cancelled", payment_status: "pending" })]);
+  await cancelBooking(id, null);
+  expect(mocks.refund).toHaveBeenCalledWith("pi_initial", `refund_${id}_pi_initial`);
+});
+
+it("does not treat a payment read outage as zero money paid", async () => {
+  mocks.queryRaw.mockResolvedValue([{ total_amount: 1500 }]);
+  const chain = { select: vi.fn(), eq: vi.fn(), order: vi.fn() };
+  chain.select.mockReturnValue(chain);
+  chain.eq.mockReturnValue(chain);
+  chain.order.mockResolvedValue({ data: null, error: { message: "temporary read failure" } });
+  mocks.from.mockReturnValue(chain);
+  await expect(getBookingPaymentBalance(id)).rejects.toThrow();
+});
+
+it("does not offer another charge on a cancelled booking", () => {
+  const booking = { status: "cancelled", paymentStatus: "pending" } as BookingRecord;
+  expect(isTopUpPaymentEligible(booking, { amountDue: 1500 })).toBe(false);
+});
+
+it("cancels the outstanding payment intent when the unpaid booking is cancelled", async () => {
+  mocks.queryRaw.mockResolvedValueOnce([row({ status: "pending_payment", payment_status: "pending" })])
+    .mockResolvedValueOnce([row({ status: "cancelled", payment_status: "pending" })]);
+  await cancelBooking(id, null);
+  expect(mocks.cancelIntent).toHaveBeenCalled();
+});
+
+it("reconciles a successful retry on the same intent after its earlier failed event", async () => {
+  const state: Record<string, unknown> = { id, status: "pending_payment", paymentStatus: "pending" };
+  mocks.updateMany.mockImplementation(async ({ where, data }) => {
+    if (!Object.entries(where).every(([key, value]) => state[key] === value)) return { count: 0 };
+    Object.assign(state, data);
+    return { count: 1 };
+  });
+  await updateBookingPaymentStatus(id, "failed");
+  await updateBookingPaymentStatus(id, "paid", "credit_card");
+  expect(state.paymentStatus).toBe("paid");
+});

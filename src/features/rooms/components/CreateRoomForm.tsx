@@ -338,6 +338,7 @@ export function CreateRoomForm() {
 
           <section className="flex flex-col gap-4">
             <h2 className="text-sm font-medium text-brand-muted">Room Image</h2>
+            <p className="text-xs text-brand-muted">Up to 5MB per image, 30MB total.</p>
 
             <div className="flex flex-col gap-1.5">
               <span className="text-sm text-brand-body">Main Image *</span>

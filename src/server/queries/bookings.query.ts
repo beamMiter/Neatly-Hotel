@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/server/db";
 import { supabaseAdmin } from "@/server/db/supabase-admin";
 import { createNotification } from "@/server/queries/notifications.query";
+import { PAYMENT_REQUIRES_REFUND } from "@/server/queries/payment-attempts.query";
 import {
   isChangeDateEligible,
   isRefundEligible,
@@ -485,16 +486,11 @@ export async function getBookingPaymentBalance(bookingId: string): Promise<Booki
 
   if (error) {
     console.error("[bookings] failed to fetch payment balance:", error);
-    return {
-      totalAmount,
-      paidAmount: 0,
-      amountDue: totalAmount,
-      cardBrand: null,
-      cardLast4: null,
-    };
+    throw new Error("Unable to verify the outstanding payment balance. Please try again.");
   }
 
-  const rows = data ?? [];
+  if (!Array.isArray(data)) throw new Error("Unable to verify payment records");
+  const rows = data;
   const paidAmount = rows
     .filter((row) => row.status === "succeeded")
     .reduce((sum, row) => sum + Number(row.amount), 0);
@@ -516,7 +512,7 @@ export function isTopUpPaymentEligible(
   return (
     balance.amountDue > 0 &&
     booking.paymentStatus === "pending" &&
-    booking.status !== "pending_payment"
+    ["confirmed", "checked_in"].includes(booking.status)
   );
 }
 
@@ -573,108 +569,182 @@ export async function createTopUpPaymentAttempt(
   bookingId: string,
   amountThb: number,
 ): Promise<{ clientSecret: string }> {
+  return createPaymentAttempt(bookingId, amountThb, true);
+}
+
+export async function getAdminBookingPaymentState(bookingId: string) {
+  const [booking] = await prisma.$queryRaw<{ status: string; payment_status: string }[]>`
+    select status, payment_status from bookings where id = ${bookingId}::uuid`;
+  if (!booking) throw new BookingNotFoundError();
+  return { status: booking.status, paymentStatus: booking.payment_status };
+}
+
+export async function createInitialPaymentAttempt(
+  bookingId: string,
+  amountThb: number,
+): Promise<{ clientSecret: string }> {
+  return createPaymentAttempt(bookingId, amountThb, false);
+}
+
+// Serialize creation with cancellation and settlement. A secret is exposed only
+// after its ledger row commits. Stripe calls have a bounded transaction timeout;
+// an uncommitted new intent is torn down if any subsequent operation fails.
+async function createPaymentAttempt(bookingId: string, amountThb: number, topUp: boolean) {
   if (amountThb < MIN_CHARGE_THB) {
     throw new AmountTooLowError(`Amount due must be at least THB ${MIN_CHARGE_THB}`);
   }
-
-  const priorResolution = await resolvePriorIntentToCancel(bookingId);
-  if ("readError" in priorResolution) {
-    throw new Error("Failed to create a new payment attempt");
-  }
-  if ("blocked" in priorResolution) {
-    throw new PaymentIntentBlockedError(priorResolution.blocked);
-  }
-
-  const paymentIntent = await createBookingPaymentIntent({
-    bookingId,
-    amountThb,
-    paymentKind: "top_up",
-  });
-
-  const { error: insertError } = await supabaseAdmin.from("payments").insert({
-    booking_id: bookingId,
-    stripe_payment_intent_id: paymentIntent.id,
-    amount: amountThb,
-    currency: "thb",
-    status: "requires_payment_method",
-  });
-
-  if (insertError) {
-    console.error("[bookings] failed to insert top-up payments row:", insertError);
-    await cancelPaymentIntent(paymentIntent.id).catch((error) => {
-      console.error("[bookings] failed to cancel orphaned top-up intent:", error);
+  let newIntentId: string | undefined;
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const [booking] = await tx.$queryRaw<{
+        status: string; payment_status: string; total_amount: number; cancelled_at: Date | null;
+      }[]>`select status, payment_status, total_amount, cancelled_at
+           from bookings where id = ${bookingId}::uuid for update`;
+      if (!booking || booking.cancelled_at || booking.payment_status !== "pending" ||
+          !(topUp ? ["confirmed", "checked_in"].includes(booking.status) : booking.status === "pending_payment")) {
+        throw new PaymentIntentBlockedError("This booking can no longer accept this payment");
+      }
+      const payments = await tx.$queryRaw<{
+        stripe_payment_intent_id: string; status: string; amount: number;
+      }[]>`select stripe_payment_intent_id, status, amount from payments
+           where booking_id = ${bookingId}::uuid order by created_at`;
+      const paid = payments.filter((p) => p.status === "succeeded").reduce((sum, p) => sum + Number(p.amount), 0);
+      const due = Math.max(0, Number(booking.total_amount) - paid);
+      if (!Number.isFinite(due) || Math.round(due * 100) !== Math.round(amountThb * 100) || due < MIN_CHARGE_THB) {
+        throw new PaymentIntentBlockedError("The outstanding balance changed. Please refresh before paying.");
+      }
+      for (const payment of payments) {
+        if (["succeeded", "canceled"].includes(payment.status)) continue;
+        const intent = await retrievePaymentIntent(payment.stripe_payment_intent_id);
+        if (["succeeded", "processing", "requires_capture"].includes(intent.status)) {
+          throw new PaymentIntentBlockedError("A payment is already going through. Please wait a moment.");
+        }
+        if (intent.status !== "canceled") await cancelPaymentIntent(intent.id);
+        await tx.$executeRaw`update payments set status = 'canceled', updated_at = now()
+          where stripe_payment_intent_id = ${intent.id}`;
+      }
+      const intent = await createBookingPaymentIntent({ bookingId, amountThb: due, ...(topUp ? { paymentKind: "top_up" as const } : {}) });
+      newIntentId = intent.id;
+      if (!intent.client_secret) throw new Error("Payment intent has no client secret");
+      await tx.$executeRaw`insert into payments (booking_id, stripe_payment_intent_id, amount, currency, status, created_at)
+        values (${bookingId}::uuid, ${intent.id}, ${due}, 'thb', 'requires_payment_method', clock_timestamp())`;
+      return { clientSecret: intent.client_secret };
+    }, { timeout: 30000 });
+  } catch (error) {
+    if (newIntentId) await cancelPaymentIntent(newIntentId).catch((cleanupError) => {
+      console.error("[bookings] failed to cancel uncommitted intent:", cleanupError);
     });
-    throw new Error("Failed to create a new payment attempt");
+    throw error;
   }
-
-  if (priorResolution.priorIntentToCancel) {
-    await cancelPaymentIntent(priorResolution.priorIntentToCancel).catch((error) => {
-      console.error("[bookings] could not cancel the superseded top-up intent:", error);
-    });
-  }
-
-  if (!paymentIntent.client_secret) {
-    throw new Error("Failed to create a new payment attempt");
-  }
-
-  return { clientSecret: paymentIntent.client_secret };
 }
 
-// Top-up on confirmed/checked-in bookings: adjust payment_status only — never
-// cancel the stay when a card charge fails or is abandoned.
-export async function applyTopUpPaymentOutcome(bookingId: string, outcome: "paid" | "failed"): Promise<void> {
-  if (outcome === "failed") {
-    await prisma.$executeRaw`
-      update bookings set payment_status = 'pending' where id = ${bookingId}::uuid
-    `;
-    return;
-  }
-
-  const balance = await getBookingPaymentBalance(bookingId);
-  const paymentStatus = balance.amountDue <= 0 ? "paid" : "pending";
-  await prisma.$executeRaw`
-    update bookings set payment_status = ${paymentStatus} where id = ${bookingId}::uuid
-  `;
-}
-
-// Called only from the Stripe webhook handler — the source of truth for
-// payment state (see plan §9: client-side confirmPayment is advisory only).
-//
-// `confirmedMethod` is the method Stripe actually settled the charge with
-// (read from the charge's `payment_method_details.type` in the webhook), not
-// whatever the guest had selected when this payment attempt started. A retry
-// via /booking/payment can switch between Credit Card and PromptPay between
-// attempts — without this, `bookings.payment_method` would keep showing
-// whichever method the *first* attempt on this booking used, even after a
-// later attempt actually settled with a different one.
+// Stripe settlement and failure transitions share the same booking lock used
+// by payment creation and cancellation. Room locks serialize late settlement
+// with new reservations; a declined card can still succeed on a later confirm.
 export async function updateBookingPaymentStatus(
   bookingId: string,
   outcome: "paid" | "failed",
   confirmedMethod?: "credit_card" | "promptpay",
+  intentId?: string,
+  topUp = false,
+  settledAt = new Date(),
 ): Promise<boolean> {
-  const paymentStatus = outcome === "paid" ? "paid" : "failed";
-  const status = outcome === "paid" ? "confirmed" : "cancelled";
-  const claim = await prisma.booking.updateMany({
-    where: {
-      id: bookingId,
-      status: "pending_payment",
-      paymentStatus: "pending",
-    },
-    data: {
+  const result = await prisma.$transaction(async (tx) => {
+    const [booking] = await tx.$queryRaw<{
+      status: string; payment_status: string; payment_method: string;
+      cancelled_at: Date | null; created_at: Date; check_in: string; check_out: string;
+    }[]>`select status, payment_status, payment_method, cancelled_at, created_at,
+          to_char(check_in, 'YYYY-MM-DD') as check_in, to_char(check_out, 'YYYY-MM-DD') as check_out
+         from bookings where id = ${bookingId}::uuid for update`;
+    if (!booking) throw new BookingNotFoundError();
+    let currentIntent = true;
+    if (intentId) {
+      const [latest] = await tx.$queryRaw<{ stripe_payment_intent_id: string; status: string; settlement_failure: string | null }[]>`
+        select stripe_payment_intent_id, status,
+          (select failure_message from payments where stripe_payment_intent_id = ${intentId}) as settlement_failure
+        from payments where booking_id = ${bookingId}::uuid
+        order by created_at desc, id desc limit 1`;
+      currentIntent = latest?.stripe_payment_intent_id === intentId;
+      if (outcome === "failed" && (!currentIntent || latest?.status === "succeeded")) return "ignored";
+      if (outcome === "paid" && latest?.settlement_failure === PAYMENT_REQUIRES_REFUND) return "refund";
+    }
+    async function rejectPayment() {
+      // Keep the reason on the attempt before contacting Stripe. Redelivery
+      // must retry the refund, even if inventory becomes free or 72h elapses.
+      if (intentId) await tx.$executeRaw`update payments set failure_message = ${PAYMENT_REQUIRES_REFUND}, updated_at = now()
+        where stripe_payment_intent_id = ${intentId}`;
+      return "refund" as const;
+    }
+    if (outcome === "failed") {
+      if (topUp) {
+        await tx.$executeRaw`update bookings set payment_status = 'pending' where id = ${bookingId}::uuid
+          and status in ('confirmed', 'checked_in') and payment_status <> 'paid'`;
+        return "ignored";
+      }
+      const claim = await tx.booking.updateMany({
+        where: { id: bookingId, status: "pending_payment", paymentStatus: "pending" },
+        data: { paymentStatus: "failed", status: "cancelled", expiresAt: null },
+      });
+      return claim.count === 1 ? "changed" : "ignored";
+    }
+    if (booking.cancelled_at || booking.status === "refunded") {
+      // Previously captured money outside the cancellation grace period keeps
+      // its policy. A charge made after cancellation must always be returned.
+      const refund = booking.status === "refunded" || !booking.cancelled_at ||
+        isRefundEligible(new Date(booking.created_at).toISOString(), new Date(booking.cancelled_at)) ||
+        settledAt.getTime() >= Math.floor(new Date(booking.cancelled_at).getTime() / 1000) * 1000;
+      return refund ? rejectPayment() : "ignored";
+    }
+    if (topUp && ["confirmed", "checked_in"].includes(booking.status)) {
+      const [balance] = await tx.$queryRaw<{ due: number }[]>`
+        select b.total_amount - coalesce(sum(p.amount) filter (where p.status = 'succeeded'), 0) as due
+        from bookings b left join payments p on p.booking_id = b.id
+        where b.id = ${bookingId}::uuid group by b.id`;
+      if (!balance) throw new Error("Unable to read payment balance");
+      await tx.$executeRaw`update bookings set payment_status = ${Number(balance.due) <= 0 ? "paid" : "pending"}
+        where id = ${bookingId}::uuid`;
+      return "settled";
+    }
+    if (topUp) return rejectPayment();
+    // Redelivery of the original charge remains harmless after later admin edits.
+    if (["confirmed", "checked_in", "completed"].includes(booking.status)) {
+      return booking.payment_method === "cash" ? rejectPayment() : "settled";
+    }
+    if (!currentIntent) return rejectPayment();
+    const retryable = booking.status === "pending_payment" ||
+      (["cancelled", "canceled"].includes(booking.status) && booking.payment_status === "failed");
+    if (!retryable) return rejectPayment();
+    const rooms = await tx.$queryRaw<{ room_id: string; status: string }[]>`
+      select br.room_id, r.status from booking_rooms br join rooms r on r.id = br.room_id
+      where br.booking_id = ${bookingId}::uuid order by r.id for update of r`;
+    const conflicts = rooms.length ? await tx.$queryRaw<{ count: bigint }[]>`
+      select count(*) as count from booking_rooms br join bookings b on b.id = br.booking_id
+      where br.room_id = any(array[${Prisma.join(rooms.map((r) => r.room_id))}]::uuid[])
+        and b.id <> ${bookingId}::uuid
+        and b.status not in (${Prisma.join(NON_BLOCKING_BOOKING_STATUSES)})
+        and (b.expires_at is null or b.expires_at > now())
+        and b.check_in < ${booking.check_out}::date and b.check_out > ${booking.check_in}::date
+    ` : [];
+    if (!rooms.length || rooms.some((r) => UNAVAILABLE_ROOM_STATUSES.includes(r.status)) ||
+        Number(conflicts[0]?.count ?? 0) > 0) {
+      await tx.booking.updateMany({ where: { id: bookingId },
+        data: { status: "cancelled", paymentStatus: "failed", cancelledAt: new Date(), expiresAt: null } });
+      return rejectPayment();
+    }
+    await tx.booking.updateMany({ where: { id: bookingId }, data: {
       ...(confirmedMethod ? { paymentMethod: confirmedMethod } : {}),
-      paymentStatus,
-      status,
-      expiresAt: null,
-    },
+      status: "confirmed", paymentStatus: "paid", expiresAt: null,
+    } });
+    return "confirmed";
   });
-
-  // The conditional update is both the transition guard and the idempotency
-  // gate. A delayed/repeated event cannot move a checked-in, completed,
-  // cancelled or refunded stay back to confirmed (or send another email).
-  if (outcome === "paid" && claim.count === 1) {
+  if (result === "refund" && intentId) {
+    await refundPayment(intentId, `refund_${bookingId}_${intentId}`);
+    await prisma.booking.updateMany({ where: { id: bookingId, status: "cancelled" }, data: { status: "refunded" } });
+  }
+  if (result === "confirmed") {
     await maybeSendGuestBookingConfirmationEmail(bookingId);
   }
-  return claim.count === 1;
+  return ["confirmed", "settled", "changed"].includes(result);
 }
 
 /**
@@ -697,7 +767,7 @@ export async function syncBookingPaymentFromStripe(bookingId: string): Promise<{
   }
 
   const current = bookingRows[0];
-  if (current.payment_status === "paid" || current.status === "confirmed") {
+  if (current.payment_status === "paid" && ["confirmed", "checked_in", "completed"].includes(current.status)) {
     return { synced: false, paymentStatus: current.payment_status };
   }
 
@@ -719,15 +789,12 @@ export async function syncBookingPaymentFromStripe(bookingId: string): Promise<{
   }
 
   const intent = await retrievePaymentIntent(intentId);
-  if (intent.metadata.paymentKind === "top_up") {
-    return { synced: false, paymentStatus: current.payment_status };
-  }
-
   if (intent.status !== "succeeded") {
     return { synced: false, paymentStatus: current.payment_status };
   }
 
   let confirmedMethod: "credit_card" | "promptpay" | undefined;
+  let settledAt = new Date(intent.created * 1000);
   let cardBrand: string | null = null;
   let cardLast4: string | null = null;
   if (intent.latest_charge) {
@@ -735,6 +802,7 @@ export async function syncBookingPaymentFromStripe(bookingId: string): Promise<{
       typeof intent.latest_charge === "string" ? intent.latest_charge : intent.latest_charge.id;
     try {
       const charge = await retrieveChargeWithCard(chargeId);
+      settledAt = new Date(charge.created * 1000);
       cardBrand = charge.payment_method_details?.card?.brand ?? null;
       cardLast4 = charge.payment_method_details?.card?.last4 ?? null;
       const methodType = charge.payment_method_details?.type;
@@ -759,8 +827,11 @@ export async function syncBookingPaymentFromStripe(bookingId: string): Promise<{
     throw new Error("Could not update the payment record for this booking");
   }
 
-  await updateBookingPaymentStatus(bookingId, "paid", confirmedMethod);
-  return { synced: true, paymentStatus: "paid" };
+  await updateBookingPaymentStatus(bookingId, "paid", confirmedMethod, intentId, intent.metadata.paymentKind === "top_up", settledAt);
+  const [updated] = await prisma.$queryRaw<{ payment_status: string }[]>`
+    select payment_status from bookings where id = ${bookingId}::uuid`;
+  if (!updated) throw new BookingNotFoundError();
+  return { synced: true, paymentStatus: updated.payment_status };
 }
 
 // Also used when a guest switches to Cash on a retry of /booking/payment for
@@ -864,6 +935,7 @@ export async function extendBookingHold(bookingId: string, customerId: string | 
         where id = ${bookingId}::uuid
           and payment_status in ('pending', 'failed')
           and status in ('pending_payment', 'cancelled', 'canceled')
+          and cancelled_at is null
         for update
       `;
       if (bookings.length === 0) return false;
@@ -925,63 +997,50 @@ export async function cancelBooking(
   const booking = await getBookingById(bookingId, customerId);
   if (!booking) throw new BookingNotFoundError();
 
-  const refundEligible =
-    isRefundEligible(booking.createdAt) &&
-    booking.paymentMethod !== "cash" &&
-    booking.paymentStatus === "paid";
-  let paymentIntentIds: string[] = [];
-
-  // Same reasoning as the min-charge gate above: any method that actually
-  // went through Stripe (card or promptpay) has a real payment_intent to
-  // refund — only "cash" never does.
-  if (refundEligible) {
-    const { data: payments, error } = await supabaseAdmin
-      .from("payments")
-      .select("stripe_payment_intent_id")
-      .eq("booking_id", bookingId)
-      .eq("status", "succeeded")
-      .order("created_at", { ascending: true });
-
-    if (error) {
-      console.error("[payments] failed to look up payment intent for refund:", error);
-      throw new Error("Unable to verify payments before refunding this booking");
-    }
-    paymentIntentIds = [...new Set(
-      (payments ?? [])
-        .map((payment) => payment.stripe_payment_intent_id)
-        .filter((id): id is string => typeof id === "string" && id.length > 0),
-    )];
-    if (paymentIntentIds.length === 0) {
-      throw new Error("No captured payment records were found for this paid booking");
-    }
-  }
-
-  // A cancelled booking with captured payments is a recoverable state: a
-  // previous request may have released the room and then lost connectivity
-  // midway through refunding several charges. Stable per-intent idempotency
-  // keys make retrying the same endpoint safe.
-  const isRefundRetry = booking.status === "cancelled" && paymentIntentIds.length > 0;
-  if (!CANCELLABLE_STATUSES.includes(booking.status) && !isRefundRetry) {
-    throw new InvalidBookingTransitionError("This booking can no longer be cancelled");
-  }
-
-  const cancelledAt = new Date();
-
-  if (!isRefundRetry) {
-    const claim = await prisma.booking.updateMany({
-      where: { id: bookingId, status: { in: CANCELLABLE_STATUSES } },
-      data: { status: "cancelled", cancelledAt },
-    });
-    if (claim.count === 0) {
+  const { payments, cancelledAt } = await prisma.$transaction(async (tx) => {
+    const [current] = await tx.$queryRaw<{ status: string; cancelled_at: Date | null }[]>`
+      select status, cancelled_at from bookings where id = ${bookingId}::uuid for update`;
+    if (!current || ![...CANCELLABLE_STATUSES, "cancelled", "refunded"].includes(current.status)) {
       throw new InvalidBookingTransitionError("This booking can no longer be cancelled");
     }
+    // Read every attempt, including still-payable declined cards and unpaid
+    // top-ups. This read must succeed before releasing the booking.
+    const attempts = await tx.$queryRaw<{ stripe_payment_intent_id: string; status: string; failure_message: string | null }[]>`
+      select stripe_payment_intent_id, status, failure_message from payments
+      where booking_id = ${bookingId}::uuid order by created_at`;
+    const outstanding = attempts.filter((p) => !["succeeded", "canceled"].includes(p.status));
+    if (outstanding.length) {
+      await tx.$executeRaw`update payments set failure_message = ${PAYMENT_REQUIRES_REFUND}, updated_at = now()
+        where stripe_payment_intent_id in (${Prisma.join(outstanding.map((p) => p.stripe_payment_intent_id))})`;
+    }
+    const at = current.cancelled_at ? new Date(current.cancelled_at) : new Date();
+    if (current.status !== "refunded") {
+      await tx.booking.updateMany({ where: { id: bookingId },
+        data: { status: "cancelled", cancelledAt: at, expiresAt: null } });
+    }
+    return { payments: attempts, cancelledAt: at };
+  });
+  const refundEligible = isRefundEligible(booking.createdAt, cancelledAt);
+  let refunded = booking.status === "refunded";
+  for (const payment of payments) {
+    // Stripe may already have captured the charge before its webhook arrives.
+    let intent = await retrievePaymentIntent(payment.stripe_payment_intent_id);
+    if (intent.status !== "succeeded" && intent.status !== "canceled") {
+      try {
+        await cancelPaymentIntent(intent.id);
+      } catch (error) {
+        // Confirmation can win the race with cancellation. Refund that money;
+        // any other error is retried instead of reporting a successful cancel.
+        intent = await retrievePaymentIntent(intent.id);
+        if (intent.status !== "succeeded" && intent.status !== "canceled") throw error;
+      }
+    }
+    if (intent.status === "succeeded" &&
+        (refundEligible || payment.status !== "succeeded" || payment.failure_message === PAYMENT_REQUIRES_REFUND)) {
+      await refundPayment(intent.id, `refund_${bookingId}_${intent.id}`);
+      refunded = true;
+    }
   }
-
-  for (const paymentIntentId of paymentIntentIds) {
-    await refundPayment(paymentIntentId, `refund_${bookingId}_${paymentIntentId}`);
-  }
-
-  const refunded = paymentIntentIds.length > 0;
   if (refunded) {
     await prisma.booking.updateMany({
       where: { id: bookingId, status: "cancelled" },
