@@ -6,6 +6,7 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono, Noto_Serif_Display, Inter, Open_Sans, IBM_Plex_Sans_Thai } from 'next/font/google';
 import { Toaster } from 'sonner';
+import { FlashToastListener } from '@/components/shared/FlashToastListener';
 import './globals.css';
 
 const geistSans = Geist({
@@ -55,6 +56,7 @@ const RootLayout = ({ children }: LayoutProps<'/'>) => {
 		>
 			<body className="min-h-full flex flex-col">
 				{children}
+				<FlashToastListener />
 				<Toaster
 					position="top-right"
 					richColors

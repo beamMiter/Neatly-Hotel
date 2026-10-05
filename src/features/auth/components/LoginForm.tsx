@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useRef } from "react";
 import { login } from "@/features/auth/actions";
 import { toast } from "sonner";
+import { queueFlashToast } from "@/features/auth/flash-toast";
 import { inter, openSans } from "@/lib/fonts";
 
 type LoginFormProps = {
@@ -15,6 +16,7 @@ type LoginFormProps = {
 export function LoginForm({ redirectTo, justResetPassword }: LoginFormProps) {
   const [state, action, pending] = useActionState(login, undefined);
   const router = useRouter();
+  const fieldErrors = state && "fieldErrors" in state ? state.fieldErrors : undefined;
 
   // Runs once per mount, not once per render — the ref guards against
   // double-firing from React's dev-mode double-invoke of effects, which
@@ -29,8 +31,21 @@ export function LoginForm({ redirectTo, justResetPassword }: LoginFormProps) {
   }, [justResetPassword, redirectTo, router]);
 
   useEffect(() => {
-    if (state?.message) toast.error(state.message);
+    if (state && "message" in state && state.message) toast.error(state.message);
   }, [state]);
+
+  // login() returns a destination instead of calling redirect() itself —
+  // redirect() inside the action didn't reliably show a toast queued just
+  // before it, so the navigation happens here instead, same as logout() in
+  // Navbar.tsx / admin-sidebar.tsx. queueFlashToast (not toast.success
+  // directly) so the toast appears once the destination page has mounted,
+  // not as a flash on this page a moment before router.push takes over.
+  useEffect(() => {
+    if (state && "redirectTo" in state) {
+      queueFlashToast("signed-in");
+      router.push(state.redirectTo);
+    }
+  }, [state, router]);
 
   return (
     <form action={action} className="flex w-full max-w-113 flex-col gap-10">
@@ -48,7 +63,7 @@ export function LoginForm({ redirectTo, justResetPassword }: LoginFormProps) {
           placeholder="Enter your username or email"
           className={`${inter.className} h-12 rounded border border-[#D6D9E4] bg-white px-4 py-3 text-base text-[#2A2E3F] placeholder:text-[#9AA1B9] focus:border-[#C14817] focus:outline-none focus:ring-1 focus:ring-[#C14817]`}
         />
-        {state?.fieldErrors?.email && <p className="text-xs text-red-600">{state.fieldErrors.email}</p>}
+        {fieldErrors?.email && <p className="text-xs text-red-600">{fieldErrors.email}</p>}
       </div>
 
       <div className="flex flex-col gap-1">
@@ -69,7 +84,7 @@ export function LoginForm({ redirectTo, justResetPassword }: LoginFormProps) {
           placeholder="Enter your password"
           className={`${inter.className} h-12 rounded border border-[#D6D9E4] bg-white px-4 py-3 text-base text-[#2A2E3F] placeholder:text-[#9AA1B9] focus:border-[#C14817] focus:outline-none focus:ring-1 focus:ring-[#C14817]`}
         />
-        {state?.fieldErrors?.password && <p className="text-xs text-red-600">{state.fieldErrors.password}</p>}
+        {fieldErrors?.password && <p className="text-xs text-red-600">{fieldErrors.password}</p>}
       </div>
 
       <div className="flex flex-col gap-4">

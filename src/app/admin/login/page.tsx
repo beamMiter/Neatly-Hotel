@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/server/db/supabase-browser";
+import { queueFlashToast } from "@/features/auth/flash-toast";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -24,6 +25,7 @@ export default function AdminLoginPage() {
       setIsLoading(false);
       return;
     }
+    queueFlashToast("signed-in");
     router.replace("/chatbot-setup");
     router.refresh();
   }

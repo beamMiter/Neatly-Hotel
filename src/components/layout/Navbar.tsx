@@ -7,8 +7,10 @@
 import { useEffect, useState, useTransition } from 'react';
 import Image from 'next/image';
 import Link, { useLinkStatus } from 'next/link';
+import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { logout } from '@/features/auth/actions';
+import { queueFlashToast } from '@/features/auth/flash-toast';
 import { UserIcon } from '@/components/icons/UserIcon';
 import type { AccountSummary } from '@/types/account';
 import type { NotificationItem } from '@/types/notifications';
@@ -61,6 +63,7 @@ const AccountAvatar = ({ account }: { account: AccountSummary }) =>
 // already uses.
 const AccountMenu = ({ account, isAdmin }: { account: AccountSummary; isAdmin: boolean }) => {
 	const [isOpen, setIsOpen] = useState(false);
+	const router = useRouter();
 	const [isNotifOpen, setIsNotifOpen] = useState(false);
 	const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 	const [isPending, startTransition] = useTransition();
@@ -206,7 +209,13 @@ const AccountMenu = ({ account, isAdmin }: { account: AccountSummary; isAdmin: b
 							<button
 								type="button"
 								disabled={isPending}
-								onClick={() => startTransition(() => logout())}
+								onClick={() =>
+									startTransition(async () => {
+										await logout();
+										queueFlashToast('signed-out');
+										router.push('/login');
+									})
+								}
 								className="block w-full cursor-pointer px-4 py-2 text-left text-sm text-[#C14817] hover:bg-gray-50 disabled:opacity-60"
 							>
 								{isPending ? 'Logging out...' : 'Log out'}
@@ -239,6 +248,7 @@ const DEFAULT_LOGO = '/images/icon/logo-gereen.svg';
 
 // ── Component ──────────────────────────────────────────────────
 const Navbar = ({ hideLogin = false, logoUrl, hotelName = 'Neatly Hotel', account = null, isAdmin = false }: NavbarProps) => {
+	const router = useRouter();
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
 	const [isMobileLogoutPending, startMobileLogout] = useTransition();
 
@@ -360,7 +370,11 @@ const Navbar = ({ hideLogin = false, logoUrl, hotelName = 'Neatly Hotel', accoun
 										disabled={isMobileLogoutPending}
 										onClick={() => {
 											setIsMenuOpen(false);
-											startMobileLogout(() => logout());
+											startMobileLogout(async () => {
+												await logout();
+												queueFlashToast('signed-out');
+												router.push('/login');
+											});
 										}}
 										className="flex w-full cursor-pointer items-center justify-center px-4 py-6 [font-family:var(--font-open-sans)] text-sm text-[#E76B39] disabled:opacity-60"
 									>

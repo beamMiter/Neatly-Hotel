@@ -2,9 +2,10 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { logout } from "@/features/auth/actions";
+import { queueFlashToast } from "@/features/auth/flash-toast";
 import { MenuIcon } from "@/components/icons/MenuIcon";
 import { CloseIcon } from "@/components/icons/CloseIcon";
 
@@ -52,6 +53,7 @@ const NAV_ITEMS = [
 // it's undefined (a no-op) for the desktop instance.
 function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [liveSupportCount, setLiveSupportCount] = useState(0);
 
@@ -133,7 +135,13 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
       <div className="shrink-0 border-t border-white/10">
         <button
           type="button"
-          onClick={() => startTransition(() => logout())}
+          onClick={() =>
+            startTransition(async () => {
+              await logout();
+              queueFlashToast("signed-out");
+              router.push("/login");
+            })
+          }
           disabled={pending}
           className="flex h-[52px] w-full cursor-pointer items-center gap-3.5 px-8 text-[14px] text-[#C5CFC8] transition-colors hover:bg-white/[0.04] hover:text-white disabled:cursor-default disabled:opacity-60"
         >
