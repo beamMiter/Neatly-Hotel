@@ -49,7 +49,7 @@ const visitorMessageSchema = z
 
 const waitingMessage = {
   th: "ส่งข้อความถึงเจ้าหน้าที่แล้ว กรุณารอสักครู่",
-  en: "Your message has been sent to our team. Please wait a moment.",
+  en: "Your message has been sent to our team. Please wait a moment",
 } as const;
 
 const handoffContextLabel = {
