@@ -2,6 +2,7 @@
 
 import type { StripeCardNumberElementOptions } from "@stripe/stripe-js";
 import { CardCvcElement, CardExpiryElement, CardNumberElement } from "@stripe/react-stripe-js";
+import { sanitizeNameInput } from "@/lib/validation-patterns";
 
 // Split Card Elements (not the unified Payment Element): each one mounts as
 // its own iframe field styled to sit inside our own bordered box, so it's
@@ -57,7 +58,8 @@ export function StripeCardFields({ cardOwner, onCardOwnerChange }: StripeCardFie
           id="cardOwner"
           className={INPUT_CLASSNAME}
           value={cardOwner}
-          onChange={(event) => onCardOwnerChange(event.target.value)}
+          autoComplete="cc-name"
+          onChange={(event) => onCardOwnerChange(sanitizeNameInput(event.target.value))}
         />
       </div>
 
