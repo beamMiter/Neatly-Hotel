@@ -1,6 +1,6 @@
 // ── CustomerReview ────────────────────────────────────────────────────
 // Customer review section — quote carousel with nav arrows, customer info, pagination dots
-// แก้ไขได้: heading text, TESTIMONIALS (quote, name), ยังไม่มีรูป avatar จริง (placeholder วงกลมเทา)
+// แก้ไขได้: heading text, TESTIMONIALS (quote, name)
 
 'use client';
 
@@ -40,16 +40,26 @@ const TESTIMONIALS: Testimonial[] = [
 // ── Component ──────────────────────────────────────────────────
 const CustomerReview = () => {
 	const [activeIndex, setActiveIndex] = useState(0);
+	const [direction, setDirection] = useState<1 | -1>(1);
 
-	const goTo = (direction: 1 | -1) => {
-		setActiveIndex((prev) => (prev + direction + TESTIMONIALS.length) % TESTIMONIALS.length);
+	const goTo = (nextDirection: 1 | -1) => {
+		setDirection(nextDirection);
+		setActiveIndex((prev) => (prev + nextDirection + TESTIMONIALS.length) % TESTIMONIALS.length);
+	};
+
+	const goToIndex = (index: number) => {
+		setDirection(index > activeIndex ? 1 : -1);
+		setActiveIndex(index);
 	};
 
 	useInterval(() => {
+		setDirection(1);
 		setActiveIndex((prev) => (prev + 1) % TESTIMONIALS.length);
 	}, 8000);
 
 	const activeTestimonial = TESTIMONIALS[activeIndex];
+	const slideAnimation =
+		direction === 1 ? 'animate-[fade-slide-from-right_600ms_ease-out]' : 'animate-[fade-slide-from-left_600ms_ease-out]';
 
 	return (
 		<section className="w-full bg-[#E6EBE9] py-20 lg:flex lg:h-188 lg:items-center lg:justify-center">
@@ -71,7 +81,7 @@ const CustomerReview = () => {
 
 						<p
 							key={activeTestimonial.id}
-							className="max-w-210 text-balance animate-[fade-slide_600ms_ease-out] [font-family:var(--font-inter)] text-center text-lg leading-[150%] font-semibold tracking-[-0.02em] text-[#465C50]"
+							className={`max-w-210 text-balance ${slideAnimation} [font-family:var(--font-inter)] text-center text-lg leading-[150%] font-semibold tracking-[-0.02em] text-[#465C50]`}
 						>
 							{activeTestimonial.quote}
 						</p>
@@ -86,19 +96,19 @@ const CustomerReview = () => {
 						</button>
 					</div>
 
-					<div key={activeTestimonial.id} className="flex flex-row items-center gap-4 animate-[fade-slide_600ms_ease-out]">
-						<div className="h-8 w-8 flex-none rounded-full border border-[#CCD4D6] bg-[#E9ECED]" />
-						<span className="[font-family:var(--font-inter)] text-base leading-[150%] tracking-[-0.02em] text-[#9AA1B9]">
-							{activeTestimonial.customerName}
-						</span>
-					</div>
+					<span
+						key={activeTestimonial.id}
+						className={`${slideAnimation} [font-family:var(--font-inter)] text-base leading-[150%] tracking-[-0.02em] text-[#9AA1B9]`}
+					>
+						{activeTestimonial.customerName}
+					</span>
 
 					<div className="flex flex-row items-center gap-4">
 						{TESTIMONIALS.map((testimonial, index) => (
 							<button
 								key={testimonial.id}
 								type="button"
-								onClick={() => setActiveIndex(index)}
+								onClick={() => goToIndex(index)}
 								aria-label={`Go to testimonial ${index + 1}`}
 								className={`h-2 w-2 cursor-pointer rounded-full transition-colors duration-150 ${
 									index === activeIndex ? 'bg-[#9AA1B9]' : 'bg-[#D6D9E4]'

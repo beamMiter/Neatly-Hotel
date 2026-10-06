@@ -6,6 +6,14 @@
 // "O'Brien" without opening the field up to digits or symbols.
 export const NAME_PATTERN = /^[\p{L}\p{M}][\p{L}\p{M}\s'-]*$/u;
 
+// Keystroke/paste filter for name inputs that have no submit-time schema
+// (e.g. the Stripe card owner field): drops anything NAME_PATTERN would
+// reject — digits and symbols anywhere, plus leading spaces/hyphens/
+// apostrophes — so the field can only ever hold a NAME_PATTERN-valid value.
+export function sanitizeNameInput(value: string): string {
+  return value.replace(/[^\p{L}\p{M}\s'-]/gu, "").replace(/^[\s'-]+/, "");
+}
+
 export const PHONE_PATTERN = /^0[0-9]{8,9}$/;
 
 // Deliberately looser than zod's built-in `.uuid()`, which additionally

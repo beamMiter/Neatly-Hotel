@@ -47,7 +47,7 @@ export function BookingPaymentBreakdown({ booking }: BookingPaymentBreakdownProp
     booking.paymentStatus === "pending" &&
     booking.amountDue > 0;
   const showStripeCollection =
-    (showOutstanding && booking.paymentStatus === "pending" && booking.status !== "pending_payment") ||
+    (showOutstanding && booking.paymentStatus === "pending" && ["confirmed", "checked_in"].includes(booking.status)) ||
     isInitialPendingPayment;
 
   async function copyPaymentLink() {

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { BED_TYPES } from "@/types/room-type";
+import { MAX_FORM_UPLOAD_BYTES } from "@/lib/upload-limits";
 
 export const createRoomSchema = z
   .object({
@@ -53,6 +54,14 @@ function isValidRoomImage(file: File) {
   return file.size > 0 && file.size <= MAX_IMAGE_SIZE_BYTES && ALLOWED_IMAGE_TYPES.includes(file.type);
 }
 
+function exceedsUploadBudget(formData: FormData): boolean {
+  let bytes = 0;
+  for (const entry of formData.values()) {
+    if (entry instanceof File) bytes += entry.size;
+  }
+  return bytes > MAX_FORM_UPLOAD_BYTES;
+}
+
 export type ParseCreateRoomFormDataResult =
   | { success: true; data: CreateRoomInput; mainImage: File; gallery: File[]; amenities: string[] }
   | { success: false; fieldErrors: CreateRoomFieldErrors };
@@ -61,6 +70,9 @@ export type ParseCreateRoomFormDataResult =
 // truth): coerces FormData into what createRoomSchema expects, plus the
 // manual checks zod can't express for files/arrays.
 export function parseCreateRoomFormData(formData: FormData): ParseCreateRoomFormDataResult {
+  if (exceedsUploadBudget(formData)) {
+    return { success: false, fieldErrors: { gallery: "Images must total 30MB or less. Please select smaller files." } };
+  }
   const record: Record<string, unknown> = {};
   for (const key of CREATE_ROOM_TEXT_FIELDS) {
     const value = formData.get(key);
@@ -138,6 +150,9 @@ export type ParseUpdateRoomFormDataResult =
 // "new" refs are resolved against galleryNewFile entries by index. Main
 // image is either a replacement file or the id of the kept existing image.
 export function parseUpdateRoomFormData(formData: FormData): ParseUpdateRoomFormDataResult {
+  if (exceedsUploadBudget(formData)) {
+    return { success: false, fieldErrors: { gallery: "New images must total 30MB or less. Please select smaller files." } };
+  }
   const record: Record<string, unknown> = {};
   for (const key of CREATE_ROOM_TEXT_FIELDS) {
     const value = formData.get(key);

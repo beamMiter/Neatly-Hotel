@@ -7,7 +7,7 @@ import BookingSearch from './BookingSearch';
 
 const Hero = () => {
 	return (
-		<section className="relative flex h-215 w-full flex-col items-center justify-start overflow-hidden px-2 pt-30 pb-16 sm:px-6 lg:h-300 lg:justify-center lg:overflow-visible lg:px-4 lg:pt-0">
+		<section className="relative flex min-h-dvh w-full flex-col items-center justify-start overflow-hidden px-2 pt-30 pb-16 sm:px-6 lg:justify-center lg:overflow-visible lg:px-4 lg:pt-0">
 			{/* ── Background image ── */}
 			<Image
 				src="/images/room-bg-preview/hero-bg.jpg"

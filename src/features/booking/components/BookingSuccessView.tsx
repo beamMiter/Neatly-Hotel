@@ -39,9 +39,10 @@ export function BookingSuccessView({
   const [booking, setBooking] = useState(initialBooking);
   const [timedOut, setTimedOut] = useState(false);
   const startedAtRef = useRef<number | null>(null);
+  const isTerminal = Boolean(booking.cancelledAt) || booking.status === "refunded";
 
   useEffect(() => {
-    if (booking.paymentMethod === "cash" || booking.paymentStatus !== "pending") return;
+    if (isTerminal || booking.paymentMethod === "cash" || booking.paymentStatus === "paid") return;
     startedAtRef.current ??= Date.now();
     let cancelled = false;
 
@@ -84,7 +85,7 @@ export function BookingSuccessView({
       cancelled = true;
       clearInterval(interval);
     };
-  }, [bookingId, booking.paymentMethod, booking.paymentStatus]);
+  }, [bookingId, booking.paymentMethod, booking.paymentStatus, isTerminal]);
 
   // A failed webhook can land *before* this page's own first fetch — the
   // client-side PromptPay/card confirm calls are advisory-only and can push
@@ -96,13 +97,23 @@ export function BookingSuccessView({
   // failed by the time we got here", which is not covered by any render
   // branch below otherwise.
   useEffect(() => {
-    if (booking.paymentStatus === "failed") {
+    if (!isTerminal && timedOut && booking.paymentStatus === "failed") {
       router.push(`/booking/failed?bookingId=${bookingId}`);
     }
-  }, [bookingId, booking.paymentStatus, router]);
+  }, [bookingId, booking.paymentStatus, router, timedOut, isTerminal]);
 
-  const isConfirming = booking.paymentMethod !== "cash" && booking.paymentStatus === "pending" && !timedOut;
-  const isFailed = booking.paymentStatus === "failed";
+  const isConfirming = booking.paymentMethod !== "cash" && booking.paymentStatus !== "paid" && !timedOut;
+  const isFailed = booking.paymentStatus === "failed" && timedOut;
+
+  if (isTerminal) {
+    return (
+      <div className="mx-auto max-w-[738px] px-6 py-16 text-center">
+        <h1 className="text-3xl font-semibold">{booking.status === "refunded" ? "Your payment is being returned" : "This booking was cancelled"}</h1>
+        <p className="mt-4">This booking is not confirmed. Please make a new booking if you still need a room.</p>
+        <Link href="/search" className="mt-6 inline-block text-[#C14817]">Find a room</Link>
+      </div>
+    );
+  }
 
   if (isConfirming || timedOut || isFailed) {
     return (

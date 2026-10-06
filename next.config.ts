@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { PROXY_REQUEST_BODY_LIMIT_BYTES } from "./src/lib/upload-limits";
 
 // Derive protocol/hostname/port from the actual configured URL rather than
 // assuming "https" — local dev's Supabase (NEXT_PUBLIC_SUPABASE_URL =
@@ -26,6 +27,11 @@ const nextConfig: NextConfig = {
   reactCompiler: true,
   devIndicators: false,
   serverExternalPackages: ["nodemailer"],
+  experimental: {
+    // Room forms submit a main image and at least four gallery images together.
+    // The default 10 MB proxy buffer truncates otherwise valid multipart forms.
+    proxyClientMaxBodySize: PROXY_REQUEST_BODY_LIMIT_BYTES,
+  },
   images: {
     remotePatterns: supabaseUrl
       ? [

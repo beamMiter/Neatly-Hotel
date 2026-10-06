@@ -17,7 +17,8 @@ import {
 import { getStaffRole } from "@/server/queries/staff-members.query";
 
 type LoginError = { fieldErrors?: LoginFieldErrors; message?: string };
-export type LoginState = LoginError | undefined;
+type LoginSuccess = { redirectTo: string };
+export type LoginState = LoginError | LoginSuccess | undefined;
 
 // profiles has no email column (it lives in auth.users), so a username login
 // needs an extra admin-privileged hop: username -> profile id -> user email.
@@ -67,7 +68,7 @@ export async function login(_prevState: LoginState, formData: FormData): Promise
 
   const redirectTo = formData.get("redirectTo");
   if (typeof redirectTo === "string" && redirectTo.startsWith("/") && !redirectTo.startsWith("//")) {
-    redirect(redirectTo);
+    return { redirectTo };
   }
 
   // One login for everyone — where you land depends on whether the account
@@ -76,7 +77,12 @@ export async function login(_prevState: LoginState, formData: FormData): Promise
   // /room-management is the only (admin) page built so far (from
   // feat/room-management-list) — the sidebar's other links 404 until
   // their pages exist.
-  redirect(role ? "/room-management" : "/");
+  //
+  // Returns the destination instead of calling redirect() here: redirect()
+  // inside a server action didn't reliably land a cookie set just before it
+  // (same issue as logout() — see its comment), so the toast needs to fire
+  // client-side too. LoginForm does the actual navigation once it sees this.
+  return { redirectTo: role ? "/room-management" : "/" };
 }
 
 // The reset link has to be absolute, and `Origin` is both client-controlled
@@ -175,5 +181,9 @@ export async function logout() {
   // revokes every session the account has — signing out on one laptop would
   // drop the same user's phone mid-booking.
   await supabase.auth.signOut({ scope: "local" });
-  redirect("/login");
+  // No redirect() here, unlike login()/resetPassword() — this is called via a
+  // direct startTransition(() => logout()) from a client onClick, not a form
+  // action, and a cookie set here wasn't reliably landing before the
+  // redirect's navigation for that invocation shape. Caller shows the toast
+  // and navigates client-side instead (see Navbar.tsx / admin-sidebar.tsx).
 }

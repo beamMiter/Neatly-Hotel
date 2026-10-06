@@ -1,10 +1,10 @@
+vi.mock("server-only", () => ({}));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   constructWebhookEvent: vi.fn(),
   retrieveChargeWithCard: vi.fn(),
   updateBookingPaymentStatus: vi.fn(),
-  applyTopUpPaymentOutcome: vi.fn(),
   from: vi.fn(),
 }));
 
@@ -15,7 +15,6 @@ vi.mock("@/server/payments/stripe", () => ({
 
 vi.mock("@/server/queries/bookings.query", () => ({
   updateBookingPaymentStatus: mocks.updateBookingPaymentStatus,
-  applyTopUpPaymentOutcome: mocks.applyTopUpPaymentOutcome,
 }));
 
 vi.mock("@/server/db/supabase-admin", () => ({
@@ -72,6 +71,7 @@ function succeededEvent(overrides: {
   const { paymentMethodType = "card", paymentKind, hasCharge = true } = overrides;
   mocks.constructWebhookEvent.mockReturnValue({
     type: "payment_intent.succeeded",
+    created: 1790000000,
     data: {
       object: {
         id: INTENT_ID,
@@ -101,7 +101,7 @@ describe("POST /api/payments/webhook — payment_intent.succeeded", () => {
       const response = await POST(webhookRequest());
 
       expect(response.status).toBe(200);
-      expect(mocks.updateBookingPaymentStatus).toHaveBeenCalledWith(BOOKING_ID, "paid", "credit_card");
+      expect(mocks.updateBookingPaymentStatus).toHaveBeenCalledWith(BOOKING_ID, "paid", "credit_card", INTENT_ID, false, new Date(1790000000000));
     });
 
     it("resolves 'promptpay' from a PromptPay charge and forwards it", async () => {
@@ -110,19 +110,15 @@ describe("POST /api/payments/webhook — payment_intent.succeeded", () => {
       const response = await POST(webhookRequest());
 
       expect(response.status).toBe(200);
-      expect(mocks.updateBookingPaymentStatus).toHaveBeenCalledWith(BOOKING_ID, "paid", "promptpay");
+      expect(mocks.updateBookingPaymentStatus).toHaveBeenCalledWith(BOOKING_ID, "paid", "promptpay", INTENT_ID, false, new Date(1790000000000));
     });
 
-    it("does not resolve a confirmed method for a top-up payment", async () => {
-      // Top-ups go through applyTopUpPaymentOutcome, which doesn't take (or
-      // need) a payment method — the original booking's method is unrelated
-      // to how the outstanding balance got settled.
+    it("reconciles top-ups through the same cancellation guard", async () => {
       succeededEvent({ paymentMethodType: "card", paymentKind: "top_up" });
 
       await POST(webhookRequest());
 
-      expect(mocks.applyTopUpPaymentOutcome).toHaveBeenCalledWith(BOOKING_ID, "paid");
-      expect(mocks.updateBookingPaymentStatus).not.toHaveBeenCalled();
+      expect(mocks.updateBookingPaymentStatus).toHaveBeenCalledWith(BOOKING_ID, "paid", "credit_card", INTENT_ID, true, new Date(1790000000000));
     });
   });
 
@@ -133,17 +129,17 @@ describe("POST /api/payments/webhook — payment_intent.succeeded", () => {
       await POST(webhookRequest());
 
       expect(mocks.retrieveChargeWithCard).not.toHaveBeenCalled();
-      expect(mocks.updateBookingPaymentStatus).toHaveBeenCalledWith(BOOKING_ID, "paid", undefined);
+      expect(mocks.updateBookingPaymentStatus).toHaveBeenCalledWith(BOOKING_ID, "paid", undefined, INTENT_ID, false, new Date(1790000000000));
     });
 
-    it("skips updating the booking when a newer payment attempt has superseded this intent", async () => {
+    it("reconciles a superseded success so received money is not silently ignored", async () => {
       stubPaymentsTable("pi_newer_retry");
       succeededEvent({ paymentMethodType: "card" });
 
       const response = await POST(webhookRequest());
 
       expect(response.status).toBe(200);
-      expect(mocks.updateBookingPaymentStatus).not.toHaveBeenCalled();
+      expect(mocks.updateBookingPaymentStatus).toHaveBeenCalled();
     });
 
     it("returns 400 when the stripe-signature header is missing", async () => {
@@ -176,6 +172,12 @@ describe("POST /api/payments/webhook — payment_intent.succeeded", () => {
 
       expect(response.status).toBe(500);
       expect(mocks.updateBookingPaymentStatus).not.toHaveBeenCalled();
+    });
+
+    it("returns 500 when refund reconciliation fails, allowing Stripe to retry", async () => {
+      succeededEvent();
+      mocks.updateBookingPaymentStatus.mockRejectedValueOnce(new Error("refund unavailable"));
+      expect((await POST(webhookRequest())).status).toBe(500);
     });
 
     it("ignores an event when its payment state can no longer transition", async () => {
